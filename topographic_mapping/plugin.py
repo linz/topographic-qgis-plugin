@@ -6,7 +6,6 @@ from qgis.core import QgsProject, Qgis
 from .gui.gui_utils import GuiUtils
 
 
-
 class TopographicMappingPlugin:
     def __init__(self, iface):
         self.iface = iface
