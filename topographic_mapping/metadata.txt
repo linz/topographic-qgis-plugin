@@ -1,0 +1,22 @@
+[general]
+name=Topographic Mapping
+qgisMinimumVersion=4.0
+qgisMaximumVersion=4.99
+supportsQt6=yes
+description=LINZ topographic mapping plugin
+version=0.0.1
+author=North Road
+email=
+
+about=LINZ topographic mapping plugin
+
+tracker=https://github.com/linz/topographic-qgis-plugin/issues
+repository=https://github.com/linz/topographic-qgis-plugin
+changelog=changelog
+tags=cartography,topo
+
+homepage=
+category=Vector
+icon=icon.svg
+experimental=False
+deprecated=False
