@@ -122,7 +122,7 @@ class ResponsiveTableLayout(QLayout):
 
         effective_rect = rect.adjusted(left, top, -right, -bottom)
 
-        col_count = int(effective_rect.width() / 400)
+        col_count = int(effective_rect.width() / 40)
 
         col_count = max(1, col_count)
 

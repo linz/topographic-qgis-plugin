@@ -8,16 +8,20 @@ class ResponsiveTableWidget(QWidget):
     A responsive table widget
     """
 
-    VERTICAL_SPACING = 10
-    HORIZONTAL_SPACING = 10
+    VERTICAL_SPACING = 0
+    HORIZONTAL_SPACING = 0
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
-        self._layout = ResponsiveTableLayout(parent=None)
+        self._layout = ResponsiveTableLayout(
+            parent=None,
+            hspacing=ResponsiveTableWidget.HORIZONTAL_SPACING,
+            vspacing=ResponsiveTableWidget.VERTICAL_SPACING,
+        )
         self.setLayout(self._layout)
 
-        self._layout.setContentsMargins(0, 0, 16, 16)
+        self._layout.setContentsMargins(0, 0, 0, 0)
 
         self._widgets = []
 
