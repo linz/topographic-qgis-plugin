@@ -1,21 +1,27 @@
-from qgis.PyQt.QtCore import Qt, QCoreApplication
-from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtCore import Qt, QCoreApplication, QSize
+from qgis.PyQt.QtWidgets import QAction, QToolButton, QButtonGroup, QSizePolicy
 from qgis.core import QgsProject, Qgis
-
+from qgis.gui import QgsDockWidget
 
 from .gui.gui_utils import GuiUtils
+from .gui import ToolDock
 
 
 class TopographicMappingPlugin:
     def __init__(self, iface):
         self.iface = iface
+        self._tool_dock = None
 
     def initGui(self) -> None:
-        pass
+        self._tool_dock = ToolDock(None)
+        self._tool_dock.setObjectName("TopographicToolDock")
+
+        self.iface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._tool_dock)
 
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""
-        pass
+        if self._tool_dock:
+            self._tool_dock.deleteLater()
 
     @staticmethod
     def tr(message) -> str:
