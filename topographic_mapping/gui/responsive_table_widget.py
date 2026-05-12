@@ -14,11 +14,7 @@ class ResponsiveTableWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
-        self._layout = ResponsiveTableLayout(
-            parent=None,
-            vspacing=self.VERTICAL_SPACING,
-            hspacing=self.HORIZONTAL_SPACING,
-        )
+        self._layout = ResponsiveTableLayout(parent=None)
         self.setLayout(self._layout)
 
         self._layout.setContentsMargins(0, 0, 16, 16)

@@ -13,7 +13,7 @@ class ResponsiveTableLayout(QLayout):
     A responsive table layout which dynamically flows to multiple columns
     """
 
-    def __init__(self, parent, hspacing: int, vspacing: int):
+    def __init__(self, parent, hspacing: int = -1, vspacing: int = -1):
         super().__init__(parent)
 
         self.hspacing: int = hspacing
