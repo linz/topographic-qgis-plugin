@@ -1,6 +1,9 @@
+from functools import partial
+
 from qgis.PyQt.QtCore import Qt, QCoreApplication, QObject
 from qgis.PyQt.QtWidgets import QAction, QActionGroup
 from qgis.core import QgsSettingsTree
+from qgis.gui import QgsGui
 
 from .gui import ToolDock, GuiUtils
 
@@ -11,6 +14,7 @@ class TopographicMappingPlugin:
         self._gui_owner = QObject()
         self._tool_dock = None
         self._action_group = None
+        self._all_actions = []
 
     def initGui(self) -> None:
         self._tool_dock = ToolDock(None)
@@ -26,7 +30,7 @@ class TopographicMappingPlugin:
         for title in ("Topographic editing", "Labeling"):
             for i in range(30):
                 j += 1
-                action = QAction(str(i), self._gui_owner)
+                action = QAction(str(j), self._gui_owner)
                 action.setObjectName(f"EditingTool{j}")
                 action.setCheckable(True)
                 if i % 2 == 1:
@@ -39,8 +43,19 @@ class TopographicMappingPlugin:
                 )
                 self._tool_dock.add_tool_action(action, title, description)
 
+                QgsGui.shortcutsManager().registerAction(action)
+
+                def test_action(checked, _action):
+                    if checked:
+                        print(_action.text(), checked)
+
+                action.toggled.connect(partial(test_action, _action=action))
+                self._all_actions.append(action)
+
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""
+        for action in self._all_actions:
+            QgsGui.shortcutsManager().unregisterAction(action)
         if self._tool_dock:
             self._tool_dock.deleteLater()
         if self._gui_owner:
