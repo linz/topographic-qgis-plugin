@@ -140,7 +140,11 @@ class ToolDock(QgsDockWidget):
             return
 
         self._favorites.append(object_name)
-        action = [a for a in self._actions if a.objectName() == object_name][0]
+        try:
+            action = [a for a in self._actions if a.objectName() == object_name][0]
+        except IndexError:
+            return
+
         btn = self._create_button_for_action(action, action.property("description"))
         self._favorites_group.push_widget(btn)
         self._favorites_group.parent().show()
