@@ -1,17 +1,27 @@
 from qgis.PyQt.QtCore import Qt, QCoreApplication
-from .gui import ToolDock
+from .gui import ToolDock, CollapsibleToolDock
 
 
 class TopographicMappingPlugin:
     def __init__(self, iface):
         self.iface = iface
         self._tool_dock = None
+        self._tool_dock2 = None
 
     def initGui(self) -> None:
         self._tool_dock = ToolDock(None)
         self._tool_dock.setObjectName("TopographicToolDock")
+        self._tool_dock.setWindowTitle("Editing tools")
 
         self.iface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._tool_dock)
+
+        self._tool_dock2 = CollapsibleToolDock(None)
+        self._tool_dock2.setObjectName("CollapsibleTopographicToolDock")
+        self._tool_dock2.setWindowTitle("Editing tools")
+
+        self.iface.addDockWidget(
+            Qt.DockWidgetArea.RightDockWidgetArea, self._tool_dock2
+        )
 
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""

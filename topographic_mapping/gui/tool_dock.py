@@ -11,7 +11,7 @@ from qgis.PyQt.QtWidgets import (
     QWidget,
     QLabel,
 )
-from qgis.gui import QgsDockWidget
+from qgis.gui import QgsDockWidget, QgsCollapsibleGroupBox
 
 from .gui_utils import GuiUtils
 from .responsive_table_widget import ResponsiveTableWidget
@@ -108,3 +108,26 @@ class ToolDock(QgsDockWidget):
                 self._description_label.clear()
 
         return super().eventFilter(obj, event)
+
+
+class CollapsibleToolDock(ToolDock):
+    """
+    A dock widget for display of a set of tools
+    """
+
+    def __init__(self, parent):
+        super().__init__(parent)
+
+    def _create_tool_group(self, group_title: str) -> ResponsiveTableWidget:
+        group_box = QgsCollapsibleGroupBox(group_title)
+        group_box.setSettingGroup("ToolDock")
+        group_box.setObjectName(f"toolGroup{group_title}")
+        group_box_layout = QVBoxLayout()
+        group_box_layout.setContentsMargins(0, 0, 0, 0)
+        group_box.setLayout(group_box_layout)
+
+        self._vlayout.insertWidget(self._vlayout.count() - 2, group_box)
+        group_widget = ResponsiveTableWidget()
+        group_box_layout.addWidget(group_widget)
+        self._tool_groups[group_title] = group_widget
+        return group_widget
