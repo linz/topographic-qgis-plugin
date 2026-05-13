@@ -17,6 +17,7 @@ from qgis.gui import QgsDockWidget, QgsCollapsibleGroupBox
 
 from .gui_utils import GuiUtils
 from .responsive_table_widget import ResponsiveTableWidget
+from topographic_mapping.settings import FAVORITES
 
 
 class ToolDock(QgsDockWidget):
@@ -61,6 +62,9 @@ class ToolDock(QgsDockWidget):
                     f"Here is some explanatory text for {title} action number {i}"
                 )
                 self.add_tool_action(action, title, description)
+
+        for favorite in FAVORITES.value():
+            self._add_to_favorites(favorite, store=False)
 
     def _create_heading_label(self, text: str) -> QLabel:
         label = QLabel(text)
@@ -131,7 +135,7 @@ class ToolDock(QgsDockWidget):
 
         menu.exec(QCursor.pos())
 
-    def _add_to_favorites(self, object_name: str):
+    def _add_to_favorites(self, object_name: str, store: bool = True):
         if object_name in self._favorites:
             return
 
@@ -140,6 +144,8 @@ class ToolDock(QgsDockWidget):
         btn = self._create_button_for_action(action, action.property("description"))
         self._favorites_group.push_widget(btn)
         self._favorites_group.parent().show()
+        if store:
+            FAVORITES.setValue(self._favorites)
 
     def _remove_from_favorites(self, object_name: str):
         try:
@@ -147,6 +153,7 @@ class ToolDock(QgsDockWidget):
         except ValueError:
             return
 
+        FAVORITES.setValue(self._favorites)
         w = [
             w for w in self._favorites_group.children() if w.objectName() == object_name
         ][0]
