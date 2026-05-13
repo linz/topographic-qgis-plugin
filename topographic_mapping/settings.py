@@ -1,4 +1,4 @@
-from qgis.core import QgsSettingsEntryStringList, QgsSettingsTree
+from qgis.core import QgsSettingsEntryStringList, QgsSettingsTree, QgsSettingsException
 
 SETTINGS_NODE = QgsSettingsTree.createPluginTreeNode("topographic_mapping")
 

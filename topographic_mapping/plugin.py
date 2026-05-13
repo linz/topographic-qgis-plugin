@@ -19,6 +19,8 @@ class TopographicMappingPlugin:
         if self._tool_dock:
             self._tool_dock.deleteLater()
 
+        QgsSettingsTree.unregisterPluginTreeNode("topographic_mapping")
+
     @staticmethod
     def tr(message) -> str:
         """Get the translation for a string using Qt translation API.
