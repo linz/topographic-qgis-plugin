@@ -1,4 +1,6 @@
-from qgis.PyQt.QtCore import Qt, QSize
+from typing import Optional
+
+from qgis.PyQt.QtCore import Qt, QSize, QEvent
 from qgis.PyQt.QtGui import QPalette
 from qgis.PyQt.QtWidgets import (
     QToolButton,
@@ -24,6 +26,9 @@ class ToolDock(QgsDockWidget):
         super().__init__(parent)
         self._vlayout = QVBoxLayout()
         self._vlayout.setContentsMargins(0, 0, 6, 0)
+        self._description_label = QLabel()
+        self._description_label.setWordWrap(True)
+        self._vlayout.addWidget(self._description_label)
         self._vlayout.addStretch()
         _widget = QWidget(self)
         _widget.setLayout(self._vlayout)
@@ -42,9 +47,12 @@ class ToolDock(QgsDockWidget):
                 else:
                     action.setIcon(GuiUtils.get_colorized_icon("simplify.svg"))
                 self._action_group.addAction(action)
-                self.add_tool_action(action, title)
+                description = (
+                    f"Here is some explanatory text for {title} action number {i}"
+                )
+                self.add_tool_action(action, title, description)
 
-    def _create_heading_label(self, text: str):
+    def _create_heading_label(self, text: str) -> QLabel:
         label = QLabel(text)
         palette = label.palette()
 
@@ -58,17 +66,22 @@ class ToolDock(QgsDockWidget):
         label.setMargin(3)
         return label
 
-    def _create_tool_group(self, group_title: str):
+    def _create_tool_group(self, group_title: str) -> ResponsiveTableWidget:
         title = self._create_heading_label(group_title)
 
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._vlayout.insertWidget(self._vlayout.count() - 1, title)
+        self._vlayout.insertWidget(self._vlayout.count() - 2, title)
         group_widget = ResponsiveTableWidget()
-        self._vlayout.insertWidget(self._vlayout.count() - 1, group_widget)
+        self._vlayout.insertWidget(self._vlayout.count() - 2, group_widget)
         self._tool_groups[group_title] = group_widget
         return group_widget
 
-    def add_tool_action(self, action: QAction, group_title: str):
+    def add_tool_action(
+        self,
+        action: QAction,
+        group_title: str,
+        descriptive_string: Optional[str] = None,
+    ):
         """
         Adds a tool action to the toolbox
         """
@@ -82,4 +95,16 @@ class ToolDock(QgsDockWidget):
         btn.setFixedHeight(36)
         btn.setIconSize(QSize(24, 24))
         btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        btn.installEventFilter(self)
+        btn.setProperty("description", descriptive_string)
         tool_group_widget.push_widget(btn)
+
+    def eventFilter(self, obj, event):
+        if isinstance(obj, QToolButton):
+            if event.type() == QEvent.Type.Enter:
+                description = obj.property("description")
+                self._description_label.setText(description)
+            elif event.type() == QEvent.Type.Leave:
+                self._description_label.clear()
+
+        return super().eventFilter(obj, event)
