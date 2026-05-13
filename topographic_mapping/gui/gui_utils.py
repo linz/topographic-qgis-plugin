@@ -17,15 +17,20 @@ from qgis.PyQt.QtGui import (
     QPixmap,
     QColor,
     QPainter,
+    QPalette,
 )
 from qgis.PyQt.QtSvg import QSvgRenderer
-from qgis.core import Qgis
+from qgis.core import Qgis, QgsApplication
+
+from .svg_memory_icon_engine import SvgMemoryIconEngine
 
 
 class GuiUtils:
     """
     Utilities for GUI plugin components
     """
+
+    ICON_CACHE = {}
 
     @staticmethod
     def get_icon(icon: str) -> QIcon:
@@ -39,6 +44,31 @@ class GuiUtils:
             return QIcon()
 
         return QIcon(path)
+
+    @staticmethod
+    def get_colorized_icon(icon: str) -> QIcon:
+        """
+        Returns a plugin icon, colorized using appropriate
+        application palette colors
+        """
+        if icon in GuiUtils.ICON_CACHE:
+            return GuiUtils.ICON_CACHE[icon]
+
+        path = GuiUtils.get_icon_svg(icon)
+        if not path:
+            return QIcon()
+
+        svg_cache = QgsApplication.svgCache()
+        # for testing only!
+        # svg_cache.invalidateCacheEntry(path)
+        palette = QPalette()
+        fill_color = palette.color(QPalette.ColorRole.Text)
+        stroke_color = palette.color(QPalette.ColorRole.Mid)
+        svg_bytes = svg_cache.svgContent(path, 1, fill_color, stroke_color, 1, 1)
+        engine = SvgMemoryIconEngine(svg_bytes)
+        result = QIcon(engine)
+        GuiUtils.ICON_CACHE[icon] = result
+        return result
 
     @staticmethod
     def get_icon_svg(icon: str) -> str:
