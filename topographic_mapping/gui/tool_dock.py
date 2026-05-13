@@ -41,8 +41,9 @@ class ToolDock(QgsDockWidget):
         self._action_group = QActionGroup(self)
         self._actions = []
 
-        self._favorites = ["EditingTool1", "EditingTool4"]
+        self._favorites = []
         self._favorites_group = self._create_tool_group("Favorites", collapsible=False)
+        self._favorites_group.parent().hide()
 
         j = 0
         for title in ("Topographic editing", "Labeling"):
@@ -138,6 +139,7 @@ class ToolDock(QgsDockWidget):
         action = [a for a in self._actions if a.objectName() == object_name][0]
         btn = self._create_button_for_action(action, action.property("description"))
         self._favorites_group.push_widget(btn)
+        self._favorites_group.parent().show()
 
     def _remove_from_favorites(self, object_name: str):
         try:
@@ -171,6 +173,7 @@ class ToolDock(QgsDockWidget):
         if action.objectName() in self._favorites:
             btn = self._create_button_for_action(action, descriptive_string)
             self._favorites_group.push_widget(btn)
+            self._favorites_group.parent().show()
 
     def eventFilter(self, obj, event):
         if isinstance(obj, QToolButton):
