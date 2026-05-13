@@ -1,9 +1,4 @@
-from qgis.PyQt.QtCore import Qt, QCoreApplication, QSize
-from qgis.PyQt.QtWidgets import QAction, QToolButton, QButtonGroup, QSizePolicy
-from qgis.core import QgsProject, Qgis
-from qgis.gui import QgsDockWidget
-
-from .gui.gui_utils import GuiUtils
+from qgis.PyQt.QtCore import Qt, QCoreApplication
 from .gui import ToolDock
 
 
