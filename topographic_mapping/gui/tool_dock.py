@@ -39,29 +39,11 @@ class ToolDock(QgsDockWidget):
 
         self._tool_groups = {}
 
-        self._action_group = QActionGroup(self)
         self._actions = []
 
         self._favorites = []
         self._favorites_group = self._create_tool_group("Favorites", collapsible=False)
         self._favorites_group.parent().hide()
-
-        j = 0
-        for title in ("Topographic editing", "Labeling"):
-            for i in range(30):
-                j += 1
-                action = QAction(str(i), self)
-                action.setObjectName(f"EditingTool{j}")
-                action.setCheckable(True)
-                if i % 2 == 1:
-                    action.setIcon(GuiUtils.get_colorized_icon("buffer.svg"))
-                else:
-                    action.setIcon(GuiUtils.get_colorized_icon("simplify.svg"))
-                self._action_group.addAction(action)
-                description = (
-                    f"Here is some explanatory text for {title} action number {i}"
-                )
-                self.add_tool_action(action, title, description)
 
         for favorite in FAVORITES.value():
             self._add_to_favorites(favorite, store=False)
