@@ -158,6 +158,8 @@ class ToolDock(QgsDockWidget):
             w for w in self._favorites_group.children() if w.objectName() == object_name
         ][0]
         w.deleteLater()
+        if not self._favorites:
+            self._favorites_group.parent().hide()
 
     def add_tool_action(
         self,
