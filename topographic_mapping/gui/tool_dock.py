@@ -189,3 +189,4 @@ class ToolDock(QgsDockWidget):
         return super().eventFilter(obj, event)
 
 
+# locator

@@ -1,61 +1,37 @@
-from functools import partial
+from typing import Optional
 
 from qgis.PyQt.QtCore import Qt, QCoreApplication, QObject
-from qgis.PyQt.QtWidgets import QAction, QActionGroup
 from qgis.core import QgsSettingsTree
-from qgis.gui import QgsGui
+from qgis.gui import QgisInterface
 
-from .gui import ToolDock, GuiUtils
+from .gui import ToolDock, ToolRegistry
 
 
 class TopographicMappingPlugin:
-    def __init__(self, iface):
+    def __init__(self, iface: QgisInterface):
         self.iface = iface
         self._gui_owner = QObject()
-        self._tool_dock = None
+        self._tool_dock: Optional[ToolDock] = None
         self._action_group = None
-        self._all_actions = []
+        self._tool_registry: Optional[ToolRegistry] = None
 
     def initGui(self) -> None:
         self._tool_dock = ToolDock(None)
         self._tool_dock.setObjectName("TopographicTools")
         self._tool_dock.setWindowTitle("Editing tools")
 
+        self._tool_registry = ToolRegistry(self._gui_owner)
+        self._tool_registry.init(self.iface)
+        self._tool_registry.register_shortcuts()
+
         self.iface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._tool_dock)
 
-        j = 0
-
-        self._action_group = QActionGroup(self._gui_owner)
-
-        for title in ("Topographic editing", "Labeling"):
-            for i in range(30):
-                j += 1
-                action = QAction(str(j), self._gui_owner)
-                action.setObjectName(f"EditingTool{j}")
-                action.setCheckable(True)
-                if i % 2 == 1:
-                    action.setIcon(GuiUtils.get_colorized_icon("buffer.svg"))
-                else:
-                    action.setIcon(GuiUtils.get_colorized_icon("simplify.svg"))
-                self._action_group.addAction(action)
-                description = (
-                    f"Here is some explanatory text for {title} action number {i}"
-                )
-                self._tool_dock.add_tool_action(action, title, description)
-
-                QgsGui.shortcutsManager().registerAction(action)
-
-                def test_action(checked, _action):
-                    if checked:
-                        print(_action.text(), checked)
-
-                action.toggled.connect(partial(test_action, _action=action))
-                self._all_actions.append(action)
+        self._tool_registry.populate_tool_dock(self._tool_dock)
 
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""
-        for action in self._all_actions:
-            QgsGui.shortcutsManager().unregisterAction(action)
+        self._tool_registry.unregister_shortcuts()
+
         if self._tool_dock:
             self._tool_dock.deleteLater()
         if self._gui_owner:
