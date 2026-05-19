@@ -182,6 +182,10 @@ class ToolDock(QgsDockWidget):
         if isinstance(obj, QToolButton):
             if event.type() == QEvent.Type.Enter:
                 description = obj.property("description")
+                shortcut = obj.defaultAction().shortcut()
+                if not shortcut.isEmpty():
+                    description += f"<br>(<i>{shortcut.toString()}</i>)"
+
                 self._description_label.setText(description)
             elif event.type() == QEvent.Type.Leave:
                 self._description_label.clear()
