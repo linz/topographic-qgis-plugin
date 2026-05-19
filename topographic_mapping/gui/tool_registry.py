@@ -72,6 +72,8 @@ class ToolRegistry(QObject):
                 proxy_action.setCheckable(source_action.isCheckable())
                 proxy_action.setIcon(GuiUtils.get_colorized_icon(action.icon))
 
+                assert action.description[-1] == "."
+                assert action.description[0].isupper()
                 proxy_action.setProperty("description", action.description)
                 self._actions[group].append(proxy_action)
 
