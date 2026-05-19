@@ -23,8 +23,22 @@ class SvgMemoryIconEngine(QIconEngine):
         """
         Renders the icon to a painter
         """
-        renderer = QSvgRenderer(self.svg_bytes)
-        renderer.render(painter, QRectF(rect))
+        if mode == QIcon.Mode.Normal:
+            renderer = QSvgRenderer(self.svg_bytes)
+            renderer.render(painter, QRectF(rect))
+        else:
+            # use a temporary pixmap so that qt applies standard state effects
+            temp_pixmap = QPixmap(rect.size())
+            temp_pixmap.fill(Qt.GlobalColor.transparent)
+
+            temp_painter = QPainter(temp_pixmap)
+            renderer = QSvgRenderer(self.svg_bytes)
+            renderer.render(temp_painter, QRectF(0, 0, rect.width(), rect.height()))
+            temp_painter.end()
+
+            temp_icon = QIcon(temp_pixmap)
+            adjusted_pixmap = temp_icon.pixmap(rect.size(), mode, state)
+            painter.drawPixmap(rect, adjusted_pixmap)
 
     def clone(self) -> QIconEngine:
         return SvgMemoryIconEngine(self.svg_bytes)
