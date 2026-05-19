@@ -13,7 +13,7 @@ from qgis.PyQt.QtWidgets import (
     QGroupBox,
     QMenu,
 )
-from qgis.gui import QgsDockWidget, QgsCollapsibleGroupBox
+from qgis.gui import QgsDockWidget, QgsCollapsibleGroupBox, QgsConfigureShortcutsDialog
 
 from .gui_utils import GuiUtils
 from .responsive_table_widget import ResponsiveTableWidget
@@ -100,7 +100,7 @@ class ToolDock(QgsDockWidget):
     def _create_context_menu(self):
         button = self.sender()
         menu = QMenu()
-        action = QAction(f'Include "{button.text()}" in Favorites')
+        action = QAction(f'Include "{button.text()}" in Favorites', menu)
         action.setCheckable(True)
         object_name = button.objectName()
         if object_name in self._favorites:
@@ -115,7 +115,15 @@ class ToolDock(QgsDockWidget):
         action.toggled.connect(_toggle_favorite)
         menu.addAction(action)
 
+        configure_shortcuts_action = QAction("Configure Keyboard Shortcuts…", menu)
+        configure_shortcuts_action.triggered.connect(self._configure_shortcuts)
+        menu.addAction(configure_shortcuts_action)
+
         menu.exec(QCursor.pos())
+
+    def _configure_shortcuts(self):
+        dlg = QgsConfigureShortcutsDialog(self)
+        dlg.exec()
 
     def _add_to_favorites(self, object_name: str, store: bool = True):
         if object_name in self._favorites:
