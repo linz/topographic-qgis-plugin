@@ -23,6 +23,9 @@ class ProxyAction(QAction):
         else:
             self.triggered.connect(self._proxy_action_triggered)
 
+        self._source_action.enabledChanged.connect(self.setEnabled)
+        self.setEnabled(self._source_action.isEnabled())
+
     def _proxy_action_triggered(self):
         self._source_action.trigger()
 
