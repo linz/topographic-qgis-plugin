@@ -60,7 +60,7 @@ class GuiUtils:
 
         svg_cache = QgsApplication.svgCache()
         # for testing only!
-        # svg_cache.invalidateCacheEntry(path)
+        svg_cache.invalidateCacheEntry(path)
         palette = QPalette()
         fill_color = palette.color(QPalette.ColorRole.Text)
         stroke_color = palette.color(QPalette.ColorRole.Mid)
