@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   height="24"
+   viewBox="0 0 24 24"
+   width="24"
+   version="1.1"
+   id="svg4"
+   sodipodi:docname="translate.svg"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs4" />
+  <sodipodi:namedview
+     id="namedview4"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="48.291667"
+     inkscape:cx="12.010354"
+     inkscape:cy="12"
+     inkscape:window-width="2560"
+     inkscape:window-height="1368"
+     inkscape:window-x="2560"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg4" />
+  <circle
+     cx="8.5"
+     cy="8.5"
+     fill="param(outline)"
+     r="7"
+     stroke="param(fill)"
+     id="circle1"
+     style="" />
+  <circle
+     cx="15.476704"
+     cy="15.624246"
+     fill="none"
+     r="7"
+     stroke="param(fill)"
+     id="circle1-7"
+     style="stroke-dasharray:1, 1;stroke-dashoffset:0" />
+  <g
+     fill="none"
+     stroke="param(fill)"
+     id="g3"
+     transform="translate(0,-8)"
+     style="">
+    <path
+       d="M 16,24.5 8.5,16"
+       id="path2"
+       stroke="param(fill)"
+       style="" />
+    <path
+       d="M 15.818819,21.303568 16,24.5 12.841759,23.975104"
+       id="path3"
+       stroke="param(fill)"
+       style="" />
+  </g>
+</svg>

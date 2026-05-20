@@ -38,6 +38,42 @@ TOOLS = {
             "buffer.svg",
             "Create buffer around features at user-defined distance.",
         ),
+        Action(
+            "Edit Points",
+            "mActionVertexTool",
+            "modify_vertex.svg",
+            "Move, delete and add vertices on line/area features.",
+        ),
+        Action(
+            "Split Features",
+            "mActionSplitFeatures",
+            "split.svg",
+            "Split lines or polygons.",
+        ),
+        Action(
+            "Join Features",
+            "mActionMergeFeatures",
+            "merge.svg",
+            "Join lines or polygons.",
+        ),
+        Action(
+            "Rotate Features",
+            "mActionRotateFeature",
+            "rotate_feature.svg",
+            "Rotate line, area or multipoint features.",
+        ),
+        Action(
+            "Rotate Points",
+            "mActionRotatePointSymbols",
+            "rotate_marker.svg",
+            "Rotate point symbols to new orientation by sight.",
+        ),
+        Action(
+            "Move Features",
+            "mActionMoveFeature",
+            "translate.svg",
+            "Move single or multiple features.",
+        ),
     ]
 }
 
