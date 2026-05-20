@@ -2,10 +2,14 @@ name: Test plugin
 
 on:
   push:
+    branches:
+    - master
     paths:
     - "topographic_mapping/**"
     - ".github/workflows/test_plugin.yml"
   pull_request:
+    branches:
+    - master
     paths:
     - "topographic_mapping/**"
     - ".github/workflows/test_plugin.yml"
