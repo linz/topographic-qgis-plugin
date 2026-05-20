@@ -74,6 +74,18 @@ TOOLS = {
             "translate.svg",
             "Move single or multiple features.",
         ),
+        Action(
+            "Delete Features",
+            "mActionDeleteSelected",
+            "delete.svg",
+            "Remove single or multiple features.",
+        ),
+        Action(
+            "Copy Features",
+            "mActionMoveFeatureCopy",
+            "duplicate.svg",
+            "Duplicate single or multiple features.",
+        ),
     ]
 }
 
