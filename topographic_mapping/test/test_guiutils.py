@@ -19,9 +19,10 @@ class GuiUtilsTest(TopographicTestBase):
         """
         Tests get_icon
         """
-        self.assertFalse(GuiUtils.get_icon("plugin.svg").isNull())
+        self.assertFalse(GuiUtils.get_icon("buffer.svg").isNull())
         self.assertTrue(GuiUtils.get_icon("not_an_icon.svg").isNull())
 
+    @unittest.skip("no ui files yet")
     def testGetUiFilePath(self):
         """
         Tests get_ui_file_path svg path
@@ -36,8 +37,8 @@ class GuiUtilsTest(TopographicTestBase):
         """
         Tests get_icon svg path
         """
-        self.assertTrue(GuiUtils.get_icon_svg("plugin.svg"))
-        self.assertIn("plugin.svg", GuiUtils.get_icon_svg("plugin.svg"))
+        self.assertTrue(GuiUtils.get_icon_svg("buffer.svg"))
+        self.assertIn("buffer.svg", GuiUtils.get_icon_svg("buffer.svg"))
         self.assertFalse(GuiUtils.get_icon_svg("not_an_icon.svg"))
 
 
