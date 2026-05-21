@@ -1,0 +1,46 @@
+name: Test plugin
+
+on:
+  push:
+    branches:
+    - master
+    paths:
+    - "topographic_mapping/**"
+    - ".github/workflows/test_plugin.yml"
+  pull_request:
+    branches:
+    - master
+    paths:
+    - "topographic_mapping/**"
+    - ".github/workflows/test_plugin.yml"
+
+env:
+  # plugin name/directory where the code for the plugin is stored
+  PLUGIN_NAME: topographic_mapping
+  # python notation to test running inside plugin
+  TESTS_RUN_FUNCTION: topographic_mapping.test_suite.test_package
+  # Docker settings
+  DOCKER_IMAGE: qgis/qgis
+
+
+jobs:
+
+  Test-plugin-topographic_mapping:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        qgis_version: ["latest"]
+    env:
+      QGIS_TEST_VERSION: ${{ matrix.qgis_version }}
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Test
+        run: |
+          docker compose -f .docker/docker-compose.yml run qgis /usr/src/.docker/run-docker-tests.sh
