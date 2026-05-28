@@ -8,6 +8,7 @@ from qgis.PyQt.QtWidgets import (
     QSizePolicy,
     QAction,
     QVBoxLayout,
+    QHBoxLayout,
     QWidget,
     QLabel,
     QGroupBox,
@@ -37,13 +38,26 @@ class ToolDock(QgsDockWidget):
         super().__init__(parent)
         self._vlayout = QVBoxLayout()
         self._vlayout.setContentsMargins(0, 10, 6, 0)
-
         self._vlayout.addWidget(QLabel("Current edit target"))
+
+        hl = QHBoxLayout()
+        self._vlayout.addLayout(hl)
         self._target_layer_combo = QgsMapLayerComboBox()
         self._target_layer_combo.setFilters(
             Qgis.LayerFilter.WritableLayer | Qgis.LayerFilter.HasGeometry
         )
-        self._vlayout.addWidget(self._target_layer_combo)
+        hl.addWidget(self._target_layer_combo)
+        self._activate_edit_target_action = QAction()
+        self._activate_edit_target_action.setCheckable(True)
+        self._activate_edit_target_tool_button = QToolButton()
+        self._activate_edit_target_tool_button.setText("...")
+        self._activate_edit_target_tool_button.setAutoRaise(True)
+        self._activate_edit_target_tool_button.setDefaultAction(
+            self._activate_edit_target_action
+        )
+        hl.addWidget(self._activate_edit_target_tool_button)
+
+        self._vlayout.addLayout(hl)
 
         self._description_label = QLabel()
         self._description_label.setWordWrap(True)
@@ -65,6 +79,12 @@ class ToolDock(QgsDockWidget):
             self._add_to_favorites(favorite, store=False)
 
         self._target_layer_combo.layerChanged.connect(self._on_target_layer_changed)
+
+    def set_target_action(self) -> QAction:
+        """
+        Returns the set target toolbutton
+        """
+        return self._activate_edit_target_action
 
     def _create_heading_label(self, text: str) -> QLabel:
         label = QLabel(text)

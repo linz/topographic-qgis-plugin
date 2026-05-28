@@ -9,6 +9,7 @@ from qgis.core import (
     QgsGeometry,
     QgsProject,
     QgsRectangle,
+    QgsMapLayer,
 )
 from qgis.gui import (
     QgsMapToolIdentify,
@@ -16,6 +17,7 @@ from qgis.gui import (
     QgsIdentifyMenu,
     QgsMapCanvas,
     QgsRubberBand,
+    QgsAbstractMapToolHandler,
 )
 
 from ..core import LayerUtils
@@ -89,9 +91,24 @@ class SetTargetTool(QgsMapToolIdentify):
         menu = QgsIdentifyMenu(self.canvas())
         menu.setExecWithSingleResult(True)
         menu.setAllowMultipleReturn(False)
+        menu.setMaxFeatureDisplay(20)
         res = menu.exec(identify_results, event.globalPosition().toPoint())
         if not res:
             return
 
         target = res[0]
         self.target_set.emit(target.mLayer, target.mFeature.id())
+
+
+class SetTargetToolHandler(QgsAbstractMapToolHandler):
+    """
+    Map tool handler for the SetTargetTool
+    """
+
+    def __init__(self, tool, action):
+        super().__init__(tool, action)
+
+    def isCompatibleWithLayer(
+        self, layer: QgsMapLayer | None, context: QgsAbstractMapToolHandler.Context
+    ):
+        return True

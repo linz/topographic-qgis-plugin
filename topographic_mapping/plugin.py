@@ -2,7 +2,7 @@ from qgis.PyQt.QtCore import Qt, QCoreApplication, QObject
 from qgis.core import QgsSettingsTree
 from qgis.gui import QgisInterface
 
-from .gui import ToolDock, ToolRegistry
+from .gui import ToolDock, ToolRegistry, SetTargetTool, SetTargetToolHandler
 from .core import StateManager
 
 
@@ -14,6 +14,8 @@ class TopographicMappingPlugin:
         self._action_group = None
         self._tool_registry: ToolRegistry | None = None
         self._state_manager: StateManager | None = None
+        self._set_target_tool: SetTargetTool | None = None
+        self._set_target_tool_handler: SetTargetToolHandler | None = None
 
     def initGui(self) -> None:
         self._state_manager = StateManager(self.iface)
@@ -30,6 +32,13 @@ class TopographicMappingPlugin:
         self._tool_registry.populate_tool_dock(self._tool_dock)
         self._setup_state_manager()
 
+        self._set_target_tool = SetTargetTool(self.iface.mapCanvas())
+        self._set_target_tool_handler = SetTargetToolHandler(
+            self._set_target_tool, self._tool_dock.set_target_action()
+        )
+        self.iface.registerMapToolHandler(self._set_target_tool_handler)
+        self._set_target_tool.target_set.connect(self._state_manager.set_edit_target)
+
     def _setup_state_manager(self):
         self._state_manager.target_layer_changed.connect(
             self._tool_dock.set_target_layer
@@ -39,6 +48,12 @@ class TopographicMappingPlugin:
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""
         self._tool_registry.unregister_shortcuts()
+
+        if self._set_target_tool_handler:
+            self.iface.unregisterMapToolHandler(self._set_target_tool_handler)
+        if self._set_target_tool:
+            self._set_target_tool.deleteLater()
+            self._set_target_tool = None
 
         if self._tool_dock:
             self._tool_dock.deleteLater()
