@@ -3,6 +3,7 @@ from qgis.PyQt.QtGui import QColor
 
 
 from qgis.core import (
+    QgsApplication,
     Qgis,
     QgsVectorLayer,
     QgsIdentifyContext,
@@ -35,6 +36,8 @@ class SetTargetTool(QgsMapToolIdentify):
         self.rubber_band: QgsRubberBand | None = None
         self.start_point: QPoint | None = None
         self.is_dragging: bool = False
+
+        self.setCursor(QgsApplication.getThemeCursor(QgsApplication.Cursor.Select))
 
     def canvasPressEvent(self, event: QgsMapMouseEvent):
         if event.button() == Qt.MouseButton.LeftButton:
