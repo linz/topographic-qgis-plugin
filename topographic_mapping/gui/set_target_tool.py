@@ -1,8 +1,25 @@
-from qgis.PyQt.QtCore import pyqtSignal
-from qgis.core import QgsVectorLayer, QgsIdentifyContext, QgsGeometry, QgsProject
-from qgis.gui import QgsMapToolIdentify, QgsMapMouseEvent, QgsIdentifyMenu, QgsMapCanvas
+from qgis.PyQt.QtCore import pyqtSignal, Qt, QPoint
+from qgis.PyQt.QtGui import QColor
+
+
+from qgis.core import (
+    Qgis,
+    QgsVectorLayer,
+    QgsIdentifyContext,
+    QgsGeometry,
+    QgsProject,
+    QgsRectangle,
+)
+from qgis.gui import (
+    QgsMapToolIdentify,
+    QgsMapMouseEvent,
+    QgsIdentifyMenu,
+    QgsMapCanvas,
+    QgsRubberBand,
+)
 
 from ..core import LayerUtils
+
 
 class SetTargetTool(QgsMapToolIdentify):
     """
@@ -13,14 +30,54 @@ class SetTargetTool(QgsMapToolIdentify):
 
     def __init__(self, canvas: QgsMapCanvas):
         super().__init__(canvas)
+        self.rubber_band: QgsRubberBand | None = None
+        self.start_point: QPoint | None = None
+        self.is_dragging: bool = False
+
+    def canvasPressEvent(self, event: QgsMapMouseEvent):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.start_point = self.toMapCoordinates(event.position().toPoint())
+            self.is_dragging = False
+
+            if not self.rubber_band:
+                self.rubber_band = QgsRubberBand(
+                    self.canvas(), Qgis.GeometryType.Polygon
+                )
+                self.rubber_band.setColor(QColor(0, 120, 255, 65))
+                self.rubber_band.setStrokeColor(QColor(0, 120, 255, 255))
+                self.rubber_band.setWidth(1)
+
+            self.rubber_band.reset(Qgis.GeometryType.Polygon)
+
+    def canvasMoveEvent(self, event: QgsMapMouseEvent):
+        if not self.start_point or not (event.buttons() & Qt.MouseButton.LeftButton):
+            return
+
+        self.is_dragging = True
+        current_point = self.toMapCoordinates(event.position().toPoint())
+
+        rect = QgsRectangle(self.start_point, current_point)
+        self.rubber_band.setToGeometry(QgsGeometry.fromRect(rect), None)
 
     def canvasReleaseEvent(self, event: QgsMapMouseEvent):
+        if event.button() != Qt.MouseButton.LeftButton:
+            return
+
+        if self.rubber_band:
+            self.rubber_band.hide()
+
+        current_point = self.toMapCoordinates(event.position().toPoint())
+        if self.is_dragging and self.start_point:
+            rect = QgsRectangle(self.start_point, current_point)
+            geom = QgsGeometry.fromRect(rect)
+        else:
+            geom = QgsGeometry.fromPointXY(current_point)
+
+        self.start_point = None
+        self.is_dragging = False
+
         context = QgsIdentifyContext()
         layer_list = LayerUtils.valid_edit_target_layers(QgsProject.instance())
-
-        geom = QgsGeometry.fromPointXY(
-            self.toMapCoordinates(event.position().toPoint())
-        )
 
         identify_results = self.identify(
             geom,
