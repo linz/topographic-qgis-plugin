@@ -1,5 +1,5 @@
 from qgis.PyQt.QtCore import Qt, QCoreApplication, QObject
-from qgis.core import QgsSettingsTree
+from qgis.core import QgsSettingsTree, QgsProject
 from qgis.gui import QgisInterface
 
 from .gui import ToolDock, ToolRegistry, SetTargetTool, SetTargetToolHandler
@@ -18,7 +18,7 @@ class TopographicMappingPlugin:
         self._set_target_tool_handler: SetTargetToolHandler | None = None
 
     def initGui(self) -> None:
-        self._state_manager = StateManager(self.iface)
+        self._state_manager = StateManager(self.iface, QgsProject.instance())
         self._tool_dock = ToolDock(None)
         self._tool_dock.setObjectName("TopographicTools")
         self._tool_dock.setWindowTitle("Editing tools")

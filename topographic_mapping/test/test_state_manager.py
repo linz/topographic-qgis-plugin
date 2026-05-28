@@ -5,7 +5,7 @@ StateManager Test.
 import unittest
 
 from qgis.PyQt.QtTest import QSignalSpy
-from qgis.core import QgsVectorLayer, QgsFeature
+from qgis.core import QgsVectorLayer, QgsFeature, QgsProject
 from qgis.gui import QgsMapCanvas
 
 from topographic_mapping.core import StateManager
@@ -45,7 +45,8 @@ class StateManagerTest(TopographicTestBase):
         """
         Tests set_target_layer with a valid, editable layer.
         """
-        state_manager = StateManager(self.mock_iface)
+        p = QgsProject()
+        state_manager = StateManager(self.mock_iface, p)
         self.assertFalse(self.memory_layer.isEditable())
         layer_changed_spy = QSignalSpy(self.mock_iface.currentLayerChanged)
 
@@ -81,7 +82,8 @@ class StateManagerTest(TopographicTestBase):
         """
         self.memory_layer.startEditing()
         self.memory_layer2.rollBack()
-        state_manager = StateManager(self.mock_iface)
+        p = QgsProject()
+        state_manager = StateManager(self.mock_iface, p)
 
         # Track signal emission
         emitted_layers = []
@@ -135,7 +137,8 @@ class StateManagerTest(TopographicTestBase):
         f1, f2, f3 = list(self.memory_layer.getFeatures())
         self.memory_layer.selectByIds([])
 
-        state_manager = StateManager(self.mock_iface)
+        p = QgsProject()
+        state_manager = StateManager(self.mock_iface, p)
         state_manager.set_edit_target(self.memory_layer, f1.id())
         self.assertEqual(state_manager.target_layer(), self.memory_layer)
         self.assertEqual(self.memory_layer.selectedFeatureIds(), [f1.id()])

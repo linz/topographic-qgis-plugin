@@ -2,7 +2,7 @@
 Layer related utilities
 """
 
-from qgis.core import QgsMapLayer, QgsVectorLayer, QgsProject
+from qgis.core import QgsMapLayer, QgsVectorLayer, QgsProject, QgsVectorTileLayer
 
 
 class LayerUtils:
@@ -27,3 +27,14 @@ class LayerUtils:
             if LayerUtils.can_edit(l):
                 all_layers.append(l)
         return all_layers
+
+    @staticmethod
+    def deselect_all(project: QgsProject):
+        """
+        Clears selections from all layers in the project
+        """
+        for _, l in project.mapLayers().items():
+            if isinstance(l, QgsVectorLayer):
+                l.removeSelection()
+            elif isinstance(l, QgsVectorTileLayer):
+                l.removeSelection()

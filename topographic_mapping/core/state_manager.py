@@ -4,7 +4,7 @@ StateManager: Manages project and editing states
 
 from qgis.PyQt.QtCore import QObject, pyqtSignal
 
-from qgis.core import QgsMapLayer, QgsVectorLayer
+from qgis.core import QgsMapLayer, QgsVectorLayer, QgsProject
 from qgis.gui import QgisInterface
 
 from .layer_utils import LayerUtils
@@ -18,10 +18,13 @@ class StateManager(QObject):
     # Emitted when the target editable layer is changed
     target_layer_changed = pyqtSignal(QgsMapLayer)
 
-    def __init__(self, iface: QgisInterface, parent: QObject | None = None):
+    def __init__(
+        self, iface: QgisInterface, project: QgsProject, parent: QObject | None = None
+    ):
         super().__init__(parent)
 
         self._iface = iface
+        self._project: QgsProject = project
         self._current_target_layer: QgsVectorLayer | None = None
 
         self._iface.currentLayerChanged.connect(self._on_current_layer_changed)
@@ -52,6 +55,7 @@ class StateManager(QObject):
         Sets the current edit target (both layer and feature)
         """
         if self.set_target_layer(layer):
+            LayerUtils.deselect_all(self._project)
             # only change selection if edit target was accepted
             layer.selectByIds([feature_id])
 
