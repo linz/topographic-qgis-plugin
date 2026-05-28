@@ -36,8 +36,9 @@ class ToolDock(QgsDockWidget):
     def __init__(self, parent):
         super().__init__(parent)
         self._vlayout = QVBoxLayout()
-        self._vlayout.setContentsMargins(0, 0, 6, 0)
+        self._vlayout.setContentsMargins(0, 10, 6, 0)
 
+        self._vlayout.addWidget(QLabel("Current edit target"))
         self._target_layer_combo = QgsMapLayerComboBox()
         self._target_layer_combo.setFilters(
             Qgis.LayerFilter.WritableLayer | Qgis.LayerFilter.HasGeometry
