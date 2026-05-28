@@ -7,6 +7,8 @@ from qgis.PyQt.QtCore import QObject, pyqtSignal
 from qgis.core import QgsMapLayer, QgsVectorLayer
 from qgis.gui import QgisInterface
 
+from .layer_utils import LayerUtils
+
 
 class StateManager(QObject):
     """
@@ -30,29 +32,35 @@ class StateManager(QObject):
         """
         return self._current_target_layer
 
-    def set_target_layer(self, layer: QgsVectorLayer | None):
+    def set_target_layer(self, layer: QgsVectorLayer | None) -> bool:
         """
-        Sets the current target layer
-        """
-        if layer and layer.readOnly():
-            layer = None
+        Sets the current target layer.
 
-        if layer:
-            if not layer.isEditable():
-                layer.startEditing()
-            if layer != self._iface.activeLayer():
-                self._iface.setActiveLayer(layer)
+        Returns True if the layer was accepted
+        """
+        if not LayerUtils.can_edit(layer):
+            return False
+
+        if not layer.isEditable():
+            layer.startEditing()
+        if layer != self._iface.activeLayer():
+            self._iface.setActiveLayer(layer)
+        return True
+
+    def set_edit_target(self, layer: QgsVectorLayer, feature_id: int):
+        """
+        Sets the current edit target (both layer and feature)
+        """
+        if self.set_target_layer(layer):
+            # only change selection if edit target was accepted
+            layer.selectByIds([feature_id])
 
     def _on_current_layer_changed(self, layer: QgsMapLayer | None):
         """
         Triggered when the user changes the current project layer
         """
         target_layer = None
-        if (
-            isinstance(layer, QgsVectorLayer)
-            and not layer.readOnly()
-            and layer.isEditable()
-        ):
+        if LayerUtils.can_edit(layer) and layer.isEditable():
             target_layer = layer
 
         if target_layer == self._current_target_layer:
