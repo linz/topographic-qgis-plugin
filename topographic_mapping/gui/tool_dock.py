@@ -1,6 +1,6 @@
 from typing import Optional
 
-from qgis.PyQt.QtCore import Qt, QSize, QEvent
+from qgis.PyQt.QtCore import Qt, QSize, QEvent, pyqtSignal
 from qgis.PyQt.QtGui import QPalette, QCursor
 from qgis.PyQt.QtWidgets import (
     QToolButton,
@@ -13,7 +13,13 @@ from qgis.PyQt.QtWidgets import (
     QGroupBox,
     QMenu,
 )
-from qgis.gui import QgsDockWidget, QgsCollapsibleGroupBox, QgsConfigureShortcutsDialog
+from qgis.core import Qgis, QgsVectorLayer, QgsMapLayer
+from qgis.gui import (
+    QgsDockWidget,
+    QgsCollapsibleGroupBox,
+    QgsConfigureShortcutsDialog,
+    QgsMapLayerComboBox,
+)
 
 from .gui_utils import GuiUtils
 from .responsive_table_widget import ResponsiveTableWidget
@@ -25,10 +31,19 @@ class ToolDock(QgsDockWidget):
     A dock widget for display of a set of tools
     """
 
+    target_layer_set = pyqtSignal(QgsVectorLayer)
+
     def __init__(self, parent):
         super().__init__(parent)
         self._vlayout = QVBoxLayout()
         self._vlayout.setContentsMargins(0, 0, 6, 0)
+
+        self._target_layer_combo = QgsMapLayerComboBox()
+        self._target_layer_combo.setFilters(
+            Qgis.LayerFilter.WritableLayer | Qgis.LayerFilter.HasGeometry
+        )
+        self._vlayout.addWidget(self._target_layer_combo)
+
         self._description_label = QLabel()
         self._description_label.setWordWrap(True)
         self._vlayout.addWidget(self._description_label)
@@ -47,6 +62,8 @@ class ToolDock(QgsDockWidget):
 
         for favorite in FAVORITES.value():
             self._add_to_favorites(favorite, store=False)
+
+        self._target_layer_combo.layerChanged.connect(self._on_target_layer_changed)
 
     def _create_heading_label(self, text: str) -> QLabel:
         label = QLabel(text)
@@ -191,6 +208,12 @@ class ToolDock(QgsDockWidget):
                 self._description_label.clear()
 
         return super().eventFilter(obj, event)
+
+    def set_target_layer(self, layer: QgsMapLayer):
+        self._target_layer_combo.setLayer(layer)
+
+    def _on_target_layer_changed(self, layer: QgsMapLayer | None):
+        self.target_layer_set.emit(layer)
 
 
 # locator

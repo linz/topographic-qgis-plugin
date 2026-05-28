@@ -1,21 +1,22 @@
-from typing import Optional
-
 from qgis.PyQt.QtCore import Qt, QCoreApplication, QObject
 from qgis.core import QgsSettingsTree
 from qgis.gui import QgisInterface
 
 from .gui import ToolDock, ToolRegistry
+from .core import StateManager
 
 
 class TopographicMappingPlugin:
     def __init__(self, iface: QgisInterface):
         self.iface = iface
         self._gui_owner = QObject()
-        self._tool_dock: Optional[ToolDock] = None
+        self._tool_dock: ToolDock | None = None
         self._action_group = None
-        self._tool_registry: Optional[ToolRegistry] = None
+        self._tool_registry: ToolRegistry | None = None
+        self._state_manager: StateManager | None = None
 
     def initGui(self) -> None:
+        self._state_manager = StateManager(self.iface)
         self._tool_dock = ToolDock(None)
         self._tool_dock.setObjectName("TopographicTools")
         self._tool_dock.setWindowTitle("Editing tools")
@@ -27,6 +28,13 @@ class TopographicMappingPlugin:
         self.iface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._tool_dock)
 
         self._tool_registry.populate_tool_dock(self._tool_dock)
+        self._setup_state_manager()
+
+    def _setup_state_manager(self):
+        self._state_manager.target_layer_changed.connect(
+            self._tool_dock.set_target_layer
+        )
+        self._tool_dock.target_layer_set.connect(self._state_manager.set_target_layer)
 
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""
@@ -34,8 +42,14 @@ class TopographicMappingPlugin:
 
         if self._tool_dock:
             self._tool_dock.deleteLater()
+            self._tool_dock = None
         if self._gui_owner:
             self._gui_owner.deleteLater()
+            self._gui_owner = None
+
+        if self._state_manager:
+            self._state_manager.deleteLater()
+            self._state_manager = None
 
         QgsSettingsTree.unregisterPluginTreeNode("topographic_mapping")
 
