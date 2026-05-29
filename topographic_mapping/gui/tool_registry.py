@@ -99,6 +99,9 @@ class ToolRegistry(QObject):
         self.set_target_tool_action = QAction(self)
         self.set_target_tool_action.setText("Set Edit Target")
         self.set_target_tool_action.setCheckable(True)
+        self.set_target_tool_action.setIcon(
+            GuiUtils.get_colorized_icon("set_edit_target.svg")
+        )
         self.set_target_tool_action.setObjectName(
             ToolRegistry.title_to_object_name(self.set_target_tool_action.text())
         )
