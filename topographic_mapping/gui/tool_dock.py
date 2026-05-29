@@ -34,27 +34,23 @@ class ToolDock(QgsDockWidget):
 
     target_layer_set = pyqtSignal(QgsVectorLayer)
 
-    def __init__(self, parent):
+    def __init__(self, edit_target_tool_action: QAction, parent):
         super().__init__(parent)
         self._vlayout = QVBoxLayout()
         self._vlayout.setContentsMargins(0, 10, 6, 0)
         self._vlayout.addWidget(QLabel("Current edit target"))
 
         hl = QHBoxLayout()
-        self._vlayout.addLayout(hl)
         self._target_layer_combo = QgsMapLayerComboBox()
         self._target_layer_combo.setFilters(
             Qgis.LayerFilter.WritableLayer | Qgis.LayerFilter.HasGeometry
         )
-        hl.addWidget(self._target_layer_combo)
-        self._activate_edit_target_action = QAction()
-        self._activate_edit_target_action.setCheckable(True)
-        self._activate_edit_target_tool_button = QToolButton()
-        self._activate_edit_target_tool_button.setText("...")
-        self._activate_edit_target_tool_button.setAutoRaise(True)
-        self._activate_edit_target_tool_button.setDefaultAction(
-            self._activate_edit_target_action
+        hl.addWidget(self._target_layer_combo, 1)
+
+        self._activate_edit_target_tool_button = self._create_button_for_action(
+            edit_target_tool_action, edit_target_tool_action.property("description")
         )
+        self._activate_edit_target_tool_button.setProperty("_no_favorite", True)
         hl.addWidget(self._activate_edit_target_tool_button)
 
         self._vlayout.addLayout(hl)
@@ -79,12 +75,6 @@ class ToolDock(QgsDockWidget):
             self._add_to_favorites(favorite, store=False)
 
         self._target_layer_combo.layerChanged.connect(self._on_target_layer_changed)
-
-    def set_target_action(self) -> QAction:
-        """
-        Returns the set target toolbutton
-        """
-        return self._activate_edit_target_action
 
     def _create_heading_label(self, text: str) -> QLabel:
         label = QLabel(text)
@@ -138,20 +128,21 @@ class ToolDock(QgsDockWidget):
     def _create_context_menu(self):
         button = self.sender()
         menu = QMenu()
-        action = QAction(f'Include "{button.text()}" in Favorites', menu)
-        action.setCheckable(True)
-        object_name = button.objectName()
-        if object_name in self._favorites:
-            action.setChecked(True)
+        if not button.property("_no_favorite"):
+            action = QAction(f'Include "{button.text()}" in Favorites', menu)
+            action.setCheckable(True)
+            object_name = button.objectName()
+            if object_name in self._favorites:
+                action.setChecked(True)
 
-        def _toggle_favorite(active: bool):
-            if active:
-                self._add_to_favorites(object_name)
-            else:
-                self._remove_from_favorites(object_name)
+            def _toggle_favorite(active: bool):
+                if active:
+                    self._add_to_favorites(object_name)
+                else:
+                    self._remove_from_favorites(object_name)
 
-        action.toggled.connect(_toggle_favorite)
-        menu.addAction(action)
+            action.toggled.connect(_toggle_favorite)
+            menu.addAction(action)
 
         configure_shortcuts_action = QAction("Configure Keyboard Shortcuts…", menu)
         configure_shortcuts_action.triggered.connect(self._configure_shortcuts)

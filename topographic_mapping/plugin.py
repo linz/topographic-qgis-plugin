@@ -1,4 +1,6 @@
 from qgis.PyQt.QtCore import Qt, QCoreApplication, QObject
+from qgis.PyQt.QtWidgets import QAction
+
 from qgis.core import QgsSettingsTree, QgsProject
 from qgis.gui import QgisInterface
 
@@ -19,11 +21,15 @@ class TopographicMappingPlugin:
 
     def initGui(self) -> None:
         self._state_manager = StateManager(self.iface, QgsProject.instance())
-        self._tool_dock = ToolDock(None)
+        self._tool_registry = ToolRegistry(self._gui_owner)
+
+        self._tool_dock = ToolDock(
+            edit_target_tool_action=self._tool_registry.set_target_tool_action,
+            parent=None,
+        )
         self._tool_dock.setObjectName("TopographicTools")
         self._tool_dock.setWindowTitle("Editing tools")
 
-        self._tool_registry = ToolRegistry(self._gui_owner)
         self._tool_registry.init(self.iface)
         self._tool_registry.register_shortcuts()
 
@@ -34,7 +40,7 @@ class TopographicMappingPlugin:
 
         self._set_target_tool = SetTargetTool(self.iface.mapCanvas())
         self._set_target_tool_handler = SetTargetToolHandler(
-            self._set_target_tool, self._tool_dock.set_target_action()
+            self._set_target_tool, self._tool_registry.set_target_tool_action
         )
         self.iface.registerMapToolHandler(self._set_target_tool_handler)
         self._set_target_tool.target_set.connect(self._state_manager.set_edit_target)
