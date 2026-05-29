@@ -5,7 +5,7 @@ from qgis.core import QgsSettingsTree, QgsProject
 from qgis.gui import QgisInterface
 
 from .gui import ToolDock, ToolRegistry, SetTargetTool, SetTargetToolHandler
-from .core import StateManager
+from .core import StateManager, ProjectController
 
 
 class TopographicMappingPlugin:
@@ -18,8 +18,12 @@ class TopographicMappingPlugin:
         self._state_manager: StateManager | None = None
         self._set_target_tool: SetTargetTool | None = None
         self._set_target_tool_handler: SetTargetToolHandler | None = None
+        self._project_controller: ProjectController | None = None
 
     def initGui(self) -> None:
+        self._project_controller = ProjectController(
+            QgsProject.instance(), self._gui_owner
+        )
         self._state_manager = StateManager(self.iface, QgsProject.instance())
         self._tool_registry = ToolRegistry(self._gui_owner)
 
