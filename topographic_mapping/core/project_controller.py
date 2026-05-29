@@ -25,6 +25,8 @@ class ProjectController(QObject):
         for _, layer in self._project.mapLayers().items():
             self._initialize_layer(layer)
 
+        self.feature_types = self._collect_feature_types()
+
     def _initialize_layer(self, layer: QgsMapLayer):
         parts = QgsProviderRegistry.instance().decodeUri(
             layer.providerType(), layer.source()
@@ -118,3 +120,36 @@ class ProjectController(QObject):
             layer.setEditorWidgetSetup(field_index, edit_widget_setup)
 
         layer.setEditFormConfig(edit_form_config)
+
+    def _collect_feature_types(self):
+        feature_types = []
+
+        for _, layer in self._project.mapLayers().items():
+            if not isinstance(layer, QgsVectorLayer):
+                continue
+
+            parts = QgsProviderRegistry.instance().decodeUri(
+                layer.providerType(), layer.source()
+            )
+            layer_name = parts.get("layerName")
+            feature_type_idx = layer.fields().lookupField("feature_type")
+            if feature_type_idx < 0:
+                continue
+
+            edit_widget_setup = layer.editorWidgetSetup(feature_type_idx)
+            sub_types = []
+            if edit_widget_setup.type() == "ValueMap":
+                for _item in edit_widget_setup.config()["map"]:
+                    for k, v in _item.items():
+                        if (
+                            v != QgsValueMapFieldFormatter.NULL_VALUE
+                            and v != layer_name
+                        ):
+                            sub_types.append(v)
+
+            if sub_types:
+                feature_types.append({layer_name: sub_types})
+            else:
+                feature_types.append(layer_name)
+
+        return feature_types

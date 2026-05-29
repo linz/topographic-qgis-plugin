@@ -13,6 +13,7 @@ from qgis.PyQt.QtWidgets import (
     QLabel,
     QGroupBox,
     QMenu,
+    QTreeView,
 )
 from qgis.core import Qgis, QgsVectorLayer, QgsMapLayer
 from qgis.gui import (
@@ -20,9 +21,10 @@ from qgis.gui import (
     QgsCollapsibleGroupBox,
     QgsConfigureShortcutsDialog,
     QgsMapLayerComboBox,
+    QgsFilterLineEdit,
 )
 
-from .gui_utils import GuiUtils
+from .feature_type_model import FeatureTypeTreeModel, FeatureTypeFilterProxyModel
 from .responsive_table_widget import ResponsiveTableWidget
 from topographic_mapping.settings import FAVORITES
 
@@ -58,6 +60,23 @@ class ToolDock(QgsDockWidget):
         self._description_label = QLabel()
         self._description_label.setWordWrap(True)
         self._vlayout.addWidget(self._description_label)
+
+        self._digitize_widget = QWidget()
+        digitize_vl = QVBoxLayout()
+        digitize_vl.addWidget(QLabel("New feature type"))
+        self._filter_types_widget = QgsFilterLineEdit()
+        self._filter_types_widget.setShowSearchIcon(True)
+        self._filter_types_widget.setPlaceholderText("Filter types")
+        self._filter_types_widget.textChanged.connect(self._feature_type_filter_changed)
+        digitize_vl.addWidget(self._filter_types_widget)
+        self._feature_type_view = QTreeView()
+        self._feature_type_view.setHeaderHidden(True)
+        self._feature_type_model: FeatureTypeTreeModel | None = None
+        self._feature_type_proxy_model: FeatureTypeFilterProxyModel | None = None
+        digitize_vl.addWidget(self._feature_type_view, 1)
+        self._digitize_widget.setLayout(digitize_vl)
+        self._vlayout.addWidget(self._digitize_widget)
+
         self._vlayout.addStretch()
         _widget = QWidget(self)
         _widget.setLayout(self._vlayout)
@@ -75,6 +94,13 @@ class ToolDock(QgsDockWidget):
             self._add_to_favorites(favorite, store=False)
 
         self._target_layer_combo.layerChanged.connect(self._on_target_layer_changed)
+
+    def set_feature_types(self, feature_types):
+        self._feature_type_model = FeatureTypeTreeModel(feature_types, self)
+        self._feature_type_proxy_model = FeatureTypeFilterProxyModel(self)
+        self._feature_type_proxy_model.setSourceModel(self._feature_type_model)
+        self._feature_type_view.setModel(self._feature_type_proxy_model)
+        self._feature_type_view.expandAll()
 
     def _create_heading_label(self, text: str) -> QLabel:
         label = QLabel(text)
@@ -103,7 +129,7 @@ class ToolDock(QgsDockWidget):
         group_box_layout.setContentsMargins(0, 0, 0, 0)
         group_box.setLayout(group_box_layout)
 
-        self._vlayout.insertWidget(self._vlayout.count() - 2, group_box)
+        self._vlayout.insertWidget(self._vlayout.count() - 3, group_box)
         group_widget = ResponsiveTableWidget()
         group_box_layout.addWidget(group_widget)
         self._tool_groups[group_title] = group_widget
@@ -226,6 +252,10 @@ class ToolDock(QgsDockWidget):
 
     def _on_target_layer_changed(self, layer: QgsMapLayer | None):
         self.target_layer_set.emit(layer)
+
+    def _feature_type_filter_changed(self, text: str):
+        if self._feature_type_proxy_model:
+            self._feature_type_proxy_model.set_filter_text(text)
 
 
 # locator
