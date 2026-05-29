@@ -10,6 +10,7 @@ from qgis.core import (
     QgsEditorWidgetSetup,
     QgsDefaultValue,
     QgsExpression,
+    QgsValueMapFieldFormatter,
 )
 
 SCHEMAS_DIR = Path(__file__) / ".." / ".." / "schemas"
@@ -61,6 +62,7 @@ class ProjectController(QObject):
                 config["Min"] = float(property["minimum"])
                 config["Max"] = float(property["maximum"])
                 edit_widget_setup = QgsEditorWidgetSetup("Range", config)
+                # not nullable
 
             elif "$ref" in property:
                 ref = property["$ref"][len("#/$defs/") :]
@@ -68,8 +70,44 @@ class ProjectController(QObject):
                 if "enum" in definition:
                     enum_values = definition["enum"]
                     config = edit_widget_setup.config()
-                    config["map"] = {e: e for e in enum_values}
+                    config["map"] = [{e: e} for e in enum_values]
                     edit_widget_setup = QgsEditorWidgetSetup("ValueMap", config)
+                    # not nullable
+
+            if "anyOf" in property:
+                string_options = []
+                ref_options = []
+                is_nullable = False
+                for _type in property["anyOf"]:
+                    if _type.get("type") == "null":
+                        is_nullable = True
+                    if _type.get("type") == "string" and "const" in _type:
+                        string_options.append(_type["const"])
+                    elif "$ref" in _type:
+                        ref_options.append(_type["$ref"])
+
+                if string_options:
+                    assert not ref_options
+                    config = edit_widget_setup.config()
+                    config["map"] = [{opt: opt} for opt in string_options]
+                    if is_nullable:
+                        config["map"].append(
+                            {"<NULL>": QgsValueMapFieldFormatter.NULL_VALUE}
+                        )
+                    edit_widget_setup = QgsEditorWidgetSetup("ValueMap", config)
+                elif ref_options:
+                    assert len(ref_options) == 1
+                    ref = ref_options[0][len("#/$defs/") :]
+                    definition = schema["$defs"][ref]
+                    if "enum" in definition:
+                        enum_values = definition["enum"]
+                        config = edit_widget_setup.config()
+                        config["map"] = [{e: e} for e in enum_values]
+                        if is_nullable:
+                            config["map"].append(
+                                {"<NULL>": QgsValueMapFieldFormatter.NULL_VALUE}
+                            )
+                        edit_widget_setup = QgsEditorWidgetSetup("ValueMap", config)
 
             if "default" in property:
                 default_value = QgsDefaultValue(
