@@ -102,6 +102,7 @@ class QgisInterface(QObject):
         self.message_bar = QgsMessageBar()
         self.vector_layer_tools = MockedVectorLayerTools()
         self.cad_dock_widget = QgsAdvancedDigitizingDockWidget(self.canvas)
+        self._active_layer = None
 
     def tear_down(self):
         self.message_bar.deleteLater()
@@ -275,3 +276,10 @@ class QgisInterface(QObject):
 
     def cadDockWidget(self):
         return self.cad_dock_widget
+
+    def setActiveLayer(self, layer):
+        if layer == self._active_layer:
+            return
+
+        self._active_layer = layer
+        self.currentLayerChanged.emit(self._active_layer)

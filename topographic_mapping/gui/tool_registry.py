@@ -95,6 +95,22 @@ class ToolRegistry(QObject):
         super().__init__(parent)
         self._actions = defaultdict(list)
 
+        # built in actions
+        self.set_target_tool_action = QAction(self)
+        self.set_target_tool_action.setText("Set Edit Target")
+        self.set_target_tool_action.setCheckable(True)
+        self.set_target_tool_action.setIcon(
+            GuiUtils.get_colorized_icon("set_edit_target.svg")
+        )
+        self.set_target_tool_action.setObjectName(
+            ToolRegistry.title_to_object_name(self.set_target_tool_action.text())
+        )
+        self.set_target_tool_action.setProperty(
+            "description",
+            "Sets the current edit target by selecting features on the map",
+        )
+        self._actions["_private"].append(self.set_target_tool_action)
+
     @staticmethod
     def title_to_object_name(title: str) -> str:
         return title.replace(" ", "")
@@ -127,6 +143,9 @@ class ToolRegistry(QObject):
 
     def populate_tool_dock(self, dock: ToolDock):
         for group, actions in self._actions.items():
+            if group[0] == "_":
+                continue
+
             for action in actions:
                 dock.add_tool_action(action, group, action.property("description"))
 
