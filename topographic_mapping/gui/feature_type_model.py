@@ -111,6 +111,13 @@ class FeatureTypeTreeModel(QAbstractItemModel):
             return parent.internalPointer().column_count()
         return self.root_item.column_count()
 
+    def flags(self, index: QModelIndex) -> Qt.ItemFlag:
+        flags = super().flags(index)
+        if self.hasChildren(index):
+            flags &= ~Qt.ItemFlag.ItemIsSelectable
+
+        return flags
+
     def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
         if not index.isValid():
             return None
