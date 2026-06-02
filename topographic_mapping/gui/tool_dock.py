@@ -1,6 +1,6 @@
 from typing import Optional
 
-from qgis.PyQt.QtCore import Qt, QSize, QEvent, pyqtSignal
+from qgis.PyQt.QtCore import Qt, QSize, QEvent, pyqtSignal, QItemSelection
 from qgis.PyQt.QtGui import QPalette, QCursor
 from qgis.PyQt.QtWidgets import (
     QToolButton,
@@ -26,6 +26,7 @@ from qgis.gui import (
 
 from .feature_type_model import FeatureTypeTreeModel, FeatureTypeFilterProxyModel
 from .responsive_table_widget import ResponsiveTableWidget
+from ..core import ProjectController
 from topographic_mapping.settings import FAVORITES
 
 
@@ -38,6 +39,9 @@ class ToolDock(QgsDockWidget):
 
     def __init__(self, edit_target_tool_action: QAction, parent):
         super().__init__(parent)
+
+        self._controller: ProjectController | None = None
+
         self._vlayout = QVBoxLayout()
         self._vlayout.setContentsMargins(0, 10, 6, 0)
         self._vlayout.addWidget(QLabel("Current edit target"))
@@ -73,6 +77,8 @@ class ToolDock(QgsDockWidget):
         self._feature_type_view.setHeaderHidden(True)
         self._feature_type_model: FeatureTypeTreeModel | None = None
         self._feature_type_proxy_model: FeatureTypeFilterProxyModel | None = None
+        self._filter_types_widget.cleared.connect(self._feature_type_view.expandAll)
+
         digitize_vl.addWidget(self._feature_type_view, 1)
         self._digitize_widget.setLayout(digitize_vl)
         self._vlayout.addWidget(self._digitize_widget)
@@ -95,12 +101,19 @@ class ToolDock(QgsDockWidget):
 
         self._target_layer_combo.layerChanged.connect(self._on_target_layer_changed)
 
-    def set_feature_types(self, feature_types):
+    def set_project_controller(self, controller: ProjectController):
+        self._controller = controller
+        self._set_feature_types(controller.feature_types)
+
+    def _set_feature_types(self, feature_types):
         self._feature_type_model = FeatureTypeTreeModel(feature_types, self)
         self._feature_type_proxy_model = FeatureTypeFilterProxyModel(self)
         self._feature_type_proxy_model.setSourceModel(self._feature_type_model)
         self._feature_type_view.setModel(self._feature_type_proxy_model)
         self._feature_type_view.expandAll()
+        self._feature_type_view.selectionModel().selectionChanged.connect(
+            self._selected_feature_type_changed
+        )
 
     def _create_heading_label(self, text: str) -> QLabel:
         label = QLabel(text)
@@ -256,6 +269,17 @@ class ToolDock(QgsDockWidget):
     def _feature_type_filter_changed(self, text: str):
         if self._feature_type_proxy_model:
             self._feature_type_proxy_model.set_filter_text(text)
+
+    def _selected_feature_type_changed(
+        self, selected: QItemSelection, deselected: QItemSelection
+    ):
+        if not self._controller:
+            return
+
+        feature_type = None
+        if selected.indexes():
+            feature_type = selected.indexes()[0].data()
+        self._controller.set_current_feature_type(feature_type)
 
 
 # locator

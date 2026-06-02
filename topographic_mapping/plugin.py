@@ -49,7 +49,7 @@ class TopographicMappingPlugin:
         self.iface.registerMapToolHandler(self._set_target_tool_handler)
         self._set_target_tool.target_set.connect(self._state_manager.set_edit_target)
 
-        self._tool_dock.set_feature_types(self._project_controller.feature_types)
+        self._tool_dock.set_project_controller(self._project_controller)
 
     def _setup_state_manager(self):
         self._state_manager.target_layer_changed.connect(
