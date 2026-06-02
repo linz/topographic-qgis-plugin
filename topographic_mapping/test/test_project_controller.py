@@ -80,7 +80,7 @@ class TestProjectController(TopographicTestBase):
         project = QgsProject()
         project.addMapLayer(layer)
 
-        controller = ProjectController(project, None)
+        _ = ProjectController(project, None)
 
         version_idx = layer.fields().lookupField("version")
         version_setup = layer.editorWidgetSetup(version_idx)
@@ -101,6 +101,56 @@ class TestProjectController(TopographicTestBase):
         # Because the field is named "feature_type", it explicitly gets overridden
         # to "@current_feature_type" at the end of _set_layer_schema
         self.assertEqual(default_def.expression(), "@current_feature_type")
+
+    def test_layer_for_parent_feature_type(self):
+        """
+        Test retrieving layers matching a parent feature type
+        """
+        project = QgsProject()
+        fields = QgsFields()
+        layer = self.create_dummy_layer("water_point", fields)
+        layer.setName("water point")
+        self.assertTrue(layer.isValid())
+        project.addMapLayer(layer)
+        layer = self.create_dummy_layer("water", fields)
+        layer.setName("water features")
+        self.assertTrue(layer.isValid())
+        project.addMapLayer(layer)
+        layer = self.create_dummy_layer("water", fields)
+        layer.setName("water read only")
+        layer.setReadOnly(True)
+        self.assertTrue(layer.isValid())
+        project.addMapLayer(layer)
+        layer = self.create_dummy_layer("airport", fields)
+        layer.setName("airports")
+        self.assertTrue(layer.isValid())
+        project.addMapLayer(layer)
+        layer = self.create_dummy_layer("xxyyzz", fields)
+        layer.setName("water_point")
+        self.assertTrue(layer.isValid())
+        project.addMapLayer(layer)
+        layer = self.create_dummy_layer("coastline", fields)
+        layer.setReadOnly(True)
+        self.assertTrue(layer.isValid())
+        project.addMapLayer(layer)
+
+        controller = ProjectController(project, None)
+
+        self.assertIsNone(controller.layer_for_feature_type("x"))
+        # read only layers should not be returned
+        self.assertIsNone(controller.layer_for_feature_type("coastline"))
+        self.assertEqual(
+            controller.layer_for_feature_type("water_point").name(), "water point"
+        )
+        self.assertEqual(
+            controller.layer_for_feature_type("water").name(), "water features"
+        )
+        self.assertEqual(
+            controller.layer_for_feature_type("airport").name(), "airports"
+        )
+        self.assertEqual(
+            controller.layer_for_feature_type("water_point").name(), "water point"
+        )
 
 
 if __name__ == "__main__":

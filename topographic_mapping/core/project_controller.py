@@ -160,3 +160,19 @@ class ProjectController(QObject):
                 feature_types.append(layer_name)
 
         return feature_types
+
+    def layer_for_feature_type(self, parent_feature_type: str) -> QgsVectorLayer | None:
+        """
+        Returns the layer containing features of the specified type
+        """
+        for _, layer in self._project.mapLayers().items():
+            if not isinstance(layer, QgsVectorLayer) or layer.readOnly():
+                continue
+
+            parts = QgsProviderRegistry.instance().decodeUri(
+                layer.providerType(), layer.source()
+            )
+            layer_name = parts.get("layerName")
+            if layer_name == parent_feature_type:
+                return layer
+        return None
