@@ -280,12 +280,26 @@ class ToolDock(QgsDockWidget):
     def _selected_feature_type_changed(
         self, selected: QItemSelection, deselected: QItemSelection
     ):
-        if not self._state_manager:
+        if not self._state_manager or not self._controller:
             return
 
         feature_type = None
+        parent_feature_type = None
         if selected.indexes():
-            feature_type = selected.indexes()[0].data()
+            selected_type_index = self._feature_type_proxy_model.mapToSource(
+                selected.indexes()[0]
+            )
+            parent_feature_type = self._feature_type_model.data(
+                selected_type_index, FeatureTypeTreeModel.PARENT_FEATURE_TYPE_ROLE
+            )
+            feature_type = self._feature_type_model.data(
+                selected_type_index, FeatureTypeTreeModel.FEATURE_TYPE_ROLE
+            )
+
+        target_layer = self._controller.layer_for_feature_type(parent_feature_type)
+        if target_layer:
+            self._state_manager.set_target_layer(target_layer)
+
         self._state_manager.set_current_feature_type(feature_type)
 
 

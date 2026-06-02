@@ -12,8 +12,11 @@ class TreeNode:
     Internal data structure for FeatureTypeTreeModel
     """
 
-    def __init__(self, data, parent: "TreeNode|None" = None):
-        self._data = data
+    def __init__(
+        self, display_text: str, feature_type: str, parent: "TreeNode|None" = None
+    ):
+        self._display_text: str = display_text
+        self._feature_type: str = feature_type
         self._parent: TreeNode | None = parent
         self._children: list[TreeNode] = []
 
@@ -31,8 +34,20 @@ class TreeNode:
     def column_count(self) -> int:
         return 1
 
-    def data(self):
-        return self._data
+    def display_text(self) -> str:
+        return self._display_text
+
+    def feature_type(self) -> str:
+        return self._feature_type
+
+    def parent_feature_type(self) -> str:
+        parent: TreeNode = self
+        # want parents all the way UP to but EXCLUDING the root node (which
+        # has no parent itself)
+        while parent.parent() and parent.parent().parent():
+            parent = parent.parent()
+
+        return parent.feature_type()
 
     def parent(self) -> "TreeNode|None":
         return self._parent
@@ -48,25 +63,37 @@ class FeatureTypeTreeModel(QAbstractItemModel):
     A model which shows the feature type hierarchy in a tree
     """
 
+    FEATURE_TYPE_ROLE = Qt.ItemDataRole.UserRole + 1
+    PARENT_FEATURE_TYPE_ROLE = Qt.ItemDataRole.UserRole + 2
+
     def __init__(self, data_list, parent: QObject | None = None):
         super().__init__(parent)
-        self.root_item = TreeNode("Root")
+        self.root_item = TreeNode("Root", feature_type="")
         self.set_types(data_list, self.root_item)
 
     def set_types(self, data_list, parent_node: TreeNode):
         for item in data_list:
             if isinstance(item, str):
-                node = TreeNode(item, parent_node)
+                feature_type = item
+                node = TreeNode(
+                    display_text=feature_type,
+                    feature_type=feature_type,
+                    parent=parent_node,
+                )
                 parent_node.append_child(node)
 
             elif isinstance(item, dict):
                 for key, values in item.items():
-                    key_node = TreeNode(key, parent_node)
+                    key_node = TreeNode(
+                        display_text=key, feature_type=key, parent=parent_node
+                    )
                     parent_node.append_child(key_node)
 
                     if isinstance(values, list):
                         for val in values:
-                            val_node = TreeNode(str(val), key_node)
+                            val_node = TreeNode(
+                                display_text=(val), feature_type=(val), parent=key_node
+                            )
                             key_node.append_child(val_node)
 
     def index(self, row: int, column: int, parent: QModelIndex = QModelIndex()):
@@ -122,11 +149,16 @@ class FeatureTypeTreeModel(QAbstractItemModel):
         if not index.isValid():
             return None
 
-        if role != Qt.ItemDataRole.DisplayRole:
-            return None
-
-        item = index.internalPointer()
-        return item.data()
+        if role == Qt.ItemDataRole.DisplayRole:
+            item: TreeNode = index.internalPointer()
+            return item.display_text()
+        elif role == self.FEATURE_TYPE_ROLE:
+            item: TreeNode = index.internalPointer()
+            return item.feature_type()
+        elif role == self.PARENT_FEATURE_TYPE_ROLE:
+            item: TreeNode = index.internalPointer()
+            return item.parent_feature_type()
+        return None
 
 
 class FeatureTypeFilterProxyModel(QSortFilterProxyModel):
