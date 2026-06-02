@@ -117,6 +117,10 @@ class ProjectController(QObject):
                 )
                 layer.setDefaultValueDefinition(field_index, default_value)
 
+            if name == "feature_type":
+                default_value = QgsDefaultValue("@current_feature_type")
+                layer.setDefaultValueDefinition(field_index, default_value)
+
             layer.setEditorWidgetSetup(field_index, edit_widget_setup)
 
         layer.setEditFormConfig(edit_form_config)
