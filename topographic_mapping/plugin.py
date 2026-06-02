@@ -40,7 +40,6 @@ class TopographicMappingPlugin:
         self.iface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._tool_dock)
 
         self._tool_registry.populate_tool_dock(self._tool_dock)
-        self._setup_state_manager()
 
         self._set_target_tool = SetTargetTool(self.iface.mapCanvas())
         self._set_target_tool_handler = SetTargetToolHandler(
@@ -50,12 +49,7 @@ class TopographicMappingPlugin:
         self._set_target_tool.target_set.connect(self._state_manager.set_edit_target)
 
         self._tool_dock.set_project_controller(self._project_controller)
-
-    def _setup_state_manager(self):
-        self._state_manager.target_layer_changed.connect(
-            self._tool_dock.set_target_layer
-        )
-        self._tool_dock.target_layer_set.connect(self._state_manager.set_target_layer)
+        self._tool_dock.set_state_manager(self._state_manager)
 
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""

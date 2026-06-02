@@ -26,7 +26,7 @@ from qgis.gui import (
 
 from .feature_type_model import FeatureTypeTreeModel, FeatureTypeFilterProxyModel
 from .responsive_table_widget import ResponsiveTableWidget
-from ..core import ProjectController
+from ..core import ProjectController, StateManager
 from topographic_mapping.settings import FAVORITES
 
 
@@ -41,6 +41,7 @@ class ToolDock(QgsDockWidget):
         super().__init__(parent)
 
         self._controller: ProjectController | None = None
+        self._state_manager: StateManager | None = None
 
         self._vlayout = QVBoxLayout()
         self._vlayout.setContentsMargins(0, 10, 6, 0)
@@ -104,6 +105,12 @@ class ToolDock(QgsDockWidget):
     def set_project_controller(self, controller: ProjectController):
         self._controller = controller
         self._set_feature_types(controller.feature_types)
+
+    def set_state_manager(self, state_manager: StateManager):
+        self._state_manager = state_manager
+
+        self._state_manager.target_layer_changed.connect(self.set_target_layer)
+        self.target_layer_set.connect(self._state_manager.set_target_layer)
 
     def _set_feature_types(self, feature_types):
         self._feature_type_model = FeatureTypeTreeModel(feature_types, self)
@@ -273,13 +280,13 @@ class ToolDock(QgsDockWidget):
     def _selected_feature_type_changed(
         self, selected: QItemSelection, deselected: QItemSelection
     ):
-        if not self._controller:
+        if not self._state_manager:
             return
 
         feature_type = None
         if selected.indexes():
             feature_type = selected.indexes()[0].data()
-        self._controller.set_current_feature_type(feature_type)
+        self._state_manager.set_current_feature_type(feature_type)
 
 
 # locator

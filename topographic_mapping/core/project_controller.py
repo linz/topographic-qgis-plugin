@@ -14,12 +14,12 @@ from qgis.core import (
     QgsExpressionContextUtils,
 )
 
+from .constants import CURRENT_FEATURE_TYPE_VAR_NAME
+
 SCHEMAS_DIR = Path(__file__) / ".." / ".." / "schemas"
 
 
 class ProjectController(QObject):
-    current_feature_type_var_name = "current_feature_type"
-
     def __init__(self, project: QgsProject, parent: QObject | None):
         super().__init__(parent)
 
@@ -121,9 +121,7 @@ class ProjectController(QObject):
                 layer.setDefaultValueDefinition(field_index, default_value)
 
             if name == "feature_type":
-                default_value = QgsDefaultValue(
-                    f"@{self.current_feature_type_var_name}"
-                )
+                default_value = QgsDefaultValue(f"@{CURRENT_FEATURE_TYPE_VAR_NAME}")
                 layer.setDefaultValueDefinition(field_index, default_value)
 
             layer.setEditorWidgetSetup(field_index, edit_widget_setup)
@@ -162,11 +160,3 @@ class ProjectController(QObject):
                 feature_types.append(layer_name)
 
         return feature_types
-
-    def set_current_feature_type(self, feature_type: str | None):
-        """
-        Sets the current feature type
-        """
-        QgsExpressionContextUtils.setProjectVariable(
-            self._project, self.current_feature_type_var_name, feature_type
-        )
