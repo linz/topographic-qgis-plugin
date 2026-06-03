@@ -1,5 +1,4 @@
 from qgis.PyQt.QtCore import Qt, QCoreApplication, QObject
-from qgis.PyQt.QtWidgets import QAction
 
 from qgis.core import QgsSettingsTree, QgsProject
 from qgis.gui import QgisInterface
