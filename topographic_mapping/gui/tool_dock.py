@@ -68,6 +68,7 @@ class ToolDock(QgsDockWidget):
 
         self._digitize_widget = QWidget()
         digitize_vl = QVBoxLayout()
+        digitize_vl.setContentsMargins(0, 0, 0, 0)
         digitize_vl.addWidget(QLabel("New feature type"))
         self._filter_types_widget = QgsFilterLineEdit()
         self._filter_types_widget.setShowSearchIcon(True)
@@ -149,7 +150,11 @@ class ToolDock(QgsDockWidget):
         group_box_layout.setContentsMargins(0, 0, 0, 0)
         group_box.setLayout(group_box_layout)
 
-        self._vlayout.insertWidget(self._vlayout.count() - 3, group_box)
+        if group_title == "Digitize feature":
+            insert_index = self._vlayout.count() - 1
+        else:
+            insert_index = self._vlayout.count() - 3
+        self._vlayout.insertWidget(insert_index, group_box)
         group_widget = ResponsiveTableWidget()
         group_box_layout.addWidget(group_widget)
         self._tool_groups[group_title] = group_widget
