@@ -56,8 +56,13 @@ class ProjectController(QObject):
         if not layer:
             return
 
+        unsaved_changed_attributes = (
+            layer.editBuffer().changedAttributeValues().get(fid, {})
+        )
+
         change_type_index = layer.fields().lookupField("change_type")
         version_index = layer.fields().lookupField("version")
+        has_already_changed_version = version_index in unsaved_changed_attributes
         feature = layer.getFeature(fid)
         current_change_type = feature[change_type_index]
         current_version = feature[version_index]
@@ -67,7 +72,9 @@ class ProjectController(QObject):
         elif current_change_type == "modified attributes":
             new_change_type = "modified geometry and att"
 
-        changes: dict[int, object] = {version_index: (current_version or 0) + 1}
+        changes: dict[int, object] = {}
+        if not has_already_changed_version:
+            changes[version_index] = (current_version or 0) + 1
 
         if new_change_type:
             changes[change_type_index] = new_change_type
@@ -83,8 +90,15 @@ class ProjectController(QObject):
         if field_name in ("version", "update_date", "change_type"):
             return
 
+        unsaved_changed_attributes = (
+            layer.editBuffer().changedAttributeValues().get(fid, {})
+        )
+
         change_type_index = layer.fields().lookupField("change_type")
         version_index = layer.fields().lookupField("version")
+
+        has_already_changed_version = version_index in unsaved_changed_attributes
+
         feature = layer.getFeature(fid)
         current_change_type = feature[change_type_index]
         current_version = feature[version_index]
@@ -94,7 +108,9 @@ class ProjectController(QObject):
         elif current_change_type == "modified geometry":
             new_change_type = "modified geometry and att"
 
-        changes: dict[int, object] = {version_index: (current_version or 0) + 1}
+        changes: dict[int, object] = {}
+        if not has_already_changed_version:
+            changes[version_index] = (current_version or 0) + 1
 
         if new_change_type:
             changes[change_type_index] = new_change_type

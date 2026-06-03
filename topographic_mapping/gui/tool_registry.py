@@ -117,19 +117,19 @@ TOOLS = {
         DigitizeTechniqueAction(
             "Digitize Straight Segments",
             ["mActionAddFeature", "mActionDigitizeWithSegment"],
-            "duplicate.svg",
+            "digitize_segment.svg",
             "Digitize feature with straight line segments.",
         ),
         DigitizeTechniqueAction(
             "Digitize With Circular String",
             ["mActionAddFeature", "mActionDigitizeWithCurve"],
-            "duplicate.svg",
+            "digitize_curve.svg",
             "Digitize feature with circular strings.",
         ),
         DigitizeTechniqueAction(
             "Digitize With Bezier",
             ["mActionAddFeature", "mActionDigitizeWithBezier"],
-            "duplicate.svg",
+            "digitize_bezier.svg",
             "Digitize feature with bezier curves.",
         ),
     ],
