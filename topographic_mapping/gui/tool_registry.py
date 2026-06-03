@@ -121,6 +121,12 @@ TOOLS = {
             "Digitize feature with straight line segments.",
         ),
         DigitizeTechniqueAction(
+            "Digitize With Circular String",
+            ["mActionAddFeature", "mActionDigitizeWithCurve"],
+            "duplicate.svg",
+            "Digitize feature with circular strings.",
+        ),
+        DigitizeTechniqueAction(
             "Digitize With Bezier",
             ["mActionAddFeature", "mActionDigitizeWithBezier"],
             "duplicate.svg",
@@ -156,9 +162,6 @@ class ToolRegistry(QObject):
         return title.replace(" ", "")
 
     def init(self, iface: QgisInterface):
-
-        fallback_action = iface.actionPan()
-
         for group, actions in TOOLS.items():
             for action in actions:
                 if isinstance(action, Action):
