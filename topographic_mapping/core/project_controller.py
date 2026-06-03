@@ -12,7 +12,7 @@ from qgis.core import (
     QgsDefaultValue,
     QgsExpression,
     QgsValueMapFieldFormatter,
-    QgsExpressionContextUtils,
+    QgsGeometry,
 )
 
 from .constants import CURRENT_FEATURE_TYPE_VAR_NAME
@@ -32,6 +32,9 @@ class ProjectController(QObject):
         self.feature_types = self._collect_feature_types()
 
     def _initialize_layer(self, layer: QgsMapLayer):
+        if not isinstance(layer, QgsVectorLayer):
+            return
+
         parts = QgsProviderRegistry.instance().decodeUri(
             layer.providerType(), layer.source()
         )
@@ -44,6 +47,59 @@ class ProjectController(QObject):
             with open(schema_file, "rt") as f:
                 contents = json.loads(f.read())
             self._set_layer_schema(layer, contents)
+
+        layer.geometryChanged.connect(self._on_layer_geom_changed)
+        layer.attributeValueChanged.connect(self._on_layer_attr_changed)
+
+    def _on_layer_geom_changed(self, fid: int, geometry: QgsGeometry):
+        layer: QgsVectorLayer = self.sender()
+        if not layer:
+            return
+
+        change_type_index = layer.fields().lookupField("change_type")
+        version_index = layer.fields().lookupField("version")
+        feature = layer.getFeature(fid)
+        current_change_type = feature[change_type_index]
+        current_version = feature[version_index]
+        new_change_type = None
+        if current_change_type == "new":
+            new_change_type = "modified geometry"
+        elif current_change_type == "modified attributes":
+            new_change_type = "modified geometry and att"
+
+        changes: dict[int, object] = {version_index: (current_version or 0) + 1}
+
+        if new_change_type:
+            changes[change_type_index] = new_change_type
+
+        layer.changeAttributeValues(fid, changes)
+
+    def _on_layer_attr_changed(self, fid: int, field_index: int, value):
+        layer: QgsVectorLayer = self.sender()
+        if not layer:
+            return
+
+        field_name = layer.fields().at(field_index).name()
+        if field_name in ("version", "update_date", "change_type"):
+            return
+
+        change_type_index = layer.fields().lookupField("change_type")
+        version_index = layer.fields().lookupField("version")
+        feature = layer.getFeature(fid)
+        current_change_type = feature[change_type_index]
+        current_version = feature[version_index]
+        new_change_type = None
+        if current_change_type == "new":
+            new_change_type = "modified attributes"
+        elif current_change_type == "modified geometry":
+            new_change_type = "modified geometry and att"
+
+        changes: dict[int, object] = {version_index: (current_version or 0) + 1}
+
+        if new_change_type:
+            changes[change_type_index] = new_change_type
+
+        layer.changeAttributeValues(fid, changes)
 
     def _set_layer_schema(self, layer: QgsVectorLayer, schema: dict):
         properties = schema["properties"]
@@ -142,14 +198,7 @@ class ProjectController(QObject):
                 default_value.setApplyOnUpdate(True)
                 layer.setDefaultValueDefinition(field_index, default_value)
             elif name == "change_type":
-                default_value = QgsDefaultValue(
-                    """CASE WHEN "change_type" IS NULL THEN 'new' ELSE 'update' END"""
-                )
-                default_value.setApplyOnUpdate(True)
-                layer.setDefaultValueDefinition(field_index, default_value)
-            elif name == "version":
-                default_value = QgsDefaultValue('coalesce("version",0) + 1')
-                default_value.setApplyOnUpdate(True)
+                default_value = QgsDefaultValue("'new'")
                 layer.setDefaultValueDefinition(field_index, default_value)
 
             layer.setEditorWidgetSetup(field_index, edit_widget_setup)
