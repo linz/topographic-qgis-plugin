@@ -97,7 +97,7 @@ class TestProjectController(TopographicTestBase):
         self.assertIn({"soakhole": "soakhole"}, status_map)
         self.assertIn({"<NULL>": QgsValueMapFieldFormatter.NULL_VALUE}, status_map)
 
-        default_def = layer.defaultValueDefinition(feature_type_setup)
+        default_def = layer.defaultValueDefinition(feature_type_idx)
         # Because the field is named "feature_type", it explicitly gets overridden
         # to "@current_feature_type" at the end of _set_layer_schema
         self.assertEqual(default_def.expression(), "@current_feature_type")
