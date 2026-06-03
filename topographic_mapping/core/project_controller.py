@@ -3,6 +3,7 @@ from pathlib import Path
 from qgis.PyQt.QtCore import QObject
 
 from qgis.core import (
+    Qgis,
     QgsProject,
     QgsMapLayer,
     QgsProviderRegistry,
@@ -120,8 +121,35 @@ class ProjectController(QObject):
                 )
                 layer.setDefaultValueDefinition(field_index, default_value)
 
+            # special logic that overrides schema settings:
             if name == "feature_type":
                 default_value = QgsDefaultValue(f"@{CURRENT_FEATURE_TYPE_VAR_NAME}")
+                layer.setDefaultValueDefinition(field_index, default_value)
+            elif name == "topo_id":
+                default_value = QgsDefaultValue("uuid('WithoutBraces')")
+                layer.setDefaultValueDefinition(field_index, default_value)
+                layer.setFieldSplitPolicy(
+                    field_index, Qgis.FieldDomainSplitPolicy.DefaultValue
+                )
+                layer.setFieldMergePolicy(
+                    field_index, Qgis.FieldDomainMergePolicy.LargestGeometry
+                )
+            elif name == "create_date":
+                default_value = QgsDefaultValue("now()")
+                layer.setDefaultValueDefinition(field_index, default_value)
+            elif name == "update_date":
+                default_value = QgsDefaultValue("now()")
+                default_value.setApplyOnUpdate(True)
+                layer.setDefaultValueDefinition(field_index, default_value)
+            elif name == "change_type":
+                default_value = QgsDefaultValue(
+                    """CASE WHEN "change_type" IS NULL THEN 'new' ELSE 'update' END"""
+                )
+                default_value.setApplyOnUpdate(True)
+                layer.setDefaultValueDefinition(field_index, default_value)
+            elif name == "version":
+                default_value = QgsDefaultValue('coalesce("version",0) + 1')
+                default_value.setApplyOnUpdate(True)
                 layer.setDefaultValueDefinition(field_index, default_value)
 
             layer.setEditorWidgetSetup(field_index, edit_widget_setup)
