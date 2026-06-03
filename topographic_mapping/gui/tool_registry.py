@@ -132,6 +132,12 @@ TOOLS = {
             "digitize_bezier.svg",
             "Digitize feature with bezier curves.",
         ),
+        DigitizeTechniqueAction(
+            "Stream Digitize",
+            ["mActionAddFeature", "mActionStreamDigitize"],
+            "digitize_stream.svg",
+            "Digitize features immediately as mouse moves.",
+        ),
     ],
 }
 
