@@ -1,7 +1,7 @@
 from typing import Optional
 
 from qgis.PyQt.QtCore import Qt, QSize, QEvent, pyqtSignal, QItemSelection
-from qgis.PyQt.QtGui import QPalette, QCursor
+from qgis.PyQt.QtGui import QPalette, QCursor, QFontMetrics
 from qgis.PyQt.QtWidgets import (
     QToolButton,
     QActionGroup,
@@ -14,6 +14,8 @@ from qgis.PyQt.QtWidgets import (
     QGroupBox,
     QMenu,
     QTreeView,
+    QScrollArea,
+    QFrame,
 )
 from qgis.core import Qgis, QgsVectorLayer, QgsMapLayer
 from qgis.gui import (
@@ -42,6 +44,12 @@ class ToolDock(QgsDockWidget):
 
         self._controller: ProjectController | None = None
         self._state_manager: StateManager | None = None
+
+        scroll_area = QScrollArea()
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setSizeAdjustPolicy(QScrollArea.SizeAdjustPolicy.AdjustToContents)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
 
         self._vlayout = QVBoxLayout()
         self._vlayout.setContentsMargins(0, 10, 6, 0)
@@ -81,14 +89,21 @@ class ToolDock(QgsDockWidget):
         self._feature_type_proxy_model: FeatureTypeFilterProxyModel | None = None
         self._filter_types_widget.cleared.connect(self._feature_type_view.expandAll)
 
+        fm = QFontMetrics(self.font())
+        self._feature_type_view.setFixedHeight(fm.height() * 20)
+
         digitize_vl.addWidget(self._feature_type_view, 1)
         self._digitize_widget.setLayout(digitize_vl)
         self._vlayout.addWidget(self._digitize_widget)
+        self._digitize_description_label = QLabel()
+        self._digitize_description_label.setWordWrap(True)
+        self._vlayout.addWidget(self._digitize_description_label)
 
         self._vlayout.addStretch()
-        _widget = QWidget(self)
+        _widget = QWidget()
         _widget.setLayout(self._vlayout)
-        self.setWidget(_widget)
+        scroll_area.setWidget(_widget)
+        self.setWidget(scroll_area)
 
         self._tool_groups = {}
 
@@ -138,7 +153,10 @@ class ToolDock(QgsDockWidget):
         return label
 
     def _create_tool_group(
-        self, group_title: str, collapsible: bool = True
+        self,
+        group_title: str,
+        collapsible: bool = True,
+        is_digitizing_group: bool = False,
     ) -> ResponsiveTableWidget:
         if collapsible:
             group_box = QgsCollapsibleGroupBox(group_title)
@@ -150,10 +168,10 @@ class ToolDock(QgsDockWidget):
         group_box_layout.setContentsMargins(0, 0, 0, 0)
         group_box.setLayout(group_box_layout)
 
-        if group_title == "Digitize feature":
-            insert_index = self._vlayout.count() - 1
+        if is_digitizing_group:
+            insert_index = self._vlayout.count() - 2
         else:
-            insert_index = self._vlayout.count() - 3
+            insert_index = self._vlayout.count() - 4
         self._vlayout.insertWidget(insert_index, group_box)
         group_widget = ResponsiveTableWidget()
         group_box_layout.addWidget(group_widget)
@@ -161,7 +179,10 @@ class ToolDock(QgsDockWidget):
         return group_widget
 
     def _create_button_for_action(
-        self, action: QAction, descriptive_string: Optional[str]
+        self,
+        action: QAction,
+        descriptive_string: Optional[str],
+        is_digitizing_action: bool = False,
     ):
         btn = QToolButton()
         btn.setDefaultAction(action)
@@ -172,6 +193,9 @@ class ToolDock(QgsDockWidget):
         btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         btn.installEventFilter(self)
         btn.setProperty("description", descriptive_string)
+        btn.setProperty("is_digitizing_action", is_digitizing_action)
+        if is_digitizing_action:
+            btn.setProperty("_no_favorite", True)
         btn.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         btn.customContextMenuRequested.connect(self._create_context_menu)
         return btn
@@ -240,6 +264,7 @@ class ToolDock(QgsDockWidget):
         action: QAction,
         group_title: str,
         descriptive_string: Optional[str] = None,
+        is_digitizing_action: bool = False,
     ):
         """
         Adds a tool action to the toolbox
@@ -248,9 +273,13 @@ class ToolDock(QgsDockWidget):
         self._actions.append(action)
         tool_group_widget = self._tool_groups.get(group_title)
         if not tool_group_widget:
-            tool_group_widget = self._create_tool_group(group_title)
+            tool_group_widget = self._create_tool_group(
+                group_title, is_digitizing_group=is_digitizing_action
+            )
 
-        btn = self._create_button_for_action(action, descriptive_string)
+        btn = self._create_button_for_action(
+            action, descriptive_string, is_digitizing_action=is_digitizing_action
+        )
         tool_group_widget.push_widget(btn)
 
         if action.objectName() in self._favorites:
@@ -261,14 +290,26 @@ class ToolDock(QgsDockWidget):
     def eventFilter(self, obj, event):
         if isinstance(obj, QToolButton):
             if event.type() == QEvent.Type.Enter:
+                is_digitizing_action = obj.property("is_digitizing_action")
+                target_label = (
+                    self._digitize_description_label
+                    if is_digitizing_action
+                    else self._description_label
+                )
                 description = obj.property("description")
                 shortcut = obj.defaultAction().shortcut()
                 if not shortcut.isEmpty():
                     description += f"<br>(<i>{shortcut.toString()}</i>)"
 
-                self._description_label.setText(description)
+                target_label.setText(description)
             elif event.type() == QEvent.Type.Leave:
-                self._description_label.clear()
+                is_digitizing_action = obj.property("is_digitizing_action")
+                target_label = (
+                    self._digitize_description_label
+                    if is_digitizing_action
+                    else self._description_label
+                )
+                target_label.clear()
 
         return super().eventFilter(obj, event)
 

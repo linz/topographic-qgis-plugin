@@ -244,7 +244,12 @@ class ToolRegistry(QObject):
                 continue
 
             for action in actions:
-                dock.add_tool_action(action, group, action.property("description"))
+                dock.add_tool_action(
+                    action,
+                    group,
+                    action.property("description"),
+                    is_digitizing_action=group == DIGITIZING_GROUP,
+                )
 
     def register_shortcuts(self):
         for group, actions in self._actions.items():

@@ -114,7 +114,4 @@ class DigitizeTechniqueProxyAction(QAction):
         self.blockSignals(False)
 
     def _source_action_enable_changed(self):
-        all_enabled = True
-        for source_action in self._source_actions:
-            all_enabled &= source_action.isEnabled()
-        self.setEnabled(all_enabled)
+        self.setEnabled(self._source_actions[0].isEnabled())
