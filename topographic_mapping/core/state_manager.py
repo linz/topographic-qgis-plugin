@@ -4,10 +4,11 @@ StateManager: Manages project and editing states
 
 from qgis.PyQt.QtCore import QObject, pyqtSignal
 
-from qgis.core import QgsMapLayer, QgsVectorLayer, QgsProject
+from qgis.core import QgsMapLayer, QgsVectorLayer, QgsProject, QgsExpressionContextUtils
 from qgis.gui import QgisInterface
 
 from .layer_utils import LayerUtils
+from .constants import CURRENT_FEATURE_TYPE_VAR_NAME
 
 
 class StateManager(QObject):
@@ -72,3 +73,11 @@ class StateManager(QObject):
 
         self._current_target_layer = target_layer
         self.target_layer_changed.emit(self._current_target_layer)
+
+    def set_current_feature_type(self, feature_type: str | None):
+        """
+        Sets the current feature type
+        """
+        QgsExpressionContextUtils.setProjectVariable(
+            self._project, CURRENT_FEATURE_TYPE_VAR_NAME, feature_type
+        )

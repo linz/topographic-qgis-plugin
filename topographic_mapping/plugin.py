@@ -5,7 +5,7 @@ from qgis.core import QgsSettingsTree, QgsProject
 from qgis.gui import QgisInterface
 
 from .gui import ToolDock, ToolRegistry, SetTargetTool, SetTargetToolHandler
-from .core import StateManager
+from .core import StateManager, ProjectController
 
 
 class TopographicMappingPlugin:
@@ -18,8 +18,12 @@ class TopographicMappingPlugin:
         self._state_manager: StateManager | None = None
         self._set_target_tool: SetTargetTool | None = None
         self._set_target_tool_handler: SetTargetToolHandler | None = None
+        self._project_controller: ProjectController | None = None
 
     def initGui(self) -> None:
+        self._project_controller = ProjectController(
+            QgsProject.instance(), self._gui_owner
+        )
         self._state_manager = StateManager(self.iface, QgsProject.instance())
         self._tool_registry = ToolRegistry(self._gui_owner)
 
@@ -36,7 +40,6 @@ class TopographicMappingPlugin:
         self.iface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._tool_dock)
 
         self._tool_registry.populate_tool_dock(self._tool_dock)
-        self._setup_state_manager()
 
         self._set_target_tool = SetTargetTool(self.iface.mapCanvas())
         self._set_target_tool_handler = SetTargetToolHandler(
@@ -45,11 +48,8 @@ class TopographicMappingPlugin:
         self.iface.registerMapToolHandler(self._set_target_tool_handler)
         self._set_target_tool.target_set.connect(self._state_manager.set_edit_target)
 
-    def _setup_state_manager(self):
-        self._state_manager.target_layer_changed.connect(
-            self._tool_dock.set_target_layer
-        )
-        self._tool_dock.target_layer_set.connect(self._state_manager.set_target_layer)
+        self._tool_dock.set_project_controller(self._project_controller)
+        self._tool_dock.set_state_manager(self._state_manager)
 
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""

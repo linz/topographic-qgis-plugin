@@ -6,7 +6,7 @@ from qgis.PyQt.QtWidgets import QAction
 from qgis.gui import QgisInterface, QgsGui
 
 from .gui_utils import GuiUtils
-from .proxy_action import ProxyAction
+from .proxy_action import ProxyAction, CompoundProxyAction, DigitizeTechniqueProxyAction
 from .tool_dock import ToolDock
 
 
@@ -22,7 +22,33 @@ class Action:
     description: str
 
 
+@dataclass
+class CompoundAction:
+    """
+    Encapsulates a compound action, where multiple actions
+    must be checked to trigger the overall action
+    """
+
+    title: str
+    qgis_action_names: list[str]
+    icon: str
+    description: str
+
+
+@dataclass
+class DigitizeTechniqueAction:
+    """
+    Encapsulates a digitizing technique action
+    """
+
+    title: str
+    qgis_action_names: list[str]
+    icon: str
+    description: str
+
+
 EDITING_GROUP = "Topographic editing"
+DIGITIZING_GROUP = "Digitize feature"
 
 TOOLS = {
     EDITING_GROUP: [
@@ -86,7 +112,33 @@ TOOLS = {
             "duplicate.svg",
             "Duplicate single or multiple features.",
         ),
-    ]
+    ],
+    DIGITIZING_GROUP: [
+        DigitizeTechniqueAction(
+            "Digitize Straight Segments",
+            ["mActionAddFeature", "mActionDigitizeWithSegment"],
+            "digitize_segment.svg",
+            "Digitize feature with straight line segments.",
+        ),
+        DigitizeTechniqueAction(
+            "Digitize With Circular String",
+            ["mActionAddFeature", "mActionDigitizeWithCurve"],
+            "digitize_curve.svg",
+            "Digitize feature with circular strings.",
+        ),
+        DigitizeTechniqueAction(
+            "Digitize With Bezier",
+            ["mActionAddFeature", "mActionDigitizeWithBezier"],
+            "digitize_bezier.svg",
+            "Digitize feature with bezier curves.",
+        ),
+        DigitizeTechniqueAction(
+            "Stream Digitize",
+            ["mActionAddFeature", "mActionStreamDigitize"],
+            "digitize_stream.svg",
+            "Digitize features immediately as mouse moves.",
+        ),
+    ],
 }
 
 
@@ -116,30 +168,84 @@ class ToolRegistry(QObject):
         return title.replace(" ", "")
 
     def init(self, iface: QgisInterface):
-
-        fallback_action = iface.actionPan()
-
         for group, actions in TOOLS.items():
             for action in actions:
-                source_action: QAction = iface.mainWindow().findChild(
-                    QAction, action.qgis_action_name
-                )
-                proxy_action = ProxyAction(
-                    action.title,
-                    source_action=source_action,
-                    fallback_action=fallback_action,
-                    parent=self,
-                )
-                proxy_action.setObjectName(
-                    ToolRegistry.title_to_object_name(action.title)
-                )
-                proxy_action.setCheckable(source_action.isCheckable())
-                proxy_action.setIcon(GuiUtils.get_colorized_icon(action.icon))
+                if isinstance(action, Action):
+                    self._process_action(action, group, iface)
+                elif isinstance(action, CompoundAction):
+                    self._process_compound_action(action, group, iface)
+                elif isinstance(action, DigitizeTechniqueAction):
+                    self._process_digitize_technique_action(action, group, iface)
+                else:
+                    assert False
 
-                assert action.description[-1] == "."
-                assert action.description[0].isupper()
-                proxy_action.setProperty("description", action.description)
-                self._actions[group].append(proxy_action)
+    def _process_action(self, action: Action, group: str, iface: QgisInterface):
+        source_action: QAction = iface.mainWindow().findChild(
+            QAction, action.qgis_action_name
+        )
+        fallback_action = iface.actionPan()
+        proxy_action = ProxyAction(
+            action.title,
+            source_action=source_action,
+            fallback_action=fallback_action,
+            parent=self,
+        )
+        proxy_action.setObjectName(ToolRegistry.title_to_object_name(action.title))
+        proxy_action.setCheckable(source_action.isCheckable())
+        proxy_action.setIcon(GuiUtils.get_colorized_icon(action.icon))
+
+        assert action.description[-1] == "."
+        assert action.description[0].isupper()
+        proxy_action.setProperty("description", action.description)
+        self._actions[group].append(proxy_action)
+
+    def _process_compound_action(
+        self, action: CompoundAction, group: str, iface: QgisInterface
+    ):
+        source_actions: list[QAction] = [
+            iface.mainWindow().findChild(QAction, qgis_action_name)
+            for qgis_action_name in action.qgis_action_names
+        ]
+
+        fallback_action = iface.actionPan()
+        proxy_action = CompoundProxyAction(
+            action.title,
+            source_actions=source_actions,
+            fallback_action=fallback_action,
+            parent=self,
+        )
+        proxy_action.setObjectName(ToolRegistry.title_to_object_name(action.title))
+        proxy_action.setCheckable(True)
+        proxy_action.setIcon(GuiUtils.get_colorized_icon(action.icon))
+
+        assert action.description[-1] == "."
+        assert action.description[0].isupper()
+        proxy_action.setProperty("description", action.description)
+        self._actions[group].append(proxy_action)
+
+    def _process_digitize_technique_action(
+        self, action: DigitizeTechniqueAction, group: str, iface: QgisInterface
+    ):
+        source_actions: list[QAction] = [
+            iface.mainWindow().findChild(QAction, qgis_action_name)
+            for qgis_action_name in action.qgis_action_names
+        ]
+
+        fallback_action = iface.actionPan()
+        proxy_action = DigitizeTechniqueProxyAction(
+            action.title,
+            source_actions=source_actions,
+            fallback_action=fallback_action,
+            parent=self,
+        )
+        proxy_action.setObjectName(ToolRegistry.title_to_object_name(action.title))
+        proxy_action.setCheckable(True)
+        proxy_action.setIcon(GuiUtils.get_colorized_icon(action.icon))
+
+        assert action.description[-1] == "."
+        assert action.description[0].isupper()
+        proxy_action.setProperty("description", action.description)
+        self._actions[group].append(proxy_action)
 
     def populate_tool_dock(self, dock: ToolDock):
         for group, actions in self._actions.items():
@@ -147,7 +253,12 @@ class ToolRegistry(QObject):
                 continue
 
             for action in actions:
-                dock.add_tool_action(action, group, action.property("description"))
+                dock.add_tool_action(
+                    action,
+                    group,
+                    action.property("description"),
+                    is_digitizing_action=group == DIGITIZING_GROUP,
+                )
 
     def register_shortcuts(self):
         for group, actions in self._actions.items():
