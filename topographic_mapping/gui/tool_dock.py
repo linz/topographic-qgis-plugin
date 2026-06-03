@@ -69,9 +69,11 @@ class ToolDock(QgsDockWidget):
         hl.addWidget(self._activate_edit_target_tool_button)
 
         self._vlayout.addLayout(hl)
+        fm = QFontMetrics(self.font())
 
         self._description_label = QLabel()
         self._description_label.setWordWrap(True)
+        self._description_label.setMinimumHeight(fm.height() * 2)
         self._vlayout.addWidget(self._description_label)
 
         self._digitize_widget = QWidget()
@@ -89,7 +91,6 @@ class ToolDock(QgsDockWidget):
         self._feature_type_proxy_model: FeatureTypeFilterProxyModel | None = None
         self._filter_types_widget.cleared.connect(self._feature_type_view.expandAll)
 
-        fm = QFontMetrics(self.font())
         self._feature_type_view.setFixedHeight(fm.height() * 20)
 
         digitize_vl.addWidget(self._feature_type_view, 1)
