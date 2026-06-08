@@ -2,6 +2,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import List, Dict
 from functools import partial
+from enum import Enum, auto
 
 from qgis.PyQt.QtCore import QObject
 from qgis.PyQt.QtWidgets import QAction
@@ -53,13 +54,37 @@ class DigitizeTechniqueAction:
     geometry_types: list[Qgis.GeometryType]
 
 
+class PluginTool(Enum):
+    """
+    Enum representing inbuilt (plugin specific) tools
+    """
+
+    MarkupSelected = auto()
+    GoToNextMarkup = auto()
+    GoToPreviousMarkup = auto()
+    ToggleSelectedMarkup = auto()
+    DeleteCheckedMarkup = auto()
+    ClearMarkup = auto()
+    ReconsiderMarkup = auto()
+
+    ChangeFeatureClass = auto()
+    PastryDelete = auto()
+    PastryCut = auto()
+    ClearProductEdits = auto()
+
+    SelectLabels = auto()
+    CreateLabel = auto()
+    ResetLabel = auto()
+    RewrapLabel = auto()
+
+
 @dataclass
 class CustomAction:
     """
     Encapsulates a custom (plugin specific) action (currently single-shot actions only)
     """
 
-    id: str
+    id: PluginTool
     title: str
     icon: str
     description: str
@@ -69,15 +94,8 @@ class CustomAction:
 EDITING_GROUP = "Topographic editing"
 DIGITIZING_GROUP = "Digitize feature"
 LABELING_GROUP = "Labeling"
+MARKUP_GROUP = "Markup"
 
-CHANGE_FEATURE_CLASS_ACTION = "CHANGE_FEATURE_CLASS_ACTION"
-PASTRY_DELETE_ACTION = "PASTRY_DELETE_ACTION"
-PASTRY_CUT_ACTION = "PASTRY_CUT_ACTION"
-CLEAR_PRODUCT_EDITS = "CLEAR_PRODUCT_EDITS"
-SELECT_LABELS_ACTION = "SELECT_LABELS_ACTION"
-CREATE_LABEL_ACTION = "CREATE_LABEL_ACTION"
-RESET_LABEL_ACTION = "RESET_LABEL_ACTION"
-REWRAP_LABEL_ACTION = "REWRAP_LABEL_ACTION"
 
 TOOLS = {
     EDITING_GROUP: [
@@ -88,7 +106,7 @@ TOOLS = {
             "Populate or modify feature attributes.",
         ),
         CustomAction(
-            CHANGE_FEATURE_CLASS_ACTION,
+            PluginTool.ChangeFeatureClass,
             "Change Class of Feature",
             "change_class.svg",
             "Change class of selected features.",
@@ -173,21 +191,21 @@ TOOLS = {
             "Change direction of line feature.",
         ),
         CustomAction(
-            PASTRY_DELETE_ACTION,
+            PluginTool.PastryDelete,
             "Pastry Delete",
             "pastry_delete.svg",
             "Remove parts of an object which intersect a related feature.",
             requires_selection=True,
         ),
         CustomAction(
-            PASTRY_CUT_ACTION,
+            PluginTool.PastryCut,
             "Pastry Cut",
             "pastry_cut.svg",
             "Split features using other features as cutting lines.",
             requires_selection=True,
         ),
         CustomAction(
-            CLEAR_PRODUCT_EDITS,
+            PluginTool.ChangeFeatureClass,
             "Clear Product Data Edits",
             "delete_product_view.svg",
             "Clears the product view specific edits for the selected features.",
@@ -233,28 +251,48 @@ TOOLS = {
     ],
     LABELING_GROUP: [
         CustomAction(
-            SELECT_LABELS_ACTION,
+            PluginTool.SelectLabels,
             "Select Labels",
             "select_label.svg",
             "Selects labels.",
         ),
         CustomAction(
-            CREATE_LABEL_ACTION,
+            PluginTool.CreateLabel,
             "Create Label",
             "create_label.svg",
             "Creates labels for the selected features.",
         ),
         CustomAction(
-            RESET_LABEL_ACTION,
+            PluginTool.ResetLabel,
             "Reset Label",
             "reset_label.svg",
             "Resets selected labels to their default appearance.",
         ),
         CustomAction(
-            REWRAP_LABEL_ACTION,
+            PluginTool.RewrapLabel,
             "Rewrap Label",
             "reset_label.svg",
             "Rewraps label text.",
+        ),
+    ],
+    MARKUP_GROUP: [
+        CustomAction(
+            PluginTool.MarkupSelected,
+            "Markup Selected Features",
+            "duplicate.svg",
+            "Creates markups for all selected features.",
+        ),
+        CustomAction(
+            PluginTool.GoToNextMarkup,
+            "Goto Next Markup",
+            "duplicate.svg",
+            "Navigate to the next markup.",
+        ),
+        CustomAction(
+            PluginTool.GoToPreviousMarkup,
+            "Goto Previous Markup",
+            "duplicate.svg",
+            "Navigate to the previous markup.",
         ),
     ],
 }
@@ -281,7 +319,7 @@ class ToolRegistry(QObject):
             "Sets the current edit target by selecting features on the map",
         )
         self._actions["_private"].append(self.set_target_tool_action)
-        self._custom_actions: Dict[str, QAction] = {}
+        self._custom_actions: Dict[PluginTool, QAction] = {}
 
     @staticmethod
     def title_to_object_name(title: str) -> str:
@@ -399,7 +437,7 @@ class ToolRegistry(QObject):
             and self._state_manager.target_layer().selectedFeatureCount() > 0
         )
 
-    def custom_action(self, action_id: str) -> QAction:
+    def custom_action(self, action_id: PluginTool) -> QAction:
         """
         Returns the custom action with specified ID
         """

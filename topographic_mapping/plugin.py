@@ -17,6 +17,7 @@ from qgis.core import (
 )
 from qgis.gui import QgisInterface
 
+from gui import PluginTool
 from topographic_mapping.gui import (
     EditToolDock,
     ToolRegistry,
@@ -28,10 +29,6 @@ from topographic_mapping.gui import (
     EDITING_GROUP,
     DIGITIZING_GROUP,
     LABELING_GROUP,
-    CHANGE_FEATURE_CLASS_ACTION,
-    PASTRY_DELETE_ACTION,
-    PASTRY_CUT_ACTION,
-    CLEAR_PRODUCT_EDITS,
     LabelingGuiManager,
     StyleManager,
     ChangeFeatureClassDialog,
@@ -183,19 +180,21 @@ class TopographicMappingPlugin:
         self.iface.registerOptionsWidgetFactory(self.options_factory)
 
         change_feature_class_action = self._tool_registry.custom_action(
-            CHANGE_FEATURE_CLASS_ACTION
+            PluginTool.ChangeFeatureClass
         )
         change_feature_class_action.triggered.connect(self._change_feature_class)
 
-        pastry_delete_action = self._tool_registry.custom_action(PASTRY_DELETE_ACTION)
+        pastry_delete_action = self._tool_registry.custom_action(
+            PluginTool.PastryDelete
+        )
         pastry_delete_action.triggered.connect(self._pastry_delete)
 
-        pastry_cut_action = self._tool_registry.custom_action(PASTRY_CUT_ACTION)
+        pastry_cut_action = self._tool_registry.custom_action(PluginTool.PastryCut)
         pastry_cut_action.triggered.connect(self._pastry_cut)
 
-        self._tool_registry.custom_action(CLEAR_PRODUCT_EDITS).triggered.connect(
-            self._clear_product_edits
-        )
+        self._tool_registry.custom_action(
+            PluginTool.ClearProductEdits
+        ).triggered.connect(self._clear_product_edits)
 
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""
