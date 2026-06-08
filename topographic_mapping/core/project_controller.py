@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from qgis.PyQt.QtCore import QObject
+from qgis.PyQt.QtCore import QObject, pyqtSignal
 
 from qgis.core import (
     Qgis,
@@ -21,15 +21,29 @@ SCHEMAS_DIR = Path(__file__) / ".." / ".." / "schemas"
 
 
 class ProjectController(QObject):
+    feature_types_found = pyqtSignal(object)
+    feature_types_removed = pyqtSignal(object)
+
     def __init__(self, project: QgsProject, parent: QObject | None):
         super().__init__(parent)
 
         self._project = project
+        self.feature_types: list[str | dict[str, list[str]]] = []
 
         for _, layer in self._project.mapLayers().items():
             self._initialize_layer(layer)
 
-        self.feature_types = self._collect_feature_types()
+        self._project.layersAdded.connect(self._update_project_layers)
+        self._project.layersWillBeRemoved.connect(self._project_layers_removed)
+
+    def _update_project_layers(self, layers: list[QgsMapLayer]):
+        for layer in layers:
+            self._initialize_layer(layer)
+
+    def _project_layers_removed(self, layers: list[str]):
+        for layer_id in layers:
+            map_layer = self._project.mapLayer(layer_id)
+            self._remove_layer(map_layer)
 
     def _initialize_layer(self, layer: QgsMapLayer):
         if not isinstance(layer, QgsVectorLayer):
@@ -50,6 +64,29 @@ class ProjectController(QObject):
 
         layer.geometryChanged.connect(self._on_layer_geom_changed)
         layer.attributeValueChanged.connect(self._on_layer_attr_changed)
+
+        layer_types = self._collect_feature_types_from_layer(layer)
+        if layer_types is not None and not layer_types in self.feature_types:
+            self.feature_types.append(layer_types)
+            self.feature_types_found.emit(layer_types)
+
+    def _remove_layer(self, layer: QgsMapLayer):
+        if not isinstance(layer, QgsVectorLayer):
+            return
+
+        parts = QgsProviderRegistry.instance().decodeUri(
+            layer.providerType(), layer.source()
+        )
+        layer_name = parts.get("layerName")
+        if not layer_name:
+            return
+
+        layer.geometryChanged.disconnect(self._on_layer_geom_changed)
+        layer.attributeValueChanged.disconnect(self._on_layer_attr_changed)
+        layer_types = self._collect_feature_types_from_layer(layer)
+        if layer_types is not None:
+            self.feature_types = [t for t in self.feature_types if t != layer_types]
+            self.feature_types_removed.emit(layer_types)
 
     def _on_layer_geom_changed(self, fid: int, geometry: QgsGeometry):
         layer: QgsVectorLayer = self.sender()
@@ -221,38 +258,35 @@ class ProjectController(QObject):
 
         layer.setEditFormConfig(edit_form_config)
 
-    def _collect_feature_types(self):
-        feature_types = []
+    def _collect_feature_types_from_layer(
+        self, layer: QgsMapLayer
+    ) -> None | dict[str, list[str]] | str:
+        if not isinstance(layer, QgsVectorLayer):
+            return None
 
-        for _, layer in self._project.mapLayers().items():
-            if not isinstance(layer, QgsVectorLayer):
-                continue
+        parts = QgsProviderRegistry.instance().decodeUri(
+            layer.providerType(), layer.source()
+        )
+        layer_name = parts.get("layerName")
+        if not layer_name:
+            return None
 
-            parts = QgsProviderRegistry.instance().decodeUri(
-                layer.providerType(), layer.source()
-            )
-            layer_name = parts.get("layerName")
-            feature_type_idx = layer.fields().lookupField("feature_type")
-            if feature_type_idx < 0:
-                continue
+        feature_type_idx = layer.fields().lookupField("feature_type")
+        if feature_type_idx < 0:
+            return None
 
-            edit_widget_setup = layer.editorWidgetSetup(feature_type_idx)
-            sub_types = []
-            if edit_widget_setup.type() == "ValueMap":
-                for _item in edit_widget_setup.config()["map"]:
-                    for k, v in _item.items():
-                        if (
-                            v != QgsValueMapFieldFormatter.NULL_VALUE
-                            and v != layer_name
-                        ):
-                            sub_types.append(v)
+        edit_widget_setup = layer.editorWidgetSetup(feature_type_idx)
+        sub_types = []
+        if edit_widget_setup.type() == "ValueMap":
+            for _item in edit_widget_setup.config()["map"]:
+                for k, v in _item.items():
+                    if v != QgsValueMapFieldFormatter.NULL_VALUE and v != layer_name:
+                        sub_types.append(v)
 
-            if sub_types:
-                feature_types.append({layer_name: sub_types})
-            else:
-                feature_types.append(layer_name)
+        if sub_types:
+            return {layer_name: sub_types}
 
-        return feature_types
+        return layer_name
 
     def layer_for_feature_type(self, parent_feature_type: str) -> QgsVectorLayer | None:
         """

@@ -69,32 +69,55 @@ class FeatureTypeTreeModel(QAbstractItemModel):
     def __init__(self, data_list, parent: QObject | None = None):
         super().__init__(parent)
         self.root_item = TreeNode("Root", feature_type="")
-        self.set_types(data_list, self.root_item)
+        self.set_types(data_list)
 
-    def set_types(self, data_list, parent_node: TreeNode):
+    def set_types(self, data_list):
         for item in data_list:
-            if isinstance(item, str):
-                feature_type = item
-                node = TreeNode(
-                    display_text=feature_type,
-                    feature_type=feature_type,
-                    parent=parent_node,
+            self.add_types(item)
+
+    def add_types(self, types: str | dict[str, list[str]]):
+        if isinstance(types, str):
+            feature_type = types
+            node = TreeNode(
+                display_text=feature_type,
+                feature_type=feature_type,
+                parent=self.root_item,
+            )
+            row = self.root_item.child_count()
+            self.beginInsertRows(QModelIndex(), row, row)
+            self.root_item.append_child(node)
+            self.endInsertRows()
+        elif isinstance(types, dict):
+            for key, values in types.items():
+                key_node = TreeNode(
+                    display_text=key, feature_type=key, parent=self.root_item
                 )
-                parent_node.append_child(node)
+                if isinstance(values, list):
+                    for val in values:
+                        val_node = TreeNode(
+                            display_text=(val), feature_type=(val), parent=key_node
+                        )
+                        key_node.append_child(val_node)
+                row = self.root_item.child_count()
+                self.beginInsertRows(QModelIndex(), row, row)
+                self.root_item.append_child(key_node)
+                self.endInsertRows()
 
-            elif isinstance(item, dict):
-                for key, values in item.items():
-                    key_node = TreeNode(
-                        display_text=key, feature_type=key, parent=parent_node
-                    )
-                    parent_node.append_child(key_node)
+    def remove_types(self, types: str | dict[str, list[str]]):
+        root_feature_types = []
+        if isinstance(types, str):
+            root_feature_types.append(types)
+        else:
+            for key, values in types.items():
+                root_feature_types.append(key)
 
-                    if isinstance(values, list):
-                        for val in values:
-                            val_node = TreeNode(
-                                display_text=(val), feature_type=(val), parent=key_node
-                            )
-                            key_node.append_child(val_node)
+        for feature_type in root_feature_types:
+            for row, child in enumerate(self.root_item._children):
+                if child.feature_type() == feature_type:
+                    self.beginRemoveRows(QModelIndex(), row, row)
+                    del self.root_item._children[row]
+                    self.endRemoveRows()
+                    continue
 
     def index(self, row: int, column: int, parent: QModelIndex = QModelIndex()):
         if not self.hasIndex(row, column, parent):
@@ -167,6 +190,7 @@ class FeatureTypeFilterProxyModel(QSortFilterProxyModel):
         self._filter_text: str | None = None
 
         self.setRecursiveFilteringEnabled(True)
+        self.sort(0)
         self.setDynamicSortFilter(True)
 
     def set_filter_text(self, filter_text: str | None):

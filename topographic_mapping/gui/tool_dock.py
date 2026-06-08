@@ -122,6 +122,10 @@ class ToolDock(QgsDockWidget):
     def set_project_controller(self, controller: ProjectController):
         self._controller = controller
         self._set_feature_types(controller.feature_types)
+        self._controller.feature_types_found.connect(self._feature_type_model.add_types)
+        self._controller.feature_types_removed.connect(
+            self._feature_type_model.remove_types
+        )
 
     def set_state_manager(self, state_manager: StateManager):
         self._state_manager = state_manager
@@ -134,10 +138,18 @@ class ToolDock(QgsDockWidget):
         self._feature_type_proxy_model = FeatureTypeFilterProxyModel(self)
         self._feature_type_proxy_model.setSourceModel(self._feature_type_model)
         self._feature_type_view.setModel(self._feature_type_proxy_model)
-        self._feature_type_view.expandAll()
         self._feature_type_view.selectionModel().selectionChanged.connect(
             self._selected_feature_type_changed
         )
+        self._feature_type_model.rowsInserted.connect(self._expand_rows)
+        self._feature_type_view.expandAll()
+
+    def _expand_rows(self, parent, first, last):
+        for row in range(first, last + 1):
+            proxy_index = self._feature_type_proxy_model.mapFromSource(
+                self._feature_type_model.index(row, 0, parent)
+            )
+            self._feature_type_view.expand(proxy_index)
 
     def _create_heading_label(self, text: str) -> QLabel:
         label = QLabel(text)
