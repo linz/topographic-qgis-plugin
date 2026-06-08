@@ -39,6 +39,7 @@ from .core import (
     ProjectController,
     DbUtils,
     LabelManager,
+    MarkupManager,
     STORED_OBJECT_MANAGER,
 )
 from .core.symbol_layers import RockOutcropMarkerMetadata
@@ -59,6 +60,7 @@ class TopographicMappingPlugin:
         self._project_controller: ProjectController | None = None
         self._style_manager: StyleManager | None = None
         self._label_manager: LabelManager | None = None
+        self._markup_manager: MarkupManager | None = None
         self._label_gui_manager: LabelingGuiManager | None = None
         self._menu: QMenu | None = None
         self._options_factory: PluginsOptionsFactory | None = None
@@ -175,6 +177,8 @@ class TopographicMappingPlugin:
         run_validation_action.triggered.connect(self.show_validation_dock)
         validation_menu.addAction(run_validation_action)
 
+        self._markup_manager = MarkupManager(self._gui_owner)
+
         self.options_factory = PluginsOptionsFactory()
         self.options_factory.setTitle("TopoMapping")
         self.iface.registerOptionsWidgetFactory(self.options_factory)
@@ -229,6 +233,10 @@ class TopographicMappingPlugin:
         if self._state_manager:
             self._state_manager.deleteLater()
             self._state_manager = None
+
+        if self._markup_manager:
+            self._markup_manager.deleteLater()
+            self._markup_manager = None
 
         QgsSettingsTree.unregisterPluginTreeNode("topographic_mapping")
 
