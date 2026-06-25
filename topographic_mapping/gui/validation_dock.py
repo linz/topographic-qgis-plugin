@@ -1,4 +1,4 @@
-from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtCore import Qt, pyqtSignal
 from qgis.PyQt.QtWidgets import (
     QVBoxLayout,
     QWidget,
@@ -8,7 +8,13 @@ from qgis.PyQt.QtWidgets import (
     QPushButton,
 )
 
-from qgis.core import QgsRunProcess, QgsBlockingProcess
+from qgis.core import (
+    QgsRunProcess,
+    QgsBlockingProcess,
+    QgsTask,
+    QgsApplication,
+    QgsFeedback,
+)
 from qgis.gui import (
     QgsDockWidget,
     QgsCollapsibleGroupBoxBasic,
@@ -19,6 +25,70 @@ from qgis.gui import (
 
 from ..core import ProjectController
 from ..settings import VALIDATION_COMMAND_WORKING_DIR, VALIDATION_COMMAND
+
+
+class ValidationTask(QgsTask):
+    on_error = pyqtSignal(str)
+    on_message = pyqtSignal(str)
+
+    def __init__(self, program: str, arguments: list[str], working_dir: str):
+        super().__init__("Validating data")
+        self._program = program
+        self._arguments = arguments
+        self._working_dir = working_dir
+
+        self.result_code = None
+        self.exit_status = None
+        self.process_error = None
+        self._feedback: QgsFeedback | None = None
+
+    def cancel(self):
+        if self._feedback:
+            self._feedback.cancel()
+        super().cancel()
+
+    def run(self):
+        self._feedback = QgsFeedback()
+        process = QgsBlockingProcess(self._program, self._arguments)
+        process.setWorkingDirectory(self._working_dir)
+
+        def on_stdout(ba):
+            val = ba.data().decode("UTF-8")
+            on_stdout.buffer += val
+            if on_stdout.buffer.endswith("\n") or on_stdout.buffer.endswith("\r"):
+                # flush buffer
+                self.on_message.emit(on_stdout.buffer.rstrip())
+                on_stdout.buffer = ""
+
+        on_stdout.progress = 0
+        on_stdout.buffer = ""
+
+        def on_stderr(ba):
+            val = ba.data().decode("UTF-8")
+            on_stderr.buffer += val
+
+            if on_stderr.buffer.endswith("\n") or on_stderr.buffer.endswith("\r"):
+                # flush buffer
+                self.on_error.emit(on_stderr.buffer.rstrip())
+                on_stderr.buffer = ""
+
+        on_stderr.buffer = ""
+
+        process.setStdErrHandler(on_stderr)
+        process.setStdOutHandler(on_stdout)
+        self.result_code = process.run(self._feedback)
+        self.exit_status = process.exitStatus()
+        self.process_error = process.processError()
+
+        # fully flush message buffers
+        if on_stdout.buffer:
+            self.on_message.emit(on_stdout.buffer.rstrip())
+        if on_stderr.buffer:
+            self.on_error(on_stderr.buffer.rstrip())
+
+        self._feedback = None
+
+        return True
 
 
 class ValidationDock(QgsDockWidget):
@@ -78,6 +148,8 @@ class ValidationDock(QgsDockWidget):
         scroll_area.setWidget(_widget)
         self.setWidget(scroll_area)
 
+        self._task: ValidationTask | None = None
+
     def set_map_canvas(self, canvas: QgsMapCanvas):
         self._extent_widget.setMapCanvas(canvas)
         self._extent_widget.setOutputExtentFromCurrent()
@@ -96,21 +168,21 @@ class ValidationDock(QgsDockWidget):
             return
 
         program, *arguments = QgsRunProcess.splitCommand(VALIDATION_COMMAND.value())
-        arguments.extend(["--db-path", gpkg_path])
-
         arguments.extend(["--output-dir", "/home/nyall/Temporary/ttt"])
+        arguments.extend(["--db-path", gpkg_path])
+        # arguments.extend(["--bbox", "174.8", "-41.3", "174.9", "-41.2"])
 
-        process = QgsBlockingProcess(program, arguments)
-        process.setWorkingDirectory(VALIDATION_COMMAND_WORKING_DIR.value())
+        self._task = ValidationTask(
+            program, arguments, VALIDATION_COMMAND_WORKING_DIR.value()
+        )
 
-        def on_stderr(s):
-            print(s)
+        self._task.on_message.connect(self._on_stdout)
+        self._task.on_error.connect(self._on_stderr)
 
-        def on_stdout(s):
-            print(s)
+        QgsApplication.taskManager().addTask(self._task)
 
-        process.setStdErrHandler(on_stderr)
-        process.setStdOutHandler(on_stdout)
-        process.run()
-        print(process.exitStatus())
-        print(process.processError())
+    def _on_stderr(self, s: str):
+        print(s)
+
+    def _on_stdout(self, s: str):
+        print(s)
