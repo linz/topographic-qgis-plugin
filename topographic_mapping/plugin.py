@@ -10,6 +10,7 @@ from .gui import (
     SetTargetTool,
     SetTargetToolHandler,
     ValidationDock,
+    PluginsOptionsFactory,
 )
 from .core import StateManager, ProjectController
 
@@ -27,6 +28,7 @@ class TopographicMappingPlugin:
         self._set_target_tool_handler: SetTargetToolHandler | None = None
         self._project_controller: ProjectController | None = None
         self._menu: QMenu | None = None
+        self._options_factory: PluginsOptionsFactory | None = None
 
     def initGui(self) -> None:
         self._project_controller = ProjectController(
@@ -84,9 +86,14 @@ class TopographicMappingPlugin:
         run_validation_action.triggered.connect(self.show_validation_dock)
         validation_menu.addAction(run_validation_action)
 
+        self.options_factory = PluginsOptionsFactory()
+        self.options_factory.setTitle("TopoMapping")
+        self.iface.registerOptionsWidgetFactory(self.options_factory)
+
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""
         self._tool_registry.unregister_shortcuts()
+        self.iface.unregisterOptionsWidgetFactory(self.options_factory)
 
         if self._set_target_tool_handler:
             self.iface.unregisterMapToolHandler(self._set_target_tool_handler)
