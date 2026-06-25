@@ -47,6 +47,7 @@ class TopographicMappingPlugin:
         )
         self._validation_dock.setObjectName("TopographicValidation")
         self._validation_dock.setWindowTitle("Validation")
+        self._validation_dock.set_map_canvas(self.iface.mapCanvas())
 
         self._tool_registry.init(self.iface)
         self._tool_registry.register_shortcuts()
