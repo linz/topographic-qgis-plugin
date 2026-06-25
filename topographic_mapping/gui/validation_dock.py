@@ -1,7 +1,10 @@
+from qgis.PyQt import sip
+
 from qgis.PyQt.QtCore import Qt, pyqtSignal
 from qgis.PyQt.QtGui import QFontMetrics
 from qgis.PyQt.QtWidgets import (
     QVBoxLayout,
+    QHBoxLayout,
     QWidget,
     QScrollArea,
     QFrame,
@@ -89,6 +92,9 @@ class ValidationTask(QgsTask):
         if on_stderr.buffer:
             self.on_error(on_stderr.buffer.rstrip())
 
+        if self._feedback.isCanceled():
+            return False
+
         self._feedback = None
 
         return True
@@ -141,9 +147,17 @@ class ValidationDock(QgsDockWidget):
         run_validation_group.setLayout(run_layout)
 
         self._vlayout.addWidget(run_validation_group)
+        hl = QHBoxLayout()
         self._run_button = QPushButton("Run")
-        self._vlayout.addWidget(self._run_button)
+        hl.addWidget(self._run_button)
         self._run_button.clicked.connect(self._run)
+
+        self._cancel_button = QPushButton("Cancel")
+        hl.addWidget(self._cancel_button)
+        self._cancel_button.clicked.connect(self._cancel)
+        self._cancel_button.setEnabled(False)
+
+        self._vlayout.addLayout(hl)
 
         self._output_widget = QgsCodeEditorPython(
             mode=QgsCodeEditor.Mode.OutputDisplay, flags=QgsCodeEditor.Flags()
@@ -185,17 +199,49 @@ class ValidationDock(QgsDockWidget):
         program, *arguments = QgsRunProcess.splitCommand(VALIDATION_COMMAND.value())
         arguments.extend(["--output-dir", "/home/nyall/Temporary/ttt"])
         arguments.extend(["--db-path", gpkg_path])
-        # arguments.extend(["--bbox", "174.8", "-41.3", "174.9", "-41.2"])
+        arguments.extend(["--bbox", "174.8", "-41.3", "174.9", "-41.2"])
 
         self._task = ValidationTask(
             program, arguments, VALIDATION_COMMAND_WORKING_DIR.value()
         )
+        self._task.taskCompleted.connect(self._task_completed)
+        self._task.taskTerminated.connect(self._task_terminated)
 
         self._task.on_message.connect(self._on_stdout)
         self._task.on_error.connect(self._on_stderr)
         self._output_widget.clear()
+        self._cancel_button.setEnabled(True)
 
         QgsApplication.taskManager().addTask(self._task)
+
+    def _cancel(self):
+        if not self._task or sip.isdeleted(self._task):
+            return
+
+        self._task.cancel()
+
+    def _task_completed(self):
+        if self.sender() != self._task:
+            return
+        self._cancel_button.setEnabled(False)
+        self._task = None
+        self._scroll_to_bottom_of_log()
+
+    def _task_terminated(self):
+        if self.sender() != self._task:
+            return
+        self._cancel_button.setEnabled(False)
+        exit_status = self._task.exit_status
+        result_code = self._task.result_code
+        process_error = self._task.process_error
+
+        self._task = None
+
+        self._output_widget.append("\n\n" + "Validation terminated!")
+        self._output_widget.append("\n\n" + f"Exit status: {exit_status}")
+        self._output_widget.append("\n" + f"Result code: {result_code}")
+        self._output_widget.append("\n" + f"Process error: {process_error}")
+        self._scroll_to_bottom_of_log()
 
     def _on_stderr(self, s: str):
         sb = self._output_widget.verticalScrollBar()
