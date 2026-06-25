@@ -75,6 +75,8 @@ class TopographicMappingPlugin:
         self._tool_dock.set_project_controller(self._project_controller)
         self._tool_dock.set_state_manager(self._state_manager)
 
+        self._validation_dock.set_project_controller(self._project_controller)
+
         self._menu = QMenu("TopoMapping")
         self.iface.mainWindow().menuBar().insertMenu(
             self.iface.firstRightStandardMenu().menuAction(), self._menu
