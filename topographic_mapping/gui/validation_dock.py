@@ -10,6 +10,7 @@ from qgis.PyQt.QtWidgets import (
     QFrame,
     QGroupBox,
     QPushButton,
+    QMessageBox,
 )
 
 from qgis.core import (
@@ -187,6 +188,22 @@ class ValidationDock(QgsDockWidget):
         self._controller = controller
 
     def _run(self):
+        if self._task and not sip.isdeleted(self._task):
+            if (
+                QMessageBox.warning(
+                    self,
+                    "Validation Running",
+                    "A validation task is already running. Do you want to cancel that task?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                != QMessageBox.StandardButton.Yes
+            ):
+                return
+
+            self._task.cancel()
+            self._task = None
+
         if not VALIDATION_COMMAND.value():
             # todo -- error
             return
@@ -199,7 +216,7 @@ class ValidationDock(QgsDockWidget):
         program, *arguments = QgsRunProcess.splitCommand(VALIDATION_COMMAND.value())
         arguments.extend(["--output-dir", "/home/nyall/Temporary/ttt"])
         arguments.extend(["--db-path", gpkg_path])
-        arguments.extend(["--bbox", "174.8", "-41.3", "174.9", "-41.2"])
+        # arguments.extend(["--bbox", "174.8", "-41.3", "174.9", "-41.2"])
 
         self._task = ValidationTask(
             program, arguments, VALIDATION_COMMAND_WORKING_DIR.value()
