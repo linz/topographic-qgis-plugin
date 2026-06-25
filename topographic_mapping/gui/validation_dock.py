@@ -250,6 +250,8 @@ class ValidationDock(QgsDockWidget):
     def _task_terminated(self):
         if self.sender() != self._task:
             return
+
+        canceled = self._task.isCanceled()
         self._cancel_button.setEnabled(False)
         exit_status = self._task.exit_status
         result_code = self._task.result_code
@@ -258,9 +260,10 @@ class ValidationDock(QgsDockWidget):
         self._task = None
 
         self._output_widget.append("\n\n" + "Validation terminated!")
-        self._output_widget.append("\n\n" + f"Exit status: {exit_status}")
-        self._output_widget.append("\n" + f"Result code: {result_code}")
-        self._output_widget.append("\n" + f"Process error: {process_error}")
+        if not canceled:
+            self._output_widget.append("\n\n" + f"Exit status: {exit_status}")
+            self._output_widget.append("\n" + f"Result code: {result_code}")
+            self._output_widget.append("\n" + f"Process error: {process_error}")
         self._scroll_to_bottom_of_log()
 
     def _on_stderr(self, s: str):
