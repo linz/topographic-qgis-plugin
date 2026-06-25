@@ -30,6 +30,7 @@ from qgis.gui import (
     QgsCodeEditor,
 )
 
+from . import GuiUtils
 from ..core import ProjectController
 from ..settings import VALIDATION_COMMAND_WORKING_DIR, VALIDATION_COMMAND
 
@@ -150,10 +151,12 @@ class ValidationDock(QgsDockWidget):
         self._vlayout.addWidget(run_validation_group)
         hl = QHBoxLayout()
         self._run_button = QPushButton("Run")
+        self._run_button.setIcon(GuiUtils.get_icon("run.svg"))
         hl.addWidget(self._run_button)
         self._run_button.clicked.connect(self._run)
 
         self._cancel_button = QPushButton("Cancel")
+        self._cancel_button.setIcon(GuiUtils.get_icon("cancel.svg"))
         hl.addWidget(self._cancel_button)
         self._cancel_button.clicked.connect(self._cancel)
         self._cancel_button.setEnabled(False)
