@@ -1,4 +1,5 @@
 from qgis.PyQt.QtCore import Qt, pyqtSignal
+from qgis.PyQt.QtGui import QFontMetrics
 from qgis.PyQt.QtWidgets import (
     QVBoxLayout,
     QWidget,
@@ -21,6 +22,8 @@ from qgis.gui import (
     QgsExtentWidget,
     QgsMapCanvas,
     QgsDateEdit,
+    QgsCodeEditorPython,
+    QgsCodeEditor,
 )
 
 from ..core import ProjectController
@@ -141,6 +144,18 @@ class ValidationDock(QgsDockWidget):
         self._run_button = QPushButton("Run")
         self._vlayout.addWidget(self._run_button)
         self._run_button.clicked.connect(self._run)
+
+        self._output_widget = QgsCodeEditorPython(
+            mode=QgsCodeEditor.Mode.OutputDisplay, flags=QgsCodeEditor.Flags()
+        )
+        self._output_widget.setReadOnly(True)
+        self._output_widget.setLineNumbersVisible(False)
+
+        fm = QFontMetrics(self.font())
+        self._output_widget.setFixedHeight(fm.height() * 20)
+
+        self._vlayout.addWidget(self._output_widget)
+
         self._vlayout.addStretch()
 
         _widget = QWidget()
@@ -178,11 +193,30 @@ class ValidationDock(QgsDockWidget):
 
         self._task.on_message.connect(self._on_stdout)
         self._task.on_error.connect(self._on_stderr)
+        self._output_widget.clear()
 
         QgsApplication.taskManager().addTask(self._task)
 
     def _on_stderr(self, s: str):
-        print(s)
+        sb = self._output_widget.verticalScrollBar()
+        is_at_bottom = sb.value() == sb.maximum() if sb else True
+
+        if self._output_widget.text() and self._output_widget.text()[-1] != "\n":
+            s = "\n" + s
+        self._output_widget.append(s)
+        if is_at_bottom:
+            self._scroll_to_bottom_of_log()
 
     def _on_stdout(self, s: str):
-        print(s)
+        sb = self._output_widget.verticalScrollBar()
+        is_at_bottom = sb.value() == sb.maximum() if sb else True
+        if self._output_widget.text() and self._output_widget.text()[-1] != "\n":
+            s = "\n" + s
+        self._output_widget.append(s)
+        if is_at_bottom:
+            self._scroll_to_bottom_of_log()
+
+    def _scroll_to_bottom_of_log(self):
+        sb = self._output_widget.verticalScrollBar()
+        if sb:
+            sb.setValue(sb.maximum())
