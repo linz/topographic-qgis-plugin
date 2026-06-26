@@ -33,6 +33,7 @@ from qgis.gui import (
 from . import GuiUtils
 from ..core import ProjectController, ValidationUtils, ValidationResultModel
 from ..settings import VALIDATION_COMMAND_WORKING_DIR, VALIDATION_COMMAND
+from .validation_result_layer_widget import LayerSelectorWidget
 
 
 class ValidationTask(QgsTask):
@@ -173,8 +174,6 @@ class ValidationDock(QgsDockWidget):
         self._output_widget.setLineNumbersVisible(False)
 
         fm = QFontMetrics(self.font())
-        self._output_widget.setFixedHeight(fm.height() * 20)
-
         self._results_tab_widget.addTab(self._output_widget, "Validation Output")
 
         self._results_table = QTableView()
@@ -188,7 +187,10 @@ class ValidationDock(QgsDockWidget):
 
         self._results_tab_widget.addTab(self._results_table, "Results")
         self._results_tab_widget.setCurrentIndex(1)
+        self._results_tab_widget.setFixedHeight(fm.height() * 15)
 
+        self._result_layer_widget = LayerSelectorWidget(ValidationUtils.result_path())
+        self._vlayout.addWidget(self._result_layer_widget)
         self._vlayout.addStretch()
 
         _widget = QWidget()

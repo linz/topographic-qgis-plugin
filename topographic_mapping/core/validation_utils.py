@@ -1,3 +1,4 @@
+from pathlib import Path
 import json
 
 from qgis.PyQt.QtCore import QDate
@@ -23,11 +24,19 @@ class ValidationUtils:
     REPORT_FILE_NAME = "validation_summary_report.json"
 
     @staticmethod
+    def result_path() -> Path:
+        """
+        Returns the path containing validation results
+        """
+        output_path = STORED_OBJECT_MANAGER.get_plugin_data_dir("validation_results")
+        return output_path
+
+    @staticmethod
     def get_last_validation_results() -> dict | None:
         """
         Retrieves the results of the last validation run
         """
-        output_path = STORED_OBJECT_MANAGER.get_plugin_data_dir("validation_results")
+        output_path = ValidationUtils.result_path()
         if not output_path.exists():
             return None
 
@@ -50,7 +59,7 @@ class ValidationUtils:
         """
         Generates the command and arguments to use to launch the validation script
         """
-        output_path = STORED_OBJECT_MANAGER.get_plugin_data_dir("validation_results")
+        output_path = ValidationUtils.result_path()
 
         program, *arguments = QgsRunProcess.splitCommand(VALIDATION_COMMAND.value())
         arguments.extend(["--output-dir", output_path.as_posix()])
