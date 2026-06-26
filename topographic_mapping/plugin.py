@@ -12,7 +12,7 @@ from .gui import (
     ValidationDock,
     PluginsOptionsFactory,
 )
-from .core import StateManager, ProjectController
+from .core import StateManager, ProjectController, StoredObjectManager
 
 
 class TopographicMappingPlugin:

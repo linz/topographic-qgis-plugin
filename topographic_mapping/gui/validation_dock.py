@@ -1,5 +1,4 @@
 from qgis.PyQt import sip
-
 from qgis.PyQt.QtCore import Qt, pyqtSignal
 from qgis.PyQt.QtGui import QFontMetrics
 from qgis.PyQt.QtWidgets import (
@@ -12,13 +11,12 @@ from qgis.PyQt.QtWidgets import (
     QPushButton,
     QMessageBox,
 )
-
 from qgis.core import (
-    QgsRunProcess,
     QgsBlockingProcess,
     QgsTask,
     QgsApplication,
     QgsFeedback,
+    QgsReferencedRectangle,
 )
 from qgis.gui import (
     QgsDockWidget,
@@ -31,7 +29,7 @@ from qgis.gui import (
 )
 
 from . import GuiUtils
-from ..core import ProjectController
+from ..core import ProjectController, ValidationUtils
 from ..settings import VALIDATION_COMMAND_WORKING_DIR, VALIDATION_COMMAND
 
 
@@ -111,6 +109,7 @@ class ValidationDock(QgsDockWidget):
         super().__init__(parent)
 
         self._controller: ProjectController | None = None
+        self._stored_object_manager: StoredObjectManager | None = None
 
         scroll_area = QScrollArea()
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -190,6 +189,17 @@ class ValidationDock(QgsDockWidget):
     def set_project_controller(self, controller: ProjectController):
         self._controller = controller
 
+    def _get_filter_extent(self) -> QgsReferencedRectangle | None:
+        """
+        Gets the current filter extent
+        """
+        if not self._filter_by_extent_group.isChecked():
+            return None
+
+        return QgsReferencedRectangle(
+            self._extent_widget.outputExtent(), self._extent_widget.outputCrs()
+        )
+
     def _run(self):
         if self._task and not sip.isdeleted(self._task):
             if (
@@ -216,10 +226,9 @@ class ValidationDock(QgsDockWidget):
             # todo error
             return
 
-        program, *arguments = QgsRunProcess.splitCommand(VALIDATION_COMMAND.value())
-        arguments.extend(["--output-dir", "/home/nyall/Temporary/ttt"])
-        arguments.extend(["--db-path", gpkg_path])
-        # arguments.extend(["--bbox", "174.8", "-41.3", "174.9", "-41.2"])
+        program, arguments = ValidationUtils.generate_validation_command(
+            gpkg_path, extent=self._get_filter_extent()
+        )
 
         self._task = ValidationTask(
             program, arguments, VALIDATION_COMMAND_WORKING_DIR.value()
