@@ -69,7 +69,6 @@ class DatabaseLayerTreeModel(QStandardItemModel):
 
 
 class LayerSelectorWidget(QComboBox):
-
     layer_selected = pyqtSignal(str, str)
 
     def __init__(self, folder_to_scan: Path, parent: QWidget | None = None):
@@ -147,3 +146,20 @@ class LayerSelectorWidget(QComboBox):
         layer_name = self.model.data(selected, DatabaseLayerTreeModel.LayerNameRole)
 
         self.layer_selected.emit(file_path, layer_name)
+
+    def selected_path(self) -> str | None:
+        indexes = self.view().selectedIndexes()
+        if not indexes:
+            return None
+        return self.model.data(
+            self.view().selectedIndexes()[0], DatabaseLayerTreeModel.FilePathRole
+        )
+
+    def selected_layer(self) -> str | None:
+        indexes = self.view().selectedIndexes()
+        if not indexes:
+            return None
+
+        return self.model.data(
+            self.view().selectedIndexes()[0], DatabaseLayerTreeModel.LayerNameRole
+        )

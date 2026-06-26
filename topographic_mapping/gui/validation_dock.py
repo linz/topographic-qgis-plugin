@@ -1,5 +1,5 @@
 from qgis.PyQt import sip
-from qgis.PyQt.QtCore import Qt, pyqtSignal, QDate
+from qgis.PyQt.QtCore import Qt, pyqtSignal, QDate, QTimer
 from qgis.PyQt.QtGui import QFontMetrics
 from qgis.PyQt.QtWidgets import (
     QVBoxLayout,
@@ -193,6 +193,14 @@ class ValidationDock(QgsDockWidget):
         self._vlayout.addWidget(self._result_layer_widget)
         self._vlayout.addStretch()
 
+        self._result_layer_changed_timer = QTimer()
+        self._result_layer_changed_timer.setInterval(500)
+        self._result_layer_changed_timer.setSingleShot(True)
+        self._result_layer_changed_timer.timeout.connect(
+            self._on_layer_selected_timeout
+        )
+        self._result_layer_widget.layer_selected.connect(self._on_layer_selected)
+
         _widget = QWidget()
         _widget.setLayout(self._vlayout)
         scroll_area.setWidget(_widget)
@@ -330,3 +338,12 @@ class ValidationDock(QgsDockWidget):
         sb = self._output_widget.verticalScrollBar()
         if sb:
             sb.setValue(sb.maximum())
+
+    def _on_layer_selected(self, path: str, layer: str):
+        self._result_layer_changed_timer.start()
+
+    def _on_layer_selected_timeout(self):
+        print(
+            self._result_layer_widget.selected_path(),
+            self._result_layer_widget.selected_layer(),
+        )
