@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from qgis.PyQt.QtCore import Qt, QObject, QModelIndex, QItemSelection
+from qgis.PyQt.QtCore import Qt, QObject, QModelIndex, QItemSelection, pyqtSignal
 from qgis.PyQt.QtGui import QStandardItemModel, QStandardItem, QBrush, QColor, QPalette
 from qgis.PyQt.QtWidgets import QWidget, QComboBox, QTreeView, QApplication
 
@@ -69,6 +69,9 @@ class DatabaseLayerTreeModel(QStandardItemModel):
 
 
 class LayerSelectorWidget(QComboBox):
+
+    layer_selected = pyqtSignal(str, str)
+
     def __init__(self, folder_to_scan: Path, parent: QWidget | None = None):
         super().__init__(parent)
 
@@ -143,6 +146,4 @@ class LayerSelectorWidget(QComboBox):
         file_path = self.model.data(selected, DatabaseLayerTreeModel.FilePathRole)
         layer_name = self.model.data(selected, DatabaseLayerTreeModel.LayerNameRole)
 
-    # if file_path and layer_name:
-    #      print(
-    #         f"User properly selected Layer: '{layer_name}' from {file_path}")
+        self.layer_selected.emit(file_path, layer_name)
