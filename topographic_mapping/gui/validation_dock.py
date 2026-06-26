@@ -10,6 +10,8 @@ from qgis.PyQt.QtWidgets import (
     QGroupBox,
     QPushButton,
     QMessageBox,
+    QTabWidget,
+    QTableView,
 )
 from qgis.core import (
     QgsBlockingProcess,
@@ -29,7 +31,7 @@ from qgis.gui import (
 )
 
 from . import GuiUtils
-from ..core import ProjectController, ValidationUtils
+from ..core import ProjectController, ValidationUtils, ValidationResultModel
 from ..settings import VALIDATION_COMMAND_WORKING_DIR, VALIDATION_COMMAND
 
 
@@ -109,7 +111,6 @@ class ValidationDock(QgsDockWidget):
         super().__init__(parent)
 
         self._controller: ProjectController | None = None
-        self._stored_object_manager: StoredObjectManager | None = None
 
         scroll_area = QScrollArea()
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -162,6 +163,9 @@ class ValidationDock(QgsDockWidget):
 
         self._vlayout.addLayout(hl)
 
+        self._results_tab_widget = QTabWidget()
+        self._vlayout.addWidget(self._results_tab_widget)
+
         self._output_widget = QgsCodeEditorPython(
             mode=QgsCodeEditor.Mode.OutputDisplay, flags=QgsCodeEditor.Flags()
         )
@@ -171,7 +175,19 @@ class ValidationDock(QgsDockWidget):
         fm = QFontMetrics(self.font())
         self._output_widget.setFixedHeight(fm.height() * 20)
 
-        self._vlayout.addWidget(self._output_widget)
+        self._results_tab_widget.addTab(self._output_widget, "Validation Output")
+
+        self._results_table = QTableView()
+        self._results_model = ValidationResultModel(self)
+        last_results = ValidationUtils.get_last_validation_results()
+        if last_results:
+            self._results_model.set_data(last_results)
+        self._results_table.setModel(self._results_model)
+        self._results_table.horizontalHeader().setStretchLastSection(True)
+        self._results_table.resizeColumnToContents(0)
+
+        self._results_tab_widget.addTab(self._results_table, "Results")
+        self._results_tab_widget.setCurrentIndex(1)
 
         self._vlayout.addStretch()
 
@@ -249,6 +265,7 @@ class ValidationDock(QgsDockWidget):
         self._task.on_error.connect(self._on_stderr)
         self._output_widget.clear()
         self._cancel_button.setEnabled(True)
+        self._results_tab_widget.setCurrentIndex(0)
 
         QgsApplication.taskManager().addTask(self._task)
 
@@ -264,6 +281,9 @@ class ValidationDock(QgsDockWidget):
         self._cancel_button.setEnabled(False)
         self._task = None
         self._scroll_to_bottom_of_log()
+        self._results_tab_widget.setCurrentIndex(1)
+
+        self._results_model.set_data(ValidationUtils.get_last_validation_results())
 
     def _task_terminated(self):
         if self.sender() != self._task:
@@ -283,6 +303,7 @@ class ValidationDock(QgsDockWidget):
             self._output_widget.append("\n" + f"Result code: {result_code}")
             self._output_widget.append("\n" + f"Process error: {process_error}")
         self._scroll_to_bottom_of_log()
+        self._results_tab_widget.setCurrentIndex(0)
 
     def _on_stderr(self, s: str):
         sb = self._output_widget.verticalScrollBar()

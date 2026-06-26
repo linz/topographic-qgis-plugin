@@ -1,3 +1,5 @@
+import json
+
 from qgis.PyQt.QtCore import QDate
 
 from qgis.core import (
@@ -17,6 +19,27 @@ class ValidationUtils:
     """
     Contains utilities for the validation tools
     """
+
+    REPORT_FILE_NAME = "validation_summary_report.json"
+
+    @staticmethod
+    def get_last_validation_results() -> dict | None:
+        """
+        Retrieves the results of the last validation run
+        """
+        output_path = STORED_OBJECT_MANAGER.get_plugin_data_dir("validation_results")
+        if not output_path.exists():
+            return None
+
+        report_file_name = output_path / ValidationUtils.REPORT_FILE_NAME
+        if not report_file_name.exists():
+            return None
+
+        with open(report_file_name, "rt", encoding="utf8") as f:
+            try:
+                return json.loads(f.read())
+            except json.JSONDecodeError:
+                return None
 
     @staticmethod
     def generate_validation_command(
