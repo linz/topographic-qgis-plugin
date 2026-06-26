@@ -19,6 +19,8 @@ from qgis.core import (
     QgsApplication,
     QgsFeedback,
     QgsReferencedRectangle,
+    QgsProviderRegistry,
+    QgsVectorLayer,
 )
 from qgis.gui import (
     QgsDockWidget,
@@ -34,6 +36,7 @@ from . import GuiUtils
 from ..core import ProjectController, ValidationUtils, ValidationResultModel
 from ..settings import VALIDATION_COMMAND_WORKING_DIR, VALIDATION_COMMAND
 from .validation_result_layer_widget import LayerSelectorWidget
+from .validation_results_viewer import ValidationResultsViewer
 
 
 class ValidationTask(QgsTask):
@@ -191,6 +194,9 @@ class ValidationDock(QgsDockWidget):
 
         self._result_layer_widget = LayerSelectorWidget(ValidationUtils.result_path())
         self._vlayout.addWidget(self._result_layer_widget)
+
+        self._results_viewer = ValidationResultsViewer()
+        self._vlayout.addWidget(self._results_viewer)
         self._vlayout.addStretch()
 
         self._result_layer_changed_timer = QTimer()
@@ -211,6 +217,7 @@ class ValidationDock(QgsDockWidget):
     def set_map_canvas(self, canvas: QgsMapCanvas):
         self._extent_widget.setMapCanvas(canvas)
         self._extent_widget.setOutputExtentFromCurrent()
+        self._results_viewer.set_canvas(canvas)
 
     def set_project_controller(self, controller: ProjectController):
         self._controller = controller
@@ -294,6 +301,7 @@ class ValidationDock(QgsDockWidget):
         self._results_tab_widget.setCurrentIndex(1)
 
         self._results_model.set_data(ValidationUtils.get_last_validation_results())
+        self._result_layer_widget.reload()
 
     def _task_terminated(self):
         if self.sender() != self._task:
@@ -343,7 +351,15 @@ class ValidationDock(QgsDockWidget):
         self._result_layer_changed_timer.start()
 
     def _on_layer_selected_timeout(self):
-        print(
-            self._result_layer_widget.selected_path(),
-            self._result_layer_widget.selected_layer(),
-        )
+        if not self._result_layer_widget.selected_path():
+            return
+
+        parts = {
+            "path": self._result_layer_widget.selected_path(),
+            "layerName": self._result_layer_widget.selected_layer(),
+        }
+        source = QgsProviderRegistry.instance().encodeUri("ogr", parts)
+
+        self.layer = QgsVectorLayer(source, "results", "ogr")
+
+        self._results_viewer.set_source(self.layer)

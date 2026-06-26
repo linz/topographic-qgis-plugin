@@ -34,7 +34,7 @@ class DatabaseLayerTreeModel(QStandardItemModel):
         sys_palette = QApplication.palette()
         placeholder_color = sys_palette.color(QPalette.ColorRole.PlaceholderText)
 
-        placeholder_item = QStandardItem("Select a layer...")
+        placeholder_item = QStandardItem("Select results to view…")
         placeholder_font = placeholder_item.font()
         placeholder_font.setItalic(True)
         placeholder_item.setFont(placeholder_font)
@@ -91,6 +91,10 @@ class LayerSelectorWidget(QComboBox):
         tree_view.selectionModel().selectionChanged.connect(self._update_combo_style)
         self.setCurrentIndex(-1)
         self.setCurrentIndex(0)
+
+    def reload(self):
+        self.model.load_layers()
+        self.view().expandAll()
 
     def _update_combo_style(self, selected: QItemSelection, deselected: QItemSelection):
         """Dynamically applies placeholder styling to the closed combobox surface."""
