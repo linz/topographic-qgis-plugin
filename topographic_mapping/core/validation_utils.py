@@ -1,3 +1,5 @@
+from qgis.PyQt.QtCore import QDate
+
 from qgis.core import (
     QgsRunProcess,
     QgsReferencedRectangle,
@@ -18,7 +20,9 @@ class ValidationUtils:
 
     @staticmethod
     def generate_validation_command(
-        db_path: str, extent: QgsReferencedRectangle | None = None
+        db_path: str,
+        extent: QgsReferencedRectangle | None = None,
+        date: QDate | None = None,
     ) -> tuple[str, list[str]]:
         """
         Generates the command and arguments to use to launch the validation script
@@ -51,5 +55,8 @@ class ValidationUtils:
                 )
             except QgsCsException:
                 pass
+
+        if date is not None and date.isValid():
+            arguments.extend(["--date", date.toString("yyyy-MM-dd")])
 
         return program, arguments

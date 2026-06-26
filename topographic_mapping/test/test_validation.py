@@ -1,6 +1,6 @@
 import unittest
 
-from qgis.PyQt.QtCore import QCoreApplication
+from qgis.PyQt.QtCore import QCoreApplication, QDate
 
 from qgis.core import QgsRectangle, QgsReferencedRectangle, QgsCoordinateReferenceSystem
 
@@ -109,6 +109,36 @@ class TestValidationUtils(TopographicTestBase):
         self.assertAlmostEqual(ymin, -1.0, places=2)
         self.assertAlmostEqual(xmax, 1.0, places=2)
         self.assertAlmostEqual(ymax, 1.0, places=2)
+
+    def test_generate_validation_command_with_valid_date(self):
+        """
+        Tests that a valid QDate is formatted correctly and appended.
+        """
+        test_db_path = "/fake/path/to/database.gpkg"
+        test_date = QDate(2023, 10, 31)
+
+        program, arguments = ValidationUtils.generate_validation_command(
+            test_db_path, date=test_date
+        )
+
+        self.assertIn("--date", arguments)
+        date_idx = arguments.index("--date")
+        self.assertEqual(arguments[date_idx + 1], "2023-10-31")
+
+    def test_generate_validation_command_with_invalid_date(self):
+        """
+        Tests that an invalid QDate is gracefully ignored.
+        """
+        test_db_path = "/fake/path/to/database.gpkg"
+        test_date = QDate()  # Default constructor creates an invalid date
+
+        self.assertFalse(test_date.isValid())
+
+        program, arguments = ValidationUtils.generate_validation_command(
+            test_db_path, date=test_date
+        )
+
+        self.assertNotIn("--date", arguments)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 from qgis.PyQt import sip
-from qgis.PyQt.QtCore import Qt, pyqtSignal
+from qgis.PyQt.QtCore import Qt, pyqtSignal, QDate
 from qgis.PyQt.QtGui import QFontMetrics
 from qgis.PyQt.QtWidgets import (
     QVBoxLayout,
@@ -200,6 +200,15 @@ class ValidationDock(QgsDockWidget):
             self._extent_widget.outputExtent(), self._extent_widget.outputCrs()
         )
 
+    def _get_filter_date(self) -> QDate | None:
+        """
+        Gets the current filter date
+        """
+        if not self._filter_by_date_group.isChecked():
+            return None
+
+        return self._date_widget.date()
+
     def _run(self):
         if self._task and not sip.isdeleted(self._task):
             if (
@@ -227,7 +236,7 @@ class ValidationDock(QgsDockWidget):
             return
 
         program, arguments = ValidationUtils.generate_validation_command(
-            gpkg_path, extent=self._get_filter_extent()
+            gpkg_path, extent=self._get_filter_extent(), date=self._get_filter_date()
         )
 
         self._task = ValidationTask(
