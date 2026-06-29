@@ -217,12 +217,11 @@ class ValidationResultsViewer(QWidget):
         Triggered whenever the user clicks an item in the list view.
         Pans and zooms the map to the geometry of the selected item(s).
         """
-        return
         if not selected.indexes():
             return
 
         index = selected.indexes()[0]
-        fid = self._feature_model.idxToFid(index)
+        fid = self._filter_model.rowToId(index)
 
         self._canvas.zoomToFeatureIds(self._layer, [fid])
         self._canvas.refresh()
