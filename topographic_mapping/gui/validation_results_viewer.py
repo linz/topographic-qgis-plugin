@@ -139,7 +139,7 @@ class ValidationResultsViewer(QWidget):
         warning_config.name = "warning"
         notes_config = QgsAttributeTableConfig.ColumnConfig()
         notes_config.name = "notes"
-        columns = [open_config, warning_config, notes_config]
+        columns = [warning_config, open_config, notes_config]
         for field in self._layer.fields():
             if field.name() not in ("open", "warning", "notes"):
                 hidden_config = QgsAttributeTableConfig.ColumnConfig()
@@ -159,7 +159,7 @@ class ValidationResultsViewer(QWidget):
         self._list_view.setHorizontalScrollMode(
             QAbstractItemView.ScrollMode.ScrollPerPixel
         )
-        self._list_view.setColumnWidth(1, int(self._list_view.width() / 2))
+        self._list_view.setColumnWidth(0, int(self._list_view.width() / 2))
         self._list_view.horizontalHeader().setStretchLastSection(True)
 
         self._list_view.setSelectionMode(
