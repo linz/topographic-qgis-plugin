@@ -107,6 +107,7 @@ class TopographicMappingPlugin:
             self._tool_dock.deleteLater()
             self._tool_dock = None
         if self._validation_dock:
+            self._validation_dock.cleanup()
             self._validation_dock.deleteLater()
             self._validation_dock = None
 

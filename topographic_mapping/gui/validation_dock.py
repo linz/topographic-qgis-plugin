@@ -1,6 +1,6 @@
 from qgis.PyQt import sip
 from qgis.PyQt.QtCore import Qt, pyqtSignal, QDate, QTimer
-from qgis.PyQt.QtGui import QFontMetrics
+from qgis.PyQt.QtGui import QFontMetrics, QColor
 from qgis.PyQt.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
@@ -21,6 +21,7 @@ from qgis.core import (
     QgsReferencedRectangle,
     QgsProviderRegistry,
     QgsVectorLayer,
+    QgsConditionalStyle,
 )
 from qgis.gui import (
     QgsDockWidget,
@@ -213,6 +214,13 @@ class ValidationDock(QgsDockWidget):
         self.setWidget(scroll_area)
 
         self._task: ValidationTask | None = None
+        self._results_layer: QgsVectorLayer | None = None
+
+    def cleanup(self):
+        """
+        Cleanup gracefully before dock destruction
+        """
+        self._results_viewer.cleanup()
 
     def set_map_canvas(self, canvas: QgsMapCanvas):
         self._extent_widget.setMapCanvas(canvas)
@@ -360,6 +368,10 @@ class ValidationDock(QgsDockWidget):
         }
         source = QgsProviderRegistry.instance().encodeUri("ogr", parts)
 
-        self.layer = QgsVectorLayer(source, "results", "ogr")
+        if self._results_layer is not None and not sip.isdeleted(self._results_layer):
+            self._results_layer.commitChanges()
 
-        self._results_viewer.set_source(self.layer)
+        self._results_layer = QgsVectorLayer(source, "results", "ogr")
+
+        self._results_layer.startEditing()
+        self._results_viewer.set_source(self._results_layer)
