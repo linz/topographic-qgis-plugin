@@ -303,3 +303,24 @@ class ProjectController(QObject):
             if layer_name == parent_feature_type:
                 return layer
         return None
+
+    def working_geopackage_path(self) -> str | None:
+        """
+        Attempts to determine the current working geopackage data path
+        """
+        for _, layer in self._project.mapLayers().items():
+            if not isinstance(layer, QgsVectorLayer) or layer.readOnly():
+                continue
+
+            parts = QgsProviderRegistry.instance().decodeUri(
+                layer.providerType(), layer.source()
+            )
+            layer_name = parts.get("layerName")
+            if layer_name not in self.feature_types:
+                continue
+
+            path = parts.get("path")
+            if path and Path(path).suffix == ".gpkg":
+                return path
+
+        return None
