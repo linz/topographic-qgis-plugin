@@ -17,6 +17,7 @@ class DatabaseLayerTreeModel(QStandardItemModel):
 
     FilePathRole = Qt.ItemDataRole.UserRole + 1
     LayerNameRole = Qt.ItemDataRole.UserRole + 2
+    FeatureCountRole = Qt.ItemDataRole.UserRole + 3
 
     def __init__(self, folder_path: Path, parent: QObject | None = None):
         super().__init__(parent)
@@ -52,15 +53,19 @@ class DatabaseLayerTreeModel(QStandardItemModel):
             file_item = QStandardItem(db_file.name)
             file_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
 
-            sub_layers = ogr_provider_metadata.querySublayers(db_file.as_posix())
+            sub_layers = ogr_provider_metadata.querySublayers(
+                db_file.as_posix(), Qgis.SublayerQueryFlag.CountFeatures
+            )
             for layer_details in sub_layers:
-                layer_item = QStandardItem(layer_details.name())
+                text = f"{layer_details.name()} ({layer_details.featureCount()})"
+                layer_item = QStandardItem(text)
                 layer_item.setFlags(
                     Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
                 )
 
                 layer_item.setData(db_file.as_posix(), self.FilePathRole)
                 layer_item.setData(layer_details.name(), self.LayerNameRole)
+                layer_item.setData(layer_details.featureCount(), self.FeatureCountRole)
 
                 file_item.appendRow(layer_item)
 
