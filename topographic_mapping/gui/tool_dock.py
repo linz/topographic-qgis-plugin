@@ -16,6 +16,7 @@ from qgis.PyQt.QtWidgets import (
     QTreeView,
     QScrollArea,
     QFrame,
+    QTreeWidget,
 )
 from qgis.core import Qgis, QgsVectorLayer, QgsMapLayer
 from qgis.gui import (
@@ -233,13 +234,20 @@ class ToolDock(QgsDockWidget):
             menu.addAction(action)
 
         configure_shortcuts_action = QAction("Configure Keyboard Shortcuts…", menu)
+        configure_shortcuts_action.setProperty("button_text", button.text())
         configure_shortcuts_action.triggered.connect(self._configure_shortcuts)
         menu.addAction(configure_shortcuts_action)
 
         menu.exec(QCursor.pos())
 
     def _configure_shortcuts(self):
+        action = self.sender()
+        action_text = action.property("button_text")
         dlg = QgsConfigureShortcutsDialog(self)
+        if action_text:
+            dlg.setFilter(action_text)
+        view = dlg.findChildren(QTreeWidget)[0]
+        view.setFocus()
         dlg.exec()
 
     def _add_to_favorites(self, object_name: str, store: bool = True):
