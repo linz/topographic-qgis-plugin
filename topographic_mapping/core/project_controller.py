@@ -23,6 +23,10 @@ SCHEMAS_DIR = Path(__file__) / ".." / ".." / "schemas"
 class ProjectController(QObject):
     feature_types_found = pyqtSignal(object)
     feature_types_removed = pyqtSignal(object)
+    map_sheet_layer_loaded = pyqtSignal()
+    map_sheet_layer_unloaded = pyqtSignal()
+
+    MAP_SHEET_LAYER_NAME = "nz_topo50_map_sheet"
 
     def __init__(self, project: QgsProject, parent: QObject | None):
         super().__init__(parent)
@@ -70,6 +74,9 @@ class ProjectController(QObject):
             self.feature_types.append(layer_types)
             self.feature_types_found.emit(layer_types)
 
+        if layer_name == self.MAP_SHEET_LAYER_NAME:
+            self.map_sheet_layer_loaded.emit()
+
     def _remove_layer(self, layer: QgsMapLayer):
         if not isinstance(layer, QgsVectorLayer):
             return
@@ -87,6 +94,9 @@ class ProjectController(QObject):
         if layer_types is not None:
             self.feature_types = [t for t in self.feature_types if t != layer_types]
             self.feature_types_removed.emit(layer_types)
+
+        if layer_name == self.MAP_SHEET_LAYER_NAME:
+            self.map_sheet_layer_unloaded.emit()
 
     def _on_layer_geom_changed(self, fid: int, geometry: QgsGeometry):
         layer: QgsVectorLayer = self.sender()
@@ -303,6 +313,12 @@ class ProjectController(QObject):
             if layer_name == parent_feature_type:
                 return layer
         return None
+
+    def map_sheet_layer(self) -> QgsVectorLayer | None:
+        """
+        Returns the map sheet layer
+        """
+        return self.layer_for_feature_type(self.MAP_SHEET_LAYER_NAME)
 
     def working_geopackage_path(self) -> str | None:
         """
