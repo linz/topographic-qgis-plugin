@@ -1,15 +1,10 @@
-from pathlib import Path
 import json
+from pathlib import Path
 
 from qgis.PyQt.QtCore import QDate
-
 from qgis.core import (
     QgsRunProcess,
-    QgsReferencedRectangle,
-    QgsProject,
-    QgsCoordinateTransform,
-    QgsCoordinateReferenceSystem,
-    QgsCsException,
+    QgsRectangle,
 )
 
 from .stored_object_manager import STORED_OBJECT_MANAGER
@@ -53,7 +48,7 @@ class ValidationUtils:
     @staticmethod
     def generate_validation_command(
         db_path: str,
-        extent: QgsReferencedRectangle | None = None,
+        extent: QgsRectangle | None = None,
         date: QDate | None = None,
     ) -> tuple[str, list[str]]:
         """
@@ -66,27 +61,15 @@ class ValidationUtils:
         arguments.extend(["--db-path", db_path])
 
         if extent is not None:
-            transform = QgsCoordinateTransform(
-                extent.crs(),
-                QgsCoordinateReferenceSystem("EPSG:4326"),
-                QgsProject.instance().transformContext(),
+            arguments.extend(
+                [
+                    "--bbox",
+                    str(extent.xMinimum()),
+                    str(extent.yMinimum()),
+                    str(extent.xMaximum()),
+                    str(extent.yMaximum()),
+                ]
             )
-            transform.setBallparkTransformsAreAppropriate(True)
-            transform.setAllowFallbackTransforms(True)
-
-            try:
-                extent_4326 = transform.transformBoundingBox(extent)
-                arguments.extend(
-                    [
-                        "--bbox",
-                        str(extent_4326.xMinimum()),
-                        str(extent_4326.yMinimum()),
-                        str(extent_4326.xMaximum()),
-                        str(extent_4326.yMaximum()),
-                    ]
-                )
-            except QgsCsException:
-                pass
 
         if date is not None and date.isValid():
             arguments.extend(["--date", date.toString("yyyy-MM-dd")])

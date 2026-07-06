@@ -85,31 +85,6 @@ class TestValidationUtils(TopographicTestBase):
         ]
         self.assertEqual(arguments, expected_args)
 
-    def test_generate_validation_command_with_transformed_extent(self):
-        """Tests command generation verifying bounding boxes are correctly transformed to EPSG:4326."""
-        test_db_path = "/fake/path/to/database.gpkg"
-
-        rect = QgsRectangle(-111319.49, -111319.49, 111319.49, 111319.49)
-        crs = QgsCoordinateReferenceSystem("EPSG:3857")
-        extent = QgsReferencedRectangle(rect, crs)
-
-        program, arguments = ValidationUtils.generate_validation_command(
-            test_db_path, extent
-        )
-
-        self.assertIn("--bbox", arguments)
-        bbox_idx = arguments.index("--bbox")
-
-        xmin = float(arguments[bbox_idx + 1])
-        ymin = float(arguments[bbox_idx + 2])
-        xmax = float(arguments[bbox_idx + 3])
-        ymax = float(arguments[bbox_idx + 4])
-
-        self.assertAlmostEqual(xmin, -1.0, places=2)
-        self.assertAlmostEqual(ymin, -1.0, places=2)
-        self.assertAlmostEqual(xmax, 1.0, places=2)
-        self.assertAlmostEqual(ymax, 1.0, places=2)
-
     def test_generate_validation_command_with_valid_date(self):
         """
         Tests that a valid QDate is formatted correctly and appended.

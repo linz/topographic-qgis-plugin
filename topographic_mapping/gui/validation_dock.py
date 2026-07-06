@@ -12,6 +12,7 @@ from qgis.PyQt.QtWidgets import (
     QMessageBox,
     QTabWidget,
     QTableView,
+    QComboBox,
 )
 from qgis.core import (
     QgsBlockingProcess,
@@ -21,7 +22,11 @@ from qgis.core import (
     QgsReferencedRectangle,
     QgsProviderRegistry,
     QgsVectorLayer,
-    QgsConditionalStyle,
+    QgsRectangle,
+    QgsCoordinateTransform,
+    QgsProject,
+    QgsCoordinateReferenceSystem,
+    QgsCsException,
 )
 from qgis.gui import (
     QgsDockWidget,
@@ -31,6 +36,7 @@ from qgis.gui import (
     QgsDateEdit,
     QgsCodeEditorPython,
     QgsCodeEditor,
+    QgsFeatureListComboBox,
 )
 
 from . import GuiUtils
@@ -140,6 +146,17 @@ class ValidationDock(QgsDockWidget):
         vl.addWidget(self._extent_widget)
         self._filter_by_extent_group.setLayout(vl)
 
+        self._filter_by_map_sheet_group = QGroupBox("Limit by Map Sheet")
+        self._filter_by_map_sheet_group.setCheckable(True)
+        self._filter_by_map_sheet_group.setChecked(False)
+        run_layout.addWidget(self._filter_by_map_sheet_group)
+        vl = QVBoxLayout()
+
+        self._map_sheet_combo = QgsFeatureListComboBox()
+        vl.addWidget(self._map_sheet_combo)
+
+        self._filter_by_map_sheet_group.setLayout(vl)
+
         self._filter_by_date_group = QGroupBox("Limit Date Range")
         self._filter_by_date_group.setCheckable(True)
         self._filter_by_date_group.setChecked(False)
@@ -220,6 +237,7 @@ class ValidationDock(QgsDockWidget):
         """
         Cleanup gracefully before dock destruction
         """
+        self._map_sheet_combo.setSourceLayer(None)
         self._results_viewer.cleanup()
 
     def set_map_canvas(self, canvas: QgsMapCanvas):
@@ -230,16 +248,83 @@ class ValidationDock(QgsDockWidget):
     def set_project_controller(self, controller: ProjectController):
         self._controller = controller
 
-    def _get_filter_extent(self) -> QgsReferencedRectangle | None:
+        if self._controller.map_sheet_layer():
+            self._set_map_sheet_layer()
+        self._controller.map_sheet_layer_loaded.connect(self._set_map_sheet_layer)
+        self._controller.map_sheet_layer_unloaded.connect(self._unset_map_sheet_layer)
+
+    def _set_map_sheet_layer(self):
+        layer = self._controller.map_sheet_layer()
+        self._map_sheet_combo.setSourceLayer(layer)
+        self._map_sheet_combo.setIdentifierFields(["fid"])
+        self._map_sheet_combo.setFetchLimit(0)
+        self._map_sheet_combo.setDisplayExpression(
+            """"sheet_code" || ' (' || "sheet_name" || ')' """
+        )
+
+    def _unset_map_sheet_layer(self):
+        self._map_sheet_combo.setSourceLayer(None)
+
+    def _get_filter_extent(self) -> QgsRectangle | None:
         """
-        Gets the current filter extent
+        Gets the current filter extent, in EPSG:4167
         """
-        if not self._filter_by_extent_group.isChecked():
+        if (
+            not self._filter_by_extent_group.isChecked()
+            and not self._filter_by_map_sheet_group.isChecked()
+        ):
             return None
 
-        return QgsReferencedRectangle(
-            self._extent_widget.outputExtent(), self._extent_widget.outputCrs()
-        )
+        extent_rect = None
+        if self._filter_by_extent_group.isChecked():
+            transform = QgsCoordinateTransform(
+                self._extent_widget.outputCrs(),
+                QgsCoordinateReferenceSystem("EPSG:4167"),
+                QgsProject.instance().transformContext(),
+            )
+            transform.setBallparkTransformsAreAppropriate(True)
+            transform.setAllowFallbackTransforms(True)
+            try:
+                extent_rect = transform.transformBoundingBox(
+                    self._extent_widget.outputExtent()
+                )
+            except QgsCsException:
+                pass
+
+        sheet_rect = None
+        sheet_layer = self._controller and self._controller.map_sheet_layer()
+        if sheet_layer and self._filter_by_map_sheet_group.isChecked():
+            transform = QgsCoordinateTransform(
+                sheet_layer.crs(),
+                QgsCoordinateReferenceSystem("EPSG:4167"),
+                QgsProject.instance().transformContext(),
+            )
+            transform.setBallparkTransformsAreAppropriate(True)
+            transform.setAllowFallbackTransforms(True)
+            sheet_features = sheet_layer.getFeatures(
+                self._map_sheet_combo.currentFeatureRequest()
+            )
+            try:
+                sheet_feature = next(sheet_features)
+                try:
+                    sheet_rect = transform.transformBoundingBox(
+                        sheet_feature.geometry().boundingBox()
+                    )
+                    if not sheet_rect.isFinite():
+                        sheet_rect = None
+                except QgsCsException:
+                    pass
+            except StopIteration:
+                pass
+
+        if extent_rect is not None and sheet_rect is None:
+            return extent_rect
+        elif extent_rect is None and sheet_rect is not None:
+            return sheet_rect
+        elif extent_rect is None and sheet_rect is None:
+            return None
+
+        return sheet_rect.intersect(extent_rect)
 
     def _get_filter_date(self) -> QDate | None:
         """
