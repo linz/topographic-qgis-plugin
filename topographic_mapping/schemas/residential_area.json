@@ -3,11 +3,11 @@
   "$id": "residential_area",
   "type": "object",
   "properties": {
-    "topo_id": {
+    "id": {
       "type": "string",
       "description": "UUID for the feature."
     },
-    "fid": {
+    "t50_fid": {
       "description": "Unique identifier for the feature"
     },
     "capture_method": {
@@ -37,8 +37,7 @@
       "default": 1,
       "description": "Lifecycle counter; increments on each update."
     },
-    "t50_fid": {},
-    "feature_type": {
+    "type": {
       "anyOf": [
         {
           "type": "string",
@@ -69,7 +68,7 @@
       "$ref": "#/$defs/BBox"
     }
   },
-  "required": ["topo_id", "fid", "capture_method", "change_type", "update_date", "create_date", "version", "geometry"],
+  "required": ["id", "t50_fid", "capture_method", "change_type", "update_date", "create_date", "version", "geometry"],
   "additionalProperties": false,
   "$defs": {
     "CaptureMethod": {
