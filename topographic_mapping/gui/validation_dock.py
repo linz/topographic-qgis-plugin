@@ -384,6 +384,11 @@ class ValidationDock(QgsDockWidget):
         self._task.on_message.connect(self._on_stdout)
         self._task.on_error.connect(self._on_stderr)
         self._output_widget.clear()
+
+        self._output_widget.append(
+            "Running command:\n\n{} {}\n\n".format(program, " ".join(arguments))
+        )
+
         self._cancel_button.setEnabled(True)
         self._results_tab_widget.setCurrentIndex(0)
 
