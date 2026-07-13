@@ -1,10 +1,71 @@
 from pathlib import Path
+from dataclasses import dataclass
 
-from qgis.PyQt.QtCore import Qt, QObject, QModelIndex, QItemSelection, pyqtSignal
+from qgis.PyQt import sip
+from qgis.PyQt.QtCore import (
+    Qt,
+    QObject,
+    QModelIndex,
+    QItemSelection,
+    pyqtSignal,
+    QThread,
+)
 from qgis.PyQt.QtGui import QStandardItemModel, QStandardItem, QBrush, QColor, QPalette
 from qgis.PyQt.QtWidgets import QWidget, QComboBox, QTreeView, QApplication
 
 from qgis.core import Qgis, QgsProviderRegistry
+
+
+@dataclass
+class LayerDetails:
+    """
+    Encapsulates result layer details
+    """
+
+    name: str
+    count: int
+    open_count: int
+
+
+class LayerLoaderWorker(QThread):
+    """
+    Worker thread that handles the heavy file probing off the main GUI thread.
+    """
+
+    layers_found = pyqtSignal(Path, list)
+
+    def __init__(self, folder_path: Path, parent: QObject | None = None):
+        super().__init__(parent)
+        self.folder_path = folder_path
+
+    def run(self):
+        if not self.folder_path.exists() or not self.folder_path.is_dir():
+            return
+
+        ogr_provider_metadata = QgsProviderRegistry.instance().providerMetadata("ogr")
+        assert ogr_provider_metadata
+
+        for db_file in self.folder_path.glob("*.gpkg"):
+            if self.isInterruptionRequested():
+                return
+
+            conn = ogr_provider_metadata.createConnection(db_file.as_posix(), {})
+            sub_layers = ogr_provider_metadata.querySublayers(
+                db_file.as_posix(), Qgis.SublayerQueryFlag.CountFeatures
+            )
+            this_file_layers = []
+            for layer_details in sub_layers:
+                res = conn.executeSql(
+                    f'SELECT COUNT(*) AS total_count, COUNT(*) FILTER (WHERE "open") AS open_count FROM "{layer_details.name()}"'
+                )
+
+                this_file_layers.append(
+                    LayerDetails(
+                        name=layer_details.name(), count=res[0][0], open_count=res[0][1]
+                    )
+                )
+            if this_file_layers:
+                self.layers_found.emit(db_file, this_file_layers)
 
 
 class DatabaseLayerTreeModel(QStandardItemModel):
@@ -19,19 +80,32 @@ class DatabaseLayerTreeModel(QStandardItemModel):
     LayerNameRole = Qt.ItemDataRole.UserRole + 2
     FeatureCountRole = Qt.ItemDataRole.UserRole + 3
 
+    needs_expand = pyqtSignal()
+
     def __init__(self, folder_path: Path, parent: QObject | None = None):
         super().__init__(parent)
         self.folder_path = folder_path
+        self._worker: LayerLoaderWorker = None
         self.load_layers()
 
     def load_layers(self):
+        if (
+            self._worker
+            and not sip.isdeleted(self._worker)
+            and self._worker.isRunning()
+        ):
+            self._worker.requestInterruption()
+            self._worker.layers_found.disconnect(self._populate_tree)
+
         self.clear()
-        self._build_tree()
+        self._add_placeholder_item()
 
-    def _build_tree(self):
-        if not self.folder_path.exists() or not self.folder_path.is_dir():
-            return
+        self._worker = LayerLoaderWorker(self.folder_path, self)
+        self._worker.layers_found.connect(self._populate_tree)
+        self._worker.finished.connect(self._worker.deleteLater)
+        self._worker.start()
 
+    def _add_placeholder_item(self):
         sys_palette = QApplication.palette()
         placeholder_color = sys_palette.color(QPalette.ColorRole.PlaceholderText)
 
@@ -46,31 +120,26 @@ class DatabaseLayerTreeModel(QStandardItemModel):
 
         self.invisibleRootItem().appendRow(placeholder_item)
 
-        ogr_provider_metadata = QgsProviderRegistry.instance().providerMetadata("ogr")
-        assert ogr_provider_metadata
+    def _populate_tree(self, db_file: Path, details: list[LayerDetails]):
+        file_item = QStandardItem(db_file.name)
+        file_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
 
-        for db_file in self.folder_path.glob("*.gpkg"):
-            file_item = QStandardItem(db_file.name)
-            file_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
-
-            sub_layers = ogr_provider_metadata.querySublayers(
-                db_file.as_posix(), Qgis.SublayerQueryFlag.CountFeatures
+        for layer_details in details:
+            text = f"{layer_details.name} ({layer_details.open_count} open of {layer_details.count})"
+            layer_item = QStandardItem(text)
+            layer_item.setFlags(
+                Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
             )
-            for layer_details in sub_layers:
-                text = f"{layer_details.name()} ({layer_details.featureCount()})"
-                layer_item = QStandardItem(text)
-                layer_item.setFlags(
-                    Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
-                )
 
-                layer_item.setData(db_file.as_posix(), self.FilePathRole)
-                layer_item.setData(layer_details.name(), self.LayerNameRole)
-                layer_item.setData(layer_details.featureCount(), self.FeatureCountRole)
+            layer_item.setData(db_file.as_posix(), self.FilePathRole)
+            layer_item.setData(layer_details.name, self.LayerNameRole)
+            layer_item.setData(layer_details.count, self.FeatureCountRole)
 
-                file_item.appendRow(layer_item)
+            file_item.appendRow(layer_item)
 
-            if file_item.rowCount() > 0:
-                self.invisibleRootItem().appendRow(file_item)
+        if file_item.rowCount() > 0:
+            self.invisibleRootItem().appendRow(file_item)
+            self.needs_expand.emit()
 
 
 class LayerSelectorWidget(QComboBox):
@@ -89,6 +158,7 @@ class LayerSelectorWidget(QComboBox):
 
         self.model = DatabaseLayerTreeModel(folder_to_scan, self)
         self.setModel(self.model)
+        self.model.needs_expand.connect(tree_view.expandAll)
 
         tree_view.expandAll()
 
