@@ -7,7 +7,7 @@
       "type": "string",
       "description": "UUID for the feature."
     },
-    "fid": {
+    "t50_fid": {
       "description": "Unique identifier for the feature"
     },
     "capture_method": {
@@ -37,7 +37,6 @@
       "default": 1,
       "description": "Lifecycle counter; increments on each update."
     },
-    "t50_fid": {},
     "type": {
       "anyOf": [
         {
@@ -87,7 +86,7 @@
       "$ref": "#/$defs/BBox"
     }
   },
-  "required": ["topo_id", "fid", "capture_method", "change_type", "update_date", "create_date", "version", "geometry"],
+  "required": ["topo_id", "t50_fid", "capture_method", "change_type", "update_date", "create_date", "version", "geometry"],
   "additionalProperties": false,
   "$defs": {
     "CaptureMethod": {

@@ -7,10 +7,10 @@
       "type": "string",
       "description": "UUID for the feature."
     },
-    "fid": {
+    "t50_fid": {
       "description": "Unique identifier for the feature"
     }
   },
-  "required": ["topo_id", "fid"],
+  "required": ["topo_id", "t50_fid"],
   "description": "Identity columns shared by every file in the dataset."
 }

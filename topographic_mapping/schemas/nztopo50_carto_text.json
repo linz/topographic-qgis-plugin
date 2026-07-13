@@ -7,7 +7,7 @@
       "type": "string",
       "description": "UUID for the feature."
     },
-    "fid": {
+    "t50_fid": {
       "description": "Unique identifier for the feature"
     },
     "full_text": {
@@ -254,7 +254,7 @@
       "$ref": "#/$defs/BBox"
     }
   },
-  "required": ["topo_id", "fid", "geometry"],
+  "required": ["topo_id", "t50_fid", "geometry"],
   "additionalProperties": false,
   "$defs": {
     "TextFontEnum": {

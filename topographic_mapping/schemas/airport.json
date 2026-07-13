@@ -7,7 +7,7 @@
       "type": "string",
       "description": "UUID for the feature."
     },
-    "fid": {
+    "t50_fid": {
       "description": "Unique identifier for the feature"
     },
     "capture_method": {
@@ -37,7 +37,6 @@
       "default": 1,
       "description": "Lifecycle counter; increments on each update."
     },
-    "t50_fid": {},
     "type": {
       "type": "string",
       "const": "airport"
@@ -57,7 +56,7 @@
   },
   "required": [
     "topo_id",
-    "fid",
+    "t50_fid",
     "capture_method",
     "change_type",
     "update_date",
