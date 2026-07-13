@@ -24,6 +24,7 @@ class LayerDetails:
 
     name: str
     count: int
+    open_count: int
 
 
 class LayerLoaderWorker(QThread):
@@ -48,14 +49,19 @@ class LayerLoaderWorker(QThread):
             if self.isInterruptionRequested():
                 return
 
+            conn = ogr_provider_metadata.createConnection(db_file.as_posix(), {})
             sub_layers = ogr_provider_metadata.querySublayers(
                 db_file.as_posix(), Qgis.SublayerQueryFlag.CountFeatures
             )
             this_file_layers = []
             for layer_details in sub_layers:
+                res = conn.executeSql(
+                    f'SELECT COUNT(*) AS total_count, COUNT(*) FILTER (WHERE "open") AS open_count FROM "{layer_details.name()}"'
+                )
+
                 this_file_layers.append(
                     LayerDetails(
-                        name=layer_details.name(), count=layer_details.featureCount()
+                        name=layer_details.name(), count=res[0][0], open_count=res[0][1]
                     )
                 )
             if this_file_layers:
@@ -119,7 +125,7 @@ class DatabaseLayerTreeModel(QStandardItemModel):
         file_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
 
         for layer_details in details:
-            text = f"{layer_details.name} ({layer_details.count})"
+            text = f"{layer_details.name} ({layer_details.open_count} open of {layer_details.count})"
             layer_item = QStandardItem(text)
             layer_item.setFlags(
                 Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
