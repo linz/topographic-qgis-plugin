@@ -26,7 +26,7 @@ class ProjectController(QObject):
     map_sheet_layer_loaded = pyqtSignal()
     map_sheet_layer_unloaded = pyqtSignal()
 
-    MAP_SHEET_LAYER_NAME = "nz_topo50_map_sheet"
+    MAP_SHEET_LAYER_NAME = "nztopo50_map_sheet"
 
     def __init__(self, project: QgsProject, parent: QObject | None):
         super().__init__(parent)
