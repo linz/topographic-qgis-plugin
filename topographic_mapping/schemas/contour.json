@@ -49,7 +49,7 @@
         }
       ]
     },
-    "feature_type": {
+    "type": {
       "anyOf": [
         {
           "type": "string",

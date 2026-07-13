@@ -241,7 +241,7 @@ class ProjectController(QObject):
                 layer.setDefaultValueDefinition(field_index, default_value)
 
             # special logic that overrides schema settings:
-            if name == "feature_type":
+            if name == "type":
                 default_value = QgsDefaultValue(f"@{CURRENT_FEATURE_TYPE_VAR_NAME}")
                 layer.setDefaultValueDefinition(field_index, default_value)
             elif name == "topo_id":
@@ -281,7 +281,7 @@ class ProjectController(QObject):
         if not layer_name:
             return None
 
-        feature_type_idx = layer.fields().lookupField("feature_type")
+        feature_type_idx = layer.fields().lookupField("type")
         if feature_type_idx < 0:
             return None
 

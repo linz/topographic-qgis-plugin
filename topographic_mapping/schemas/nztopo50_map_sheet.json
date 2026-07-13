@@ -11,7 +11,7 @@
       "description": "Unique identifier for the feature"
     },
     "t50_fid": {},
-    "feature_type": {
+    "type": {
       "anyOf": [
         {
           "type": "string",

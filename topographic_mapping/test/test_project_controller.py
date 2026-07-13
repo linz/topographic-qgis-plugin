@@ -69,7 +69,7 @@ class TestProjectController(TopographicTestBase):
         fields = QgsFields()
         fields.append(QgsField("topo_id", QVariant.Int))
         fields.append(QgsField("t50_id", QVariant.String))
-        fields.append(QgsField("feature_type", QVariant.String))
+        fields.append(QgsField("type", QVariant.String))
         fields.append(QgsField("name", QVariant.String))
         fields.append(QgsField("capture_method", QVariant.String))
         fields.append(QgsField("change_type", QVariant.String))
@@ -88,7 +88,7 @@ class TestProjectController(TopographicTestBase):
         self.assertEqual(version_setup.config().get("Min"), 1.0)
         self.assertEqual(version_setup.config().get("Max"), 2147483647.0)
 
-        feature_type_idx = layer.fields().lookupField("feature_type")
+        feature_type_idx = layer.fields().lookupField("type")
         feature_type_setup = layer.editorWidgetSetup(feature_type_idx)
         self.assertEqual(feature_type_setup.type(), "ValueMap")
 
@@ -98,7 +98,7 @@ class TestProjectController(TopographicTestBase):
         self.assertIn({"<NULL>": QgsValueMapFieldFormatter.NULL_VALUE}, status_map)
 
         default_def = layer.defaultValueDefinition(feature_type_idx)
-        # Because the field is named "feature_type", it explicitly gets overridden
+        # Because the field is named "type", it explicitly gets overridden
         # to "@current_feature_type" at the end of _set_layer_schema
         self.assertEqual(default_def.expression(), "@current_feature_type")
 

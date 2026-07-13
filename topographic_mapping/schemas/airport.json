@@ -38,7 +38,7 @@
       "description": "Lifecycle counter; increments on each update."
     },
     "t50_fid": {},
-    "feature_type": {
+    "type": {
       "type": "string",
       "const": "airport"
     },
@@ -63,7 +63,7 @@
     "update_date",
     "create_date",
     "version",
-    "feature_type",
+    "type",
     "geometry",
     "bbox"
   ],

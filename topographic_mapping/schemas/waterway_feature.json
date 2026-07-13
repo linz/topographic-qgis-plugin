@@ -38,7 +38,7 @@
       "description": "Lifecycle counter; increments on each update."
     },
     "t50_fid": {},
-    "feature_type": {
+    "type": {
       "anyOf": [
         {
           "type": "string",
