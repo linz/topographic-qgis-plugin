@@ -67,7 +67,7 @@ class TestProjectController(TopographicTestBase):
 
         # mock a water layer
         fields = QgsFields()
-        fields.append(QgsField("topo_id", QVariant.Int))
+        fields.append(QgsField("id", QVariant.Int))
         fields.append(QgsField("t50_id", QVariant.String))
         fields.append(QgsField("type", QVariant.String))
         fields.append(QgsField("name", QVariant.String))

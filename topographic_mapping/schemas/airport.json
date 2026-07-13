@@ -3,7 +3,7 @@
   "$id": "airport",
   "type": "object",
   "properties": {
-    "topo_id": {
+    "id": {
       "type": "string",
       "description": "UUID for the feature."
     },
@@ -55,7 +55,7 @@
     }
   },
   "required": [
-    "topo_id",
+    "id",
     "t50_fid",
     "capture_method",
     "change_type",

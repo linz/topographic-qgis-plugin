@@ -353,12 +353,22 @@ class ValidationDock(QgsDockWidget):
             self._task = None
 
         if not VALIDATION_COMMAND.value():
-            # todo -- error
+            QMessageBox.critical(
+                self,
+                "Validate Data",
+                "No validation script command has not been set. Please configure via the Settings - Options - TopoMapping menu.",
+                QMessageBox.StandardButton.Ok,
+            )
             return
 
         gpkg_path = self._controller.working_geopackage_path()
         if not gpkg_path:
-            # todo error
+            QMessageBox.critical(
+                self,
+                "Validate Data",
+                "The file path to the GeoPackage to validate for the current QGIS project could not be detected.",
+                QMessageBox.StandardButton.Ok,
+            )
             return
 
         program, arguments = ValidationUtils.generate_validation_command(

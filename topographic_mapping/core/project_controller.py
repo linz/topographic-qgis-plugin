@@ -244,7 +244,7 @@ class ProjectController(QObject):
             if name == "type":
                 default_value = QgsDefaultValue(f"@{CURRENT_FEATURE_TYPE_VAR_NAME}")
                 layer.setDefaultValueDefinition(field_index, default_value)
-            elif name == "topo_id":
+            elif name == "id":
                 default_value = QgsDefaultValue("uuid('WithoutBraces')")
                 layer.setDefaultValueDefinition(field_index, default_value)
                 layer.setFieldSplitPolicy(
