@@ -28,6 +28,15 @@ class DbUtils:
         return metadata.createConnection(db_path.as_posix(), {})
 
     @staticmethod
+    def product_view_exists(db_path: Path, layer_name: str) -> bool:
+        """
+        Returns True if the product view for a layer exists
+        """
+        conn = DbUtils.create_connection(db_path)
+        view_name = f"{layer_name}_product_view"
+        return conn.tableExists("", view_name)
+
+    @staticmethod
     def create_product_view(db_path: Path, layer_name: str):
         """
         Creates the product view for a given layer

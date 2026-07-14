@@ -42,7 +42,11 @@ class DbUtilsTest(TopographicTestBase):
             self.assertEqual(original_layer.fields().lookupField("product_geom"), -1)
             del original_layer
 
+            self.assertFalse(DbUtils.product_view_exists(data_path, "ferry_crossing"))
+
             DbUtils.create_product_view(data_path, "ferry_crossing")
+
+            self.assertTrue(DbUtils.product_view_exists(data_path, "ferry_crossing"))
 
             original_layer = QgsVectorLayer(
                 data_path.as_posix() + "|layername=ferry_crossing"
