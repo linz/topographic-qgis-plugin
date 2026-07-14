@@ -130,6 +130,29 @@ class DbUtilsTest(TopographicTestBase):
                 "LineString (1699423.9 6095306.3, 1699921.5 6095542.1)",
             )
 
+    def test_create_all_product_views(self):
+        """
+        Test automatic creation of all product views
+        """
+        gpkg_path = self.get_test_data_path("test_db.gpkg")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_path = Path(temp_dir) / "db.gpkg"
+            shutil.copy(gpkg_path, data_path)
+
+            DbUtils.create_all_product_views(data_path)
+
+            product_view = QgsVectorLayer(
+                data_path.as_posix() + "|layername=ferry_crossing_product_view"
+            )
+            self.assertTrue(product_view.isValid())
+            product_view = QgsVectorLayer(
+                data_path.as_posix() + "|layername=airport_product_view"
+            )
+            self.assertTrue(product_view.isValid())
+
+            # calling a second time should not be a problem...
+            DbUtils.create_all_product_views(data_path)
+
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(DbUtilsTest)

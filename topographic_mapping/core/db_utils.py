@@ -37,6 +37,23 @@ class DbUtils:
         return conn.tableExists("", view_name)
 
     @staticmethod
+    def create_all_product_views(db_path: Path):
+        """
+        Creates all required product views
+        """
+        conn = DbUtils.create_connection(db_path)
+
+        all_tables = conn.tables(
+            "", QgsAbstractDatabaseProviderConnection.TableFlag.Vector
+        )
+        for table in all_tables:
+            if "product_view" in table.tableName():
+                continue
+
+            if not DbUtils.product_view_exists(db_path, table.tableName()):
+                DbUtils.create_product_view(db_path, table.tableName())
+
+    @staticmethod
     def create_product_view(db_path: Path, layer_name: str):
         """
         Creates the product view for a given layer
@@ -58,7 +75,6 @@ class DbUtils:
 
         view_name = f"{layer_name}_product_view"
         query = rf"CREATE VIEW {view_name} AS SELECT {field_names}, CAST(ST_AsBinary(GeomFromGPB(geom))AS BLOB) as {DbUtils.ORIGINAL_GEOM_NAME}, CASE WHEN {DbUtils.PRODUCT_GEOM_NAME} is NOT NULL then {DbUtils.PRODUCT_GEOM_NAME} ELSE geom END AS geom, {DbUtils.PRODUCT_GEOM_NAME} FROM {layer_name};"
-        print(query)
         conn.executeSql(query)
 
         # copy metadata from base table
