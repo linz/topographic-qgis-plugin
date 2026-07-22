@@ -50,7 +50,14 @@ class DbUtils:
             if "product_view" in table.tableName():
                 continue
 
-            if not DbUtils.product_view_exists(db_path, table.tableName()):
+            exists = bool(
+                [
+                    t
+                    for t in all_tables
+                    if t.tableName() == f"{table.tableName()}_product_view"
+                ]
+            )
+            if not exists:
                 DbUtils.create_product_view(db_path, table.tableName())
 
     @staticmethod
