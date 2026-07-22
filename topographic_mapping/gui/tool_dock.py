@@ -17,6 +17,7 @@ from qgis.PyQt.QtWidgets import (
     QScrollArea,
     QFrame,
     QTreeWidget,
+    QButtonGroup,
 )
 from qgis.core import Qgis, QgsVectorLayer, QgsMapLayer
 from qgis.gui import (
@@ -26,10 +27,11 @@ from qgis.gui import (
     QgsMapLayerComboBox,
     QgsFilterLineEdit,
 )
+from qgis.utils import OverrideCursor
 
 from .feature_type_model import FeatureTypeTreeModel, FeatureTypeFilterProxyModel
 from .responsive_table_widget import ResponsiveTableWidget
-from ..core import ProjectController, StateManager
+from ..core import ProjectController, StateManager, EditMode
 from topographic_mapping.settings import FAVORITES
 
 
@@ -54,6 +56,33 @@ class ToolDock(QgsDockWidget):
 
         self._vlayout = QVBoxLayout()
         self._vlayout.setContentsMargins(0, 10, 6, 0)
+
+        edit_mode_layout = QHBoxLayout()
+        self._button_edit_real_data = QToolButton()
+        self._button_edit_real_data.setCheckable(True)
+        self._button_edit_real_data.setText("Real World")
+        self._button_edit_real_data.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum
+        )
+
+        self._button_edit_product_data = QToolButton()
+        self._button_edit_product_data.setCheckable(True)
+        self._button_edit_product_data.setText("Product Data")
+        self._button_edit_product_data.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum
+        )
+
+        self._button_edit_real_data.toggled.connect(self._toggle_real_data)
+        self._button_edit_product_data.toggled.connect(self._toggle_product_data)
+
+        edit_mode_layout.addWidget(self._button_edit_real_data)
+        edit_mode_layout.addWidget(self._button_edit_product_data)
+        self._edit_mode_group = QButtonGroup(self)
+        self._edit_mode_group.addButton(self._button_edit_real_data)
+        self._edit_mode_group.addButton(self._button_edit_product_data)
+
+        self._vlayout.addLayout(edit_mode_layout)
+
         self._vlayout.addWidget(QLabel("Current edit target"))
 
         hl = QHBoxLayout()
@@ -368,6 +397,28 @@ class ToolDock(QgsDockWidget):
             self._state_manager.set_target_layer(target_layer)
 
         self._state_manager.set_current_feature_type(feature_type)
+
+    def _toggle_real_data(self, enabled: bool):
+        if not enabled or not self._controller:
+            return
+
+        gpkg_path = self._controller.working_geopackage_path()
+        if not gpkg_path:
+            return
+
+        with OverrideCursor(Qt.CursorShape.WaitCursor):
+            self._controller.set_edit_mode(gpkg_path, EditMode.RealWorld)
+
+    def _toggle_product_data(self, enabled: bool):
+        if not enabled or not self._controller:
+            return
+
+        gpkg_path = self._controller.working_geopackage_path()
+        if not gpkg_path:
+            return
+
+        with OverrideCursor(Qt.CursorShape.WaitCursor):
+            self._controller.set_edit_mode(gpkg_path, EditMode.ProductData)
 
 
 # locator
