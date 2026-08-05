@@ -6,17 +6,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>373</width>
-    <height>163</height>
+    <width>893</width>
+    <height>449</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Form</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="0" column="1">
-    <widget class="QLineEdit" name="edit_validation_script_command"/>
-   </item>
    <item row="0" column="0">
     <widget class="QLabel" name="label">
      <property name="text">
@@ -24,7 +21,32 @@
      </property>
     </widget>
    </item>
+   <item row="0" column="1">
+    <widget class="QLineEdit" name="edit_validation_script_command"/>
+   </item>
    <item row="2" column="1">
+    <widget class="QLabel" name="label_3">
+     <property name="text">
+      <string>The validation script command can use the following tokens, which will be replaced dynamically when running the script:
+
+&lt;ul&gt;
+&lt;li&gt;&lt;i&gt;{input_dir}&lt;/i&gt; → input directory&lt;/li&gt;
+&lt;li&gt;&lt;i&gt;{input_filename}&lt;/i&gt; → input filename (without directory)&lt;/li&gt;
+&lt;li&gt;&lt;i&gt;{output_dir}&lt;/i&gt; → output directory&lt;/li&gt;
+&lt;/ul&gt;</string>
+     </property>
+     <property name="textFormat">
+      <enum>Qt::TextFormat::RichText</enum>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+     <property name="textInteractionFlags">
+      <set>Qt::TextInteractionFlag::TextBrowserInteraction</set>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="1">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Orientation::Vertical</enum>
@@ -37,15 +59,15 @@
      </property>
     </spacer>
    </item>
-   <item row="1" column="0">
+   <item row="3" column="1">
+    <widget class="QgsFileWidget" name="working_dir_widget" native="true"/>
+   </item>
+   <item row="3" column="0">
     <widget class="QLabel" name="label_2">
      <property name="text">
       <string>Working directory</string>
      </property>
     </widget>
-   </item>
-   <item row="1" column="1">
-    <widget class="QgsFileWidget" name="working_dir_widget" native="true"/>
    </item>
   </layout>
  </widget>
