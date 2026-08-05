@@ -1,3 +1,4 @@
+import re
 import json
 from pathlib import Path
 from qgis.PyQt.QtCore import QObject, pyqtSignal
@@ -16,6 +17,8 @@ from qgis.core import (
 )
 
 from .constants import CURRENT_FEATURE_TYPE_VAR_NAME
+from .enums import EditMode
+from .db_utils import DbUtils
 
 SCHEMAS_DIR = Path(__file__) / ".." / ".." / "schemas"
 
@@ -49,6 +52,25 @@ class ProjectController(QObject):
             map_layer = self._project.mapLayer(layer_id)
             self._remove_layer(map_layer)
 
+    @staticmethod
+    def clean_layer_name(name: str) -> str:
+        match = re.match(r"(.*)_product_view", name)
+        if match:
+            return match.group(1)
+        return name
+
+    def _has_schema(self, layer: QgsMapLayer) -> bool:
+        parts = QgsProviderRegistry.instance().decodeUri(
+            layer.providerType(), layer.source()
+        )
+        layer_name = parts.get("layerName")
+        if not layer_name:
+            return False
+        layer_name = ProjectController.clean_layer_name(layer_name)
+
+        schema_file = (SCHEMAS_DIR / (layer_name + ".json")).resolve()
+        return schema_file.exists()
+
     def _initialize_layer(self, layer: QgsMapLayer):
         if not isinstance(layer, QgsVectorLayer):
             return
@@ -59,6 +81,7 @@ class ProjectController(QObject):
         layer_name = parts.get("layerName")
         if not layer_name:
             return
+        layer_name = ProjectController.clean_layer_name(layer_name)
 
         schema_file = (SCHEMAS_DIR / (layer_name + ".json")).resolve()
         if schema_file.exists():
@@ -88,6 +111,8 @@ class ProjectController(QObject):
         if not layer_name:
             return
 
+        layer_name = ProjectController.clean_layer_name(layer_name)
+
         layer.geometryChanged.disconnect(self._on_layer_geom_changed)
         layer.attributeValueChanged.disconnect(self._on_layer_attr_changed)
         layer_types = self._collect_feature_types_from_layer(layer)
@@ -103,11 +128,14 @@ class ProjectController(QObject):
         if not layer:
             return
 
+        change_type_index = layer.fields().lookupField("change_type")
+        if change_type_index < 0:
+            return
+
         unsaved_changed_attributes = (
             layer.editBuffer().changedAttributeValues().get(fid, {})
         )
 
-        change_type_index = layer.fields().lookupField("change_type")
         version_index = layer.fields().lookupField("version")
         has_already_changed_version = version_index in unsaved_changed_attributes
         feature = layer.getFeature(fid)
@@ -281,6 +309,8 @@ class ProjectController(QObject):
         if not layer_name:
             return None
 
+        layer_name = ProjectController.clean_layer_name(layer_name)
+
         feature_type_idx = layer.fields().lookupField("type")
         if feature_type_idx < 0:
             return None
@@ -310,6 +340,8 @@ class ProjectController(QObject):
                 layer.providerType(), layer.source()
             )
             layer_name = parts.get("layerName")
+            layer_name = ProjectController.clean_layer_name(layer_name)
+
             if layer_name == parent_feature_type:
                 return layer
         return None
@@ -332,6 +364,11 @@ class ProjectController(QObject):
                 layer.providerType(), layer.source()
             )
             layer_name = parts.get("layerName")
+            if not layer_name:
+                continue
+
+            layer_name = ProjectController.clean_layer_name(layer_name)
+
             if layer_name not in self.feature_types:
                 continue
 
@@ -340,3 +377,39 @@ class ProjectController(QObject):
                 return path
 
         return None
+
+    def set_edit_mode(self, geopackage_path: str, mode: EditMode):
+        for _, layer in self._project.mapLayers().items():
+            if not isinstance(layer, QgsVectorLayer) or layer.readOnly():
+                continue
+
+            parts = QgsProviderRegistry.instance().decodeUri(
+                layer.providerType(), layer.source()
+            )
+
+            path = parts.get("path")
+            if path != geopackage_path:
+                continue
+
+            layer_name = parts.get("layerName")
+            if layer_name and mode == EditMode.RealWorld:
+                match = re.match(r"(.*)_product_view", layer_name)
+                if match:
+                    parts["layerName"] = match.group(1)
+                    encoded_source = QgsProviderRegistry.instance().encodeUri(
+                        layer.providerType(), parts
+                    )
+                    layer.setDataSource(
+                        encoded_source, layer.name(), layer.providerType()
+                    )
+
+            elif mode == EditMode.ProductData:
+                if self._has_schema(layer):
+                    product_view_name = f"{layer_name}_product_view"
+                    parts["layerName"] = product_view_name
+                    encoded_source = QgsProviderRegistry.instance().encodeUri(
+                        layer.providerType(), parts
+                    )
+                    layer.setDataSource(
+                        encoded_source, layer.name(), layer.providerType()
+                    )

@@ -1,5 +1,7 @@
-from qgis.PyQt.QtCore import Qt, QCoreApplication, QObject
-from qgis.PyQt.QtWidgets import QMenu, QAction
+from pathlib import Path
+
+from qgis.PyQt.QtCore import Qt, QCoreApplication, QObject, QDir
+from qgis.PyQt.QtWidgets import QMenu, QAction, QMessageBox
 
 from qgis.core import QgsSettingsTree, QgsProject
 from qgis.gui import QgisInterface
@@ -12,7 +14,7 @@ from .gui import (
     ValidationDock,
     PluginsOptionsFactory,
 )
-from .core import StateManager, ProjectController, StoredObjectManager
+from .core import StateManager, ProjectController, DbUtils
 
 
 class TopographicMappingPlugin:
@@ -84,6 +86,11 @@ class TopographicMappingPlugin:
         validation_menu = QMenu("Validation", self._menu)
         self._menu.addMenu(validation_menu)
 
+        self._menu.addSeparator()
+        create_product_views_action = QAction("Create GPKG Product Views", self._menu)
+        create_product_views_action.triggered.connect(self._create_product_views)
+        self._menu.addAction(create_product_views_action)
+
         run_validation_action = QAction("Run Validation…", validation_menu)
         run_validation_action.triggered.connect(self.show_validation_dock)
         validation_menu.addAction(run_validation_action)
@@ -144,3 +151,23 @@ class TopographicMappingPlugin:
         Shows the validation dock
         """
         self._validation_dock.setUserVisible(True)
+
+    def _create_product_views(self):
+        """
+        Creates database product views, if not existing
+        """
+        path = self._project_controller.working_geopackage_path()
+        if not path:
+            QMessageBox.warning(
+                self.iface.mainWindow(),
+                "Create Product Views",
+                "No Topo data GeoPackage was detected in the current QGIS project",
+            )
+            return
+
+        DbUtils.create_all_product_views(Path(path))
+        QMessageBox.information(
+            self.iface.mainWindow(),
+            "Create Product Views",
+            "Product views created in {}".format(QDir.toNativeSeparators(path)),
+        )
