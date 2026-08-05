@@ -55,10 +55,14 @@ class ValidationUtils:
         Generates the command and arguments to use to launch the validation script
         """
         output_path = ValidationUtils.result_path()
+        input_path = Path(db_path)
 
-        program, *arguments = QgsRunProcess.splitCommand(VALIDATION_COMMAND.value())
-        arguments.extend(["--output-dir", output_path.as_posix()])
-        arguments.extend(["--db-path", db_path])
+        command = VALIDATION_COMMAND.value()
+        command = command.replace('{input_dir}', input_path.parent.as_posix())
+        command = command.replace('{input_filename}', input_path.name)
+        command = command.replace('{output_dir}', output_path.as_posix())
+
+        program, *arguments = QgsRunProcess.splitCommand(command)
 
         if extent is not None:
             arguments.extend(
