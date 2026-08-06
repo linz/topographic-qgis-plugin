@@ -58,9 +58,9 @@ class ValidationUtils:
         input_path = Path(db_path)
 
         command = VALIDATION_COMMAND.value()
-        command = command.replace('{input_dir}', input_path.parent.as_posix())
-        command = command.replace('{input_filename}', input_path.name)
-        command = command.replace('{output_dir}', output_path.as_posix())
+        command = command.replace("{input_dir}", input_path.parent.as_posix())
+        command = command.replace("{input_filename}", input_path.name)
+        command = command.replace("{output_dir}", output_path.as_posix())
 
         program, *arguments = QgsRunProcess.splitCommand(command)
 
