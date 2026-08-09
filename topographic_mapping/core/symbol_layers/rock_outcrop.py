@@ -7,9 +7,13 @@ from qgis.core import (
     QgsSymbolLayerAbstractMetadata,
     QgsGeometryUtilsBase,
     QgsVector,
+    QgsColorUtils,
+    QgsUnitTypes,
+    QgsSymbolLayerUtils,
+    QgsMapUnitScale,
 )
-from qgis.PyQt.QtCore import QPointF, QRectF
-from qgis.PyQt.QtGui import QBrush, QColor, QPen, QPolygonF
+from qgis.PyQt.QtCore import Qt, QPointF, QRectF
+from qgis.PyQt.QtGui import QBrush, QColor, QPen, QPolygonF, QTransform
 
 
 class RockOutcropMarkerSymbolLayer(QgsMarkerSymbolLayer):
@@ -76,21 +80,78 @@ class RockOutcropMarkerSymbolLayer(QgsMarkerSymbolLayer):
 
     def __init__(self, size=4.0, color=QColor(255, 0, 0), angle: float = 0.0):
         super().__init__()
-        self._size = size
-        self._color = color
-        self._angle = -15  # angle
-        self._variant = 3
+        self.setSize(size)
+        self.setColor(color)
+        self.setAngle(angle)
+        self._stroke_width = 0
+        self._stroke_width_unit: Qgis.RenderUnit = Qgis.RenderUnit.Millimeters
+        self._stroke_width_map_unit_scale = QgsMapUnitScale()
+        self._variant = 1
 
     def layerType(self) -> str:
         return "RockOutcropMarker"
 
     def properties(self) -> dict:
-        return {"size": self._size, "color": self._color.name(), "angle": self._angle}
+        return {
+            "size": self.size(),
+            "size_unit": QgsUnitTypes.encodeUnit(self.sizeUnit()),
+            "size_map_unit_scale": QgsSymbolLayerUtils.encodeMapUnitScale(
+                self.sizeMapUnitScale()
+            ),
+            "color": QgsColorUtils.colorToString(self.color()),
+            "offset": QgsSymbolLayerUtils.encodePoint(self.offset()),
+            "offset_unit": QgsUnitTypes.encodeUnit(self.offsetUnit()),
+            "offset_map_unit_scale": QgsSymbolLayerUtils.encodeMapUnitScale(
+                self.offsetMapUnitScale()
+            ),
+            "outline_width": str(self._stroke_width),
+            "outline_width_unit": QgsUnitTypes.encodeUnit(self._stroke_width_unit),
+            "outline_width_map_unit_scale": QgsSymbolLayerUtils.encodeMapUnitScale(
+                self._stroke_width_map_unit_scale
+            ),
+            "variant": self._variant,
+            "angle": self.angle(),
+        }
+
+    def variant(self) -> int:
+        return self._variant
+
+    def set_variant(self, variant: int):
+        self._variant = variant
+
+    def set_stroke_width(self, stroke_width: float):
+        self._stroke_width = stroke_width
+
+    def stroke_width(self) -> float:
+        return self._stroke_width
+
+    def set_stroke_width_unit(self, unit: Qgis.RenderUnit):
+        self._stroke_width_unit = unit
+
+    def stroke_width_unit(self) -> Qgis.RenderUnit:
+        return self._stroke_width_unit
+
+    def set_stroke_width_map_unit_scale(self, scale: QgsMapUnitScale):
+        self._stroke_width_map_unit_scale = scale
+
+    def stroke_width_map_unit_scale(self) -> QgsMapUnitScale:
+        return self._stroke_width_map_unit_scale
 
     def clone(self) -> "RockOutcropMarkerSymbolLayer":
-        cloned = RockOutcropMarkerSymbolLayer(
-            self._size, QColor(self._color), self._angle
-        )
+        cloned = RockOutcropMarkerSymbolLayer(self.size(), self.color(), self.angle())
+        cloned.setSizeUnit(self.sizeUnit())
+        cloned.setSizeMapUnitScale(self.sizeMapUnitScale())
+
+        cloned.setOffset(self.offset())
+        cloned.setOffsetUnit(self.offsetUnit())
+        cloned.setOffsetMapUnitScale(self.offsetMapUnitScale())
+
+        cloned.set_stroke_width(self._stroke_width)
+        cloned.set_stroke_width_unit(self._stroke_width_unit)
+        cloned.set_stroke_width_map_unit_scale(self._stroke_width_map_unit_scale)
+
+        cloned.set_variant(self.variant())
+
         self.copyDataDefinedProperties(cloned)
         self.copyPaintEffect(cloned)
         return cloned
@@ -101,6 +162,17 @@ class RockOutcropMarkerSymbolLayer(QgsMarkerSymbolLayer):
     def stopRender(self, context):
         super().stopRender(context)
 
+    def bounds(self, point, context):
+        scaled_size = context.renderContext().convertToPainterUnits(
+            self.size(), self.sizeUnit()
+        )
+
+        transform = QTransform()
+        transform.translate(point.x(), point.y())
+        return transform.mapRect(
+            QRectF(-scaled_size / 2, -scaled_size / 2, scaled_size, scaled_size)
+        )
+
     def renderPoint(self, point: QPointF, context):
         painter = context.renderContext().painter()
         if not painter:
@@ -108,13 +180,21 @@ class RockOutcropMarkerSymbolLayer(QgsMarkerSymbolLayer):
 
         # Convert symbol size to painter units (pixels)
         scaled_size = context.renderContext().convertToPainterUnits(
-            self._size, self.sizeUnit()
+            self.size(), self.sizeUnit()
         )
 
         painter.save()
 
-        pen = QPen(self._color)
-        pen.setWidthF(1.0)
+        scaled_stroke = context.renderContext().convertToPainterUnits(
+            self.stroke_width(),
+            self.stroke_width_unit(),
+            self.stroke_width_map_unit_scale(),
+        )
+
+        pen = QPen(self.color())
+        pen.setWidthF(scaled_stroke)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         painter.setPen(pen)
 
         half_width = scaled_size / 2.0
@@ -125,7 +205,7 @@ class RockOutcropMarkerSymbolLayer(QgsMarkerSymbolLayer):
         pivot_y = point.y() + y_offset
 
         # Rotation matrix parameters (clockwise in Qt screen coordinates)
-        rad = math.radians(self._angle)
+        rad = math.radians(self.angle())
         cos_a = math.cos(rad)
         sin_a = math.sin(rad)
 
@@ -136,7 +216,7 @@ class RockOutcropMarkerSymbolLayer(QgsMarkerSymbolLayer):
         p2_y = pivot_y + (half_width * sin_a)
         painter.drawLine(QPointF(p1_x, p1_y), QPointF(p2_x, p2_y))
 
-        normalized_angle = (self._angle + 360) % 360
+        normalized_angle = (self.angle() + 360) % 360
         needs_horizontal_mirror = 0 < normalized_angle < 90
 
         if self._variant == 1:
@@ -208,12 +288,55 @@ class RockOutcropMarkerMetadata(QgsSymbolLayerAbstractMetadata):
         super().__init__("RockOutcropMarker", "Rock Outcrop", Qgis.SymbolType.Marker)
 
     def createSymbolLayer(self, props: dict) -> RockOutcropMarkerSymbolLayer:
-        color = QColor(props.get("color", "#FF0000"))
-        return RockOutcropMarkerSymbolLayer(
+        res = RockOutcropMarkerSymbolLayer(
             size=float(props.get("size", 4.0)),
-            color=color,
+            color=QgsColorUtils.colorFromString(props.get("color", "#000000")),
             angle=float(props.get("angle", 0)),
         )
 
+        if "size_unit" in props:
+            res.setSizeUnit(QgsUnitTypes.decodeRenderUnit(str(props["size_unit"]))[0])
+        if "size_map_unit_scale" in props:
+            res.setSizeMapUnitScale(
+                QgsSymbolLayerUtils.decodeMapUnitScale(
+                    str(props["size_map_unit_scale"])
+                )
+            )
+
+        if "offset" in props:
+            res.setOffset(QgsSymbolLayerUtils.decodePoint(str(props["offset"])))
+        if "offset_unit" in props:
+            res.setOffsetUnit(
+                QgsUnitTypes.decodeRenderUnit(str(props["offset_unit"]))[0]
+            )
+        if "offset_map_unit_scale" in props:
+            res.setOffsetMapUnitScale(
+                QgsSymbolLayerUtils.decodeMapUnitScale(
+                    str(props["offset_map_unit_scale"])
+                )
+            )
+
+        if "outline_width" in props:
+            res.set_stroke_width(float(props["outline_width"]))
+        if "outline_width_unit" in props:
+            res.set_stroke_width_unit(
+                QgsUnitTypes.decodeRenderUnit(str(props["outline_width_unit"]))[0]
+            )
+        if "outline_width_map_unit_scale" in props:
+            res.set_stroke_width_map_unit_scale(
+                QgsSymbolLayerUtils.decodeMapUnitScale(
+                    str(props["outline_width_map_unit_scale"])
+                )
+            )
+
+        if "variant" in props:
+            res.set_variant(props["variant"])
+
+        return res
+
     def createSymbolLayerWidget(self, layer):
-        return None
+        from topographic_mapping.gui.symbol_layers.rock_outcrop_widget import (
+            RockOutcropMarkerWidget,
+        )
+
+        return RockOutcropMarkerWidget(layer)
