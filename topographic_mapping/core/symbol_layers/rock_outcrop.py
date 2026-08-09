@@ -1,3 +1,4 @@
+from typing import Tuple
 import math
 from qgis.core import (
     Qgis,
@@ -9,6 +10,7 @@ from qgis.core import (
     QgsVector,
     QgsColorUtils,
     QgsUnitTypes,
+    QgsSymbolLayer,
     QgsSymbolLayerUtils,
     QgsMapUnitScale,
 )
@@ -163,6 +165,22 @@ class RockOutcropMarkerSymbolLayer(QgsMarkerSymbolLayer):
     def stopRender(self, context):
         super().stopRender(context)
 
+    def calculate_size(self, context) -> Tuple[float, bool]:
+        scaled_size = self.size()
+        has_data_defined_size = self.dataDefinedProperties().isActive(
+            QgsSymbolLayer.Property.Size
+        )
+        ok = False
+        if has_data_defined_size:
+            context.setOriginalValueVariable(scaled_size)
+            scaled_size, ok = self.dataDefinedProperties().valueAsDouble(
+                QgsSymbolLayer.Property.Size,
+                context.renderContext().expressionContext(),
+                scaled_size,
+            )
+
+        return scaled_size, ok
+
     def bounds(self, point, context):
         scaled_size = context.renderContext().convertToPainterUnits(
             self.size(), self.sizeUnit()
@@ -180,19 +198,40 @@ class RockOutcropMarkerSymbolLayer(QgsMarkerSymbolLayer):
             return
 
         # Convert symbol size to painter units (pixels)
+        symbol_size, has_data_defined_size = self.calculate_size(context)
         scaled_size = context.renderContext().convertToPainterUnits(
-            self.size(), self.sizeUnit()
+            symbol_size, self.sizeUnit(), self.sizeMapUnitScale()
         )
 
         painter.save()
 
+        stroke_width = self.stroke_width()
+        if self.dataDefinedProperties().isActive(QgsSymbolLayer.Property.StrokeWidth):
+            context.setOriginalValueVariable(stroke_width)
+            stroke_width, _ = self.dataDefinedProperties().valueAsDouble(
+                QgsSymbolLayer.Property.StrokeWidth,
+                context.renderContext().expressionContext(),
+                stroke_width,
+            )
+
         scaled_stroke = context.renderContext().convertToPainterUnits(
-            self.stroke_width(),
+            stroke_width,
             self.stroke_width_unit(),
             self.stroke_width_map_unit_scale(),
         )
 
-        pen = QPen(self.color())
+        stroke_color = self.color()
+        if self.dataDefinedProperties().isActive(QgsSymbolLayer.Property.StrokeColor):
+            context.setOriginalValueVariable(
+                QgsSymbolLayerUtils.encodeColor(stroke_color)
+            )
+            stroke_color, _ = self.dataDefinedProperties().valueAsColor(
+                QgsSymbolLayer.Property.StrokeColor,
+                context.renderContext().expressionContext(),
+                stroke_color,
+            )
+
+        pen = QPen(stroke_color)
         pen.setWidthF(scaled_stroke)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
@@ -205,8 +244,17 @@ class RockOutcropMarkerSymbolLayer(QgsMarkerSymbolLayer):
         pivot_x = point.x()
         pivot_y = point.y() + y_offset
 
+        angle = self.angle()
+        if self.dataDefinedProperties().isActive(QgsSymbolLayer.Property.Angle):
+            context.setOriginalValueVariable(angle)
+            angle, _ = self.dataDefinedProperties().valueAsDouble(
+                QgsSymbolLayer.Property.Angle,
+                context.renderContext().expressionContext(),
+                angle,
+            )
+
         # Rotation matrix parameters (clockwise in Qt screen coordinates)
-        rad = math.radians(self.angle())
+        rad = math.radians(angle)
         cos_a = math.cos(rad)
         sin_a = math.sin(rad)
 
@@ -217,12 +265,21 @@ class RockOutcropMarkerSymbolLayer(QgsMarkerSymbolLayer):
         p2_y = pivot_y + (half_width * sin_a)
         painter.drawLine(QPointF(p1_x, p1_y), QPointF(p2_x, p2_y))
 
-        normalized_angle = (self.angle() + 360) % 360
+        normalized_angle = (angle + 360) % 360
         needs_horizontal_mirror = 0 < normalized_angle < 90
 
-        if self._variant == 1:
+        variant = self._variant
+        if self.dataDefinedProperties().isActive(QgsSymbolLayer.Property.Name):
+            context.setOriginalValueVariable(variant)
+            variant, _ = self.dataDefinedProperties().valueAsDouble(
+                QgsSymbolLayer.Property.Name,
+                context.renderContext().expressionContext(),
+                variant,
+            )
+
+        if variant == 1:
             raw_points = self.RAW_POLYLINE_POINTS_V1
-        elif self._variant == 2:
+        elif variant == 2:
             raw_points = self.RAW_POLYLINE_POINTS_V2
         else:
             raw_points = self.RAW_POLYLINE_POINTS_V3

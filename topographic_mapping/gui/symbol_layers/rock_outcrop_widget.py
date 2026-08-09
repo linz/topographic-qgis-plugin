@@ -30,7 +30,7 @@ class RockOutcropMarkerWidget(QgsSymbolLayerWidget, Ui_RockOutcropMarkerBaseWidg
         return RockOutcropMarkerWidget(vector_layer)
 
     def __init__(self, vector_layer: QgsVectorLayer, parent: QWidget = None):
-        super().__init__(parent)
+        super().__init__(parent, vector_layer)
         self.setupUi(self)
 
         self._vector_layer: QgsVectorLayer | None = vector_layer
@@ -95,23 +95,18 @@ class RockOutcropMarkerWidget(QgsSymbolLayerWidget, Ui_RockOutcropMarkerBaseWidg
 
         self.variant_spin.setValue(self._layer.variant())
 
-        if False:
-            # Register data-defined property override buttons using QGIS 4 scoped enums
-            self.registerDataDefinedButton(
-                self.mSizeDDBtn, QgsSymbolLayer.Property.Size
-            )
-            self.registerDataDefinedButton(
-                self.mStrokeColorDDBtn, QgsSymbolLayer.Property.StrokeColor
-            )
-            self.registerDataDefinedButton(
-                self.mAngleDDBtn, QgsSymbolLayer.Property.Angle
-            )
-            self.registerDataDefinedButton(
-                self.mOffsetDDBtn, QgsSymbolLayer.Property.Offset
-            )
-            self.registerDataDefinedButton(
-                self.mStrokeWidthDDBtn, QgsSymbolLayer.Property.StrokeWidth
-            )
+        self.registerDataDefinedButton(self.variant_ddbtn, QgsSymbolLayer.Property.Name)
+        self.registerDataDefinedButton(self.mSizeDDBtn, QgsSymbolLayer.Property.Size)
+        self.registerDataDefinedButton(
+            self.mStrokeColorDDBtn, QgsSymbolLayer.Property.StrokeColor
+        )
+        self.registerDataDefinedButton(self.mAngleDDBtn, QgsSymbolLayer.Property.Angle)
+        self.registerDataDefinedButton(
+            self.mOffsetDDBtn, QgsSymbolLayer.Property.Offset
+        )
+        self.registerDataDefinedButton(
+            self.mStrokeWidthDDBtn, QgsSymbolLayer.Property.StrokeWidth
+        )
 
         self._block_signals(False)
 
