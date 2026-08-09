@@ -240,11 +240,16 @@ class RockOutcropMarkerSymbolLayer(QgsMarkerSymbolLayer):
         half_width = scaled_size / 2.0
         y_offset = 0.567 * half_width
 
+        offset_x, offset_y = self.markerOffset(context)
+
+        point = QPointF(point.x() + offset_x, point.y() + offset_y)
+
         # Pivot point (center of the horizontal baseline)
         pivot_x = point.x()
         pivot_y = point.y() + y_offset
 
         angle = self.angle()
+
         if self.dataDefinedProperties().isActive(QgsSymbolLayer.Property.Angle):
             context.setOriginalValueVariable(angle)
             angle, _ = self.dataDefinedProperties().valueAsDouble(

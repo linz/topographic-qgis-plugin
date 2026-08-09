@@ -65,6 +65,9 @@ class RockOutcropMarkerWidget(QgsSymbolLayerWidget, Ui_RockOutcropMarkerBaseWidg
         self.spinOffsetY.valueChanged.connect(self._on_offset_changed)
         self.mOffsetUnitWidget.changed.connect(self._on_offset_unit_changed)
 
+        self.spinOffsetX.setClearValue(0)
+        self.spinOffsetY.setClearValue(0)
+
         self.mStrokeWidthSpinBox.valueChanged.connect(self._on_stroke_width_changed)
         self.mStrokeWidthUnitWidget.changed.connect(self._on_stroke_width_unit_changed)
 
