@@ -67,6 +67,7 @@ class RockOutcropMarkerSymbolLayer(QgsMarkerSymbolLayer):
             (0.795, 0.858),
             (0.852, 0.457),
             (1.111, 0.480),
+            (1.140, 0.740),
             (1.232, 1.567),
         ),
         (
@@ -226,6 +227,7 @@ class RockOutcropMarkerSymbolLayer(QgsMarkerSymbolLayer):
         else:
             raw_points = self.RAW_POLYLINE_POINTS_V3
 
+        transformed_paths = []
         for ring_index, raw_point_ring in enumerate(raw_points):
             polyline_points = []
             for x_ref, y_ref in raw_point_ring:
@@ -278,7 +280,15 @@ class RockOutcropMarkerSymbolLayer(QgsMarkerSymbolLayer):
                     polyline_points[-2].y() + vertical_shift / 2,
                 )
 
-            painter.drawPolyline(QPolygonF(polyline_points))
+            transformed_paths.append(polyline_points)
+
+        # special logic for variant 3 to ensure endpoints exactly coincide
+        if self._variant == 3:
+            transformed_paths[1][0] = transformed_paths[0][-2]
+            transformed_paths[1][-2] = transformed_paths[2][0]
+
+        for transformed_path in transformed_paths:
+            painter.drawPolyline(QPolygonF(transformed_path))
 
         painter.restore()
 
