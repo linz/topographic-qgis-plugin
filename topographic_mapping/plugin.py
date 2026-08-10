@@ -3,7 +3,7 @@ from pathlib import Path
 from qgis.PyQt.QtCore import Qt, QCoreApplication, QObject, QDir
 from qgis.PyQt.QtWidgets import QMenu, QAction, QMessageBox
 
-from qgis.core import QgsSettingsTree, QgsProject
+from qgis.core import QgsSettingsTree, QgsProject, QgsApplication
 from qgis.gui import QgisInterface
 
 from .gui import (
@@ -15,6 +15,7 @@ from .gui import (
     PluginsOptionsFactory,
 )
 from .core import StateManager, ProjectController, DbUtils
+from .core.symbol_layers import RockOutcropMarkerMetadata
 
 
 class TopographicMappingPlugin:
@@ -31,8 +32,13 @@ class TopographicMappingPlugin:
         self._project_controller: ProjectController | None = None
         self._menu: QMenu | None = None
         self._options_factory: PluginsOptionsFactory | None = None
+        self._symbol_layer_metadata = []
 
     def initGui(self) -> None:
+        self._symbol_layer_metadata = [RockOutcropMarkerMetadata()]
+        for _metadata in self._symbol_layer_metadata:
+            QgsApplication.symbolLayerRegistry().addSymbolLayerType(_metadata)
+
         self._project_controller = ProjectController(
             QgsProject.instance(), self._gui_owner
         )
@@ -130,6 +136,10 @@ class TopographicMappingPlugin:
             self._state_manager = None
 
         QgsSettingsTree.unregisterPluginTreeNode("topographic_mapping")
+
+        for _metadata in self._symbol_layer_metadata:
+            QgsApplication.symbolLayerRegistry().removeSymbolLayerType(_metadata)
+        self._symbol_layer_metadata = []
 
     @staticmethod
     def tr(message) -> str:
