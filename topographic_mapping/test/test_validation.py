@@ -27,7 +27,9 @@ class TestValidationUtils(TopographicTestBase):
         global QGIS_APP
         QGIS_APP = get_qgis_app()
 
-        VALIDATION_COMMAND.setValue("python3 /path/to/validator.py --verbose --output-dir {output_dir} --db-path {input_dir}/{input_filename}")
+        VALIDATION_COMMAND.setValue(
+            "python3 /path/to/validator.py --verbose --output-dir {output_dir} --db-path {input_dir}/{input_filename}"
+        )
 
     def test_generate_validation_command(self):
         """

@@ -13,6 +13,7 @@ from qgis.PyQt.QtWidgets import (
     QTabWidget,
     QTableView,
     QComboBox,
+    QRadioButton,
 )
 from qgis.core import (
     QgsBlockingProcess,
@@ -135,27 +136,29 @@ class ValidationDock(QgsDockWidget):
         run_validation_group = QgsCollapsibleGroupBoxBasic("Run Validation")
 
         run_layout = QVBoxLayout()
-        self._filter_by_extent_group = QGroupBox("Limit Extent")
-        self._filter_by_extent_group.setCheckable(True)
-        self._filter_by_extent_group.setChecked(False)
-        run_layout.addWidget(self._filter_by_extent_group)
+        self._filter_by_extent_radio = QRadioButton("Limit by Extent")
+        self._filter_by_extent_radio.setChecked(True)
+        run_layout.addWidget(self._filter_by_extent_radio)
         self._extent_widget = QgsExtentWidget(
             None, QgsExtentWidget.WidgetStyle.ExpandedStyle
         )
+        self._filter_by_extent_radio.toggled.connect(self._extent_widget.setEnabled)
         vl = QVBoxLayout()
         vl.addWidget(self._extent_widget)
-        self._filter_by_extent_group.setLayout(vl)
+        run_layout.addLayout(vl)
 
-        self._filter_by_map_sheet_group = QGroupBox("Limit by Map Sheet")
-        self._filter_by_map_sheet_group.setCheckable(True)
-        self._filter_by_map_sheet_group.setChecked(False)
-        run_layout.addWidget(self._filter_by_map_sheet_group)
+        self._filter_by_map_sheet_radio = QRadioButton("Limit by Map Sheet")
+        self._filter_by_map_sheet_radio.setChecked(False)
+        run_layout.addWidget(self._filter_by_map_sheet_radio)
         vl = QVBoxLayout()
-
         self._map_sheet_combo = QgsFeatureListComboBox()
+        self._map_sheet_combo.setEnabled(False)
         vl.addWidget(self._map_sheet_combo)
+        self._filter_by_map_sheet_radio.toggled.connect(
+            self._map_sheet_combo.setEnabled
+        )
 
-        self._filter_by_map_sheet_group.setLayout(vl)
+        run_layout.addLayout(vl)
 
         self._filter_by_date_group = QGroupBox("Limit Date Range")
         self._filter_by_date_group.setCheckable(True)
@@ -271,14 +274,13 @@ class ValidationDock(QgsDockWidget):
         Gets the current filter extent, in EPSG:4167
         """
         if (
-            not self._filter_by_extent_group.isChecked()
-            and not self._filter_by_map_sheet_group.isChecked()
+            not self._filter_by_extent_radio.isChecked()
+            and not self._filter_by_map_sheet_radio.isChecked()
         ):
             return None
 
-        extent_rect = None
         if (
-            self._filter_by_extent_group.isChecked()
+            self._filter_by_extent_radio.isChecked()
             and not self._extent_widget.outputExtent().isNull()
         ):
             transform = QgsCoordinateTransform(
@@ -292,12 +294,12 @@ class ValidationDock(QgsDockWidget):
                 extent_rect = transform.transformBoundingBox(
                     self._extent_widget.outputExtent()
                 )
+                return extent_rect
             except QgsCsException:
                 pass
 
-        sheet_rect = None
         sheet_layer = self._controller and self._controller.map_sheet_layer()
-        if sheet_layer and self._filter_by_map_sheet_group.isChecked():
+        if sheet_layer and self._filter_by_map_sheet_radio.isChecked():
             transform = QgsCoordinateTransform(
                 sheet_layer.crs(),
                 QgsCoordinateReferenceSystem("EPSG:4167"),
@@ -314,21 +316,14 @@ class ValidationDock(QgsDockWidget):
                     sheet_rect = transform.transformBoundingBox(
                         sheet_feature.geometry().boundingBox()
                     )
-                    if not sheet_rect.isFinite():
-                        sheet_rect = None
+                    if sheet_rect.isFinite():
+                        return sheet_rect
                 except QgsCsException:
                     pass
             except StopIteration:
                 pass
 
-        if extent_rect is not None and sheet_rect is None:
-            return extent_rect
-        elif extent_rect is None and sheet_rect is not None:
-            return sheet_rect
-        elif extent_rect is None and sheet_rect is None:
-            return None
-
-        return sheet_rect.intersect(extent_rect)
+        return None
 
     def _get_filter_date(self) -> QDate | None:
         """
