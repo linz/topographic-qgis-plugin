@@ -31,6 +31,7 @@ from topographic_mapping.gui import (
     CHANGE_FEATURE_CLASS_ACTION,
     PASTRY_DELETE_ACTION,
     PASTRY_CUT_ACTION,
+    CLEAR_PRODUCT_EDITS,
     LabelingGuiManager,
     StyleManager,
     ChangeFeatureClassDialog,
@@ -191,6 +192,10 @@ class TopographicMappingPlugin:
 
         pastry_cut_action = self._tool_registry.custom_action(PASTRY_CUT_ACTION)
         pastry_cut_action.triggered.connect(self._pastry_cut)
+
+        self._tool_registry.custom_action(CLEAR_PRODUCT_EDITS).triggered.connect(
+            self._clear_product_edits
+        )
 
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""
@@ -476,5 +481,18 @@ class TopographicMappingPlugin:
             return
 
         gpkg_path = self._project_controller.working_geopackage_path()
-        if gpkg_path:
-            self._project_controller.reset_product_view_edits(gpkg_path)
+        if not gpkg_path:
+            return
+
+        for layer in self._project_controller.editable_vector_layers_in_gpkg(gpkg_path):
+            if layer.isEditable() and layer.editBuffer().isModified():
+                self.iface.messageBar().pushWarning(
+                    None,
+                    "Cannot clear product view edits when layers have unsaved edits",
+                )
+                return False
+
+        self._project_controller.reset_product_view_edits(gpkg_path)
+        for layer in self._project_controller.editable_vector_layers_in_gpkg(gpkg_path):
+            if layer.isEditable():
+                layer.commitChanges(False)

@@ -73,6 +73,7 @@ LABELING_GROUP = "Labeling"
 CHANGE_FEATURE_CLASS_ACTION = "CHANGE_FEATURE_CLASS_ACTION"
 PASTRY_DELETE_ACTION = "PASTRY_DELETE_ACTION"
 PASTRY_CUT_ACTION = "PASTRY_CUT_ACTION"
+CLEAR_PRODUCT_EDITS = "CLEAR_PRODUCT_EDITS"
 SELECT_LABELS_ACTION = "SELECT_LABELS_ACTION"
 CREATE_LABEL_ACTION = "CREATE_LABEL_ACTION"
 RESET_LABEL_ACTION = "RESET_LABEL_ACTION"
@@ -184,6 +185,12 @@ TOOLS = {
             "pastry_cut.svg",
             "Split features using other features as cutting lines.",
             requires_selection=True,
+        ),
+        CustomAction(
+            CLEAR_PRODUCT_EDITS,
+            "Clear Product Data Edits",
+            "duplicate.svg",
+            "Clears the product view specific edits for the selected features.",
         ),
     ],
     DIGITIZING_GROUP: [

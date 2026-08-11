@@ -9,6 +9,7 @@ from .tool_registry import (
     CHANGE_FEATURE_CLASS_ACTION,
     PASTRY_DELETE_ACTION,
     PASTRY_CUT_ACTION,
+    CLEAR_PRODUCT_EDITS,
 )  # NOQA
 from .set_target_tool import SetTargetTool, SetTargetToolHandler  # NOQA
 from .feature_type_model import FeatureTypeTreeModel  # NOQA
