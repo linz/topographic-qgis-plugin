@@ -171,6 +171,9 @@ class ProjectController(QObject):
         )
 
         change_type_index = layer.fields().lookupField("change_type")
+        if change_type_index < 0:
+            return
+
         version_index = layer.fields().lookupField("version")
 
         has_already_changed_version = version_index in unsaved_changed_attributes
