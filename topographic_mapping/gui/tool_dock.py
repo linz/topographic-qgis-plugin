@@ -26,6 +26,7 @@ from qgis.gui import (
     QgsConfigureShortcutsDialog,
     QgsMapLayerComboBox,
     QgsFilterLineEdit,
+    QgsMessageBar,
 )
 from qgis.utils import OverrideCursor
 
@@ -47,6 +48,7 @@ class ToolDock(QgsDockWidget):
 
         self._controller: ProjectController | None = None
         self._state_manager: StateManager | None = None
+        self._message_bar: QgsMessageBar | None = None
 
         scroll_area = QScrollArea()
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -58,6 +60,7 @@ class ToolDock(QgsDockWidget):
         self._vlayout.setContentsMargins(0, 10, 6, 0)
 
         edit_mode_layout = QHBoxLayout()
+        self._block_view_changes: int = 0
         self._button_edit_real_data = QToolButton()
         self._button_edit_real_data.setCheckable(True)
         self._button_edit_real_data.setText("Real World")
@@ -148,6 +151,12 @@ class ToolDock(QgsDockWidget):
             self._add_to_favorites(favorite, store=False)
 
         self._target_layer_combo.layerChanged.connect(self._on_target_layer_changed)
+
+    def set_message_bar(self, message_bar: QgsMessageBar):
+        """
+        Sets the message bar to use for user feedback
+        """
+        self._message_bar = message_bar
 
     def set_project_controller(self, controller: ProjectController):
         self._controller = controller
@@ -398,23 +407,52 @@ class ToolDock(QgsDockWidget):
 
         self._state_manager.set_current_feature_type(feature_type)
 
+    def _prepare_view_change(self) -> bool:
+        """
+        Prepares for a view change, returns False if the change
+        should be aborted
+        """
+        gpkg_path = self._controller.working_geopackage_path()
+        if not gpkg_path:
+            return False
+
+        for layer in self._controller.editable_vector_layers_in_gpkg(gpkg_path):
+            if layer.isEditable() and layer.editBuffer().isModified():
+                if self._message_bar:
+                    self._message_bar.pushWarning(
+                        None, "Cannot change view when layers have unsaved edits"
+                    )
+                return False
+
+        # ensure all layers are non-editable
+        for layer in self._controller.editable_vector_layers_in_gpkg(gpkg_path):
+            if layer.isEditable():
+                layer.commitChanges()
+        return True
+
     def _toggle_real_data(self, enabled: bool):
-        if not enabled or not self._controller:
+        if self._block_view_changes or not enabled or not self._controller:
             return
 
         gpkg_path = self._controller.working_geopackage_path()
-        if not gpkg_path:
+        if not gpkg_path or not self._prepare_view_change():
+            self._block_view_changes += 1
+            self._button_edit_product_data.setChecked(True)
+            self._block_view_changes -= 1
             return
 
         with OverrideCursor(Qt.CursorShape.WaitCursor):
             self._controller.set_edit_mode(gpkg_path, EditMode.RealWorld)
 
     def _toggle_product_data(self, enabled: bool):
-        if not enabled or not self._controller:
+        if self._block_view_changes or not enabled or not self._controller:
             return
 
         gpkg_path = self._controller.working_geopackage_path()
-        if not gpkg_path:
+        if not gpkg_path or not self._prepare_view_change():
+            self._block_view_changes += 1
+            self._button_edit_real_data.setChecked(True)
+            self._block_view_changes -= 1
             return
 
         with OverrideCursor(Qt.CursorShape.WaitCursor):
