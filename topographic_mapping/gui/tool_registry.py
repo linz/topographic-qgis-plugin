@@ -129,7 +129,7 @@ TOOLS = {
         CustomAction(
             CLEAR_PRODUCT_EDITS,
             "Clear Product Data Edits",
-            "duplicate.svg",
+            "delete_product_view.svg",
             "Clears the product view specific edits for the selected features.",
         ),
     ],
