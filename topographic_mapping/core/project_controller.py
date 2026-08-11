@@ -1,5 +1,6 @@
 import re
 import json
+from collections.abc import Iterator
 from pathlib import Path
 from qgis.PyQt.QtCore import QObject, pyqtSignal
 
@@ -328,14 +329,21 @@ class ProjectController(QObject):
 
         return layer_name
 
-    def layer_for_feature_type(self, parent_feature_type: str) -> QgsVectorLayer | None:
+    def editable_vector_layers(self) -> Iterator[QgsVectorLayer]:
         """
-        Returns the layer containing features of the specified type
+        Returns an iterator over all editable vector layers
         """
         for _, layer in self._project.mapLayers().items():
             if not isinstance(layer, QgsVectorLayer) or layer.readOnly():
                 continue
 
+            yield layer
+
+    def layer_for_feature_type(self, parent_feature_type: str) -> QgsVectorLayer | None:
+        """
+        Returns the layer containing features of the specified type
+        """
+        for layer in self.editable_vector_layers():
             parts = QgsProviderRegistry.instance().decodeUri(
                 layer.providerType(), layer.source()
             )
@@ -356,10 +364,7 @@ class ProjectController(QObject):
         """
         Attempts to determine the current working geopackage data path
         """
-        for _, layer in self._project.mapLayers().items():
-            if not isinstance(layer, QgsVectorLayer) or layer.readOnly():
-                continue
-
+        for layer in self.editable_vector_layers():
             parts = QgsProviderRegistry.instance().decodeUri(
                 layer.providerType(), layer.source()
             )
@@ -369,7 +374,7 @@ class ProjectController(QObject):
 
             layer_name = ProjectController.clean_layer_name(layer_name)
 
-            if layer_name not in self.feature_types:
+            if not any([t for t in self.feature_types if t != layer_name]):
                 continue
 
             path = parts.get("path")
@@ -378,7 +383,12 @@ class ProjectController(QObject):
 
         return None
 
-    def set_edit_mode(self, geopackage_path: str, mode: EditMode):
+    def editable_vector_layers_in_gpkg(
+        self, geopackage_path: str
+    ) -> Iterator[QgsVectorLayer]:
+        """
+        Returns an iterator over all editable vector layers
+        """
         for _, layer in self._project.mapLayers().items():
             if not isinstance(layer, QgsVectorLayer) or layer.readOnly():
                 continue
@@ -391,6 +401,13 @@ class ProjectController(QObject):
             if path != geopackage_path:
                 continue
 
+            yield layer
+
+    def set_edit_mode(self, geopackage_path: str, mode: EditMode):
+        for layer in self.editable_vector_layers_in_gpkg(geopackage_path):
+            parts = QgsProviderRegistry.instance().decodeUri(
+                layer.providerType(), layer.source()
+            )
             layer_name = parts.get("layerName")
             if layer_name and mode == EditMode.RealWorld:
                 match = re.match(r"(.*)_product_view", layer_name)
