@@ -62,6 +62,7 @@ class CustomAction:
 
 EDITING_GROUP = "Topographic editing"
 DIGITIZING_GROUP = "Digitize feature"
+CLEAR_PRODUCT_EDITS = "CLEAR_PRODUCT_EDITS"
 
 TOOLS = {
     EDITING_GROUP: [
@@ -124,6 +125,12 @@ TOOLS = {
             "mActionMoveFeatureCopy",
             "duplicate.svg",
             "Duplicate single or multiple features.",
+        ),
+        CustomAction(
+            CLEAR_PRODUCT_EDITS,
+            "Clear Product Data Edits",
+            "duplicate.svg",
+            "Clears the product view specific edits for the selected features.",
         ),
     ],
     DIGITIZING_GROUP: [
