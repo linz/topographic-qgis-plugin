@@ -193,6 +193,63 @@ class TestProjectController(TopographicTestBase):
         self.assertTrue(unloaded_signal_emitted)
         self.assertIsNone(controller.map_sheet_layer())
 
+    def test_editable_vector_layers_iterator(self):
+        """
+        Test direct iteration over editable vector layers
+        """
+        project = QgsProject()
+        fields = QgsFields()
+
+        layer1 = self.create_dummy_layer("water_point", fields)
+        layer2 = self.create_dummy_layer("airport", fields)
+        layer3 = self.create_dummy_layer("coastline", fields)
+        layer3.setReadOnly(True)
+
+        project.addMapLayer(layer1)
+        project.addMapLayer(layer2)
+        project.addMapLayer(layer3)
+
+        controller = ProjectController(project, None)
+
+        iterator = controller.editable_vector_layers()
+        got_layers = []
+        got_layers.append(next(iterator))
+        got_layers.append(next(iterator))
+        with self.assertRaises(StopIteration):
+            next(iterator)
+        self.assertCountEqual(got_layers, [layer1, layer2])
+
+    def test_editable_vector_layers_in_gpkg_iterator(self):
+        """
+        Test direct iteration over editable vector layers in a specific gpkg
+        """
+        project = QgsProject()
+        fields = QgsFields()
+        fields.append(QgsField("id", QVariant.Int))
+        fields.append(QgsField("type", QVariant.String))
+
+        layer1 = self.create_dummy_layer("water_point", fields)
+        layer2 = self.create_dummy_layer("airport", fields)
+        layer2.setReadOnly(True)
+
+        project.addMapLayer(layer1)
+        project.addMapLayer(layer2)
+
+        controller = ProjectController(project, None)
+        gpkg_path = controller.working_geopackage_path()
+        self.assertTrue(gpkg_path)
+
+        iterator = controller.editable_vector_layers_in_gpkg(gpkg_path)
+        self.assertEqual(next(iterator), layer1)
+        with self.assertRaises(StopIteration):
+            next(iterator)
+
+        empty_iterator = controller.editable_vector_layers_in_gpkg(
+            "/nonexistent/path.gpkg"
+        )
+        with self.assertRaises(StopIteration):
+            next(empty_iterator)
+
     def test_working_geopackage_path_and_editable_layers(self):
         """
         Tests determining working GeoPackage path and fetching editable layers in GPKG.
