@@ -467,3 +467,14 @@ class TopographicMappingPlugin:
                     target_layer.addFeature(new_feature)
 
             target_layer.endEditCommand()
+
+    def _clear_product_edits(self):
+        """
+        Clears product edits for selected features
+        """
+        if not self._project_controller:
+            return
+
+        gpkg_path = self._project_controller.working_geopackage_path()
+        if gpkg_path:
+            self._project_controller.reset_product_view_edits(gpkg_path)
