@@ -105,7 +105,7 @@ class DbUtils:
                 if field.name() not in ("fid", "geom")
             ]
         )
-        field_update += f", {DbUtils.PRODUCT_GEOM_NAME} = CASE WHEN NEW.geom != OLD.geom THEN NEW.geom ELSE {DbUtils.PRODUCT_GEOM_NAME} END"
+        field_update += f", {DbUtils.PRODUCT_GEOM_NAME} = CASE WHEN NEW.geom IS NULL or NEW.geom != OLD.geom THEN NEW.geom ELSE {DbUtils.PRODUCT_GEOM_NAME} END"
 
         trigger_name = f"trg_update_{view_name}"
         query = rf"""CREATE TRIGGER {trigger_name} INSTEAD OF UPDATE ON {view_name} FOR EACH ROW BEGIN UPDATE {layer_name} SET {field_update} WHERE fid=OLD.fid; END;"""
