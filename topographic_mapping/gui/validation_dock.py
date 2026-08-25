@@ -152,8 +152,11 @@ class ValidationDock(QgsDockWidget):
         self._filter_by_map_sheet_radio.toggled.connect(
             self._map_sheet_combo.setEnabled
         )
-
         run_layout.addLayout(vl)
+
+        self._no_extent_filter_radio = QRadioButton("No Geographic Filter")
+        self._no_extent_filter_radio.setChecked(False)
+        run_layout.addWidget(self._no_extent_filter_radio)
 
         self._filter_by_date_group = QGroupBox("Limit Date Range")
         self._filter_by_date_group.setCheckable(True)
