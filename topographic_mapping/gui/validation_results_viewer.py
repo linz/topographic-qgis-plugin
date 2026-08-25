@@ -1,4 +1,4 @@
-from qgis.PyQt.QtCore import QModelIndex, QObject, Qt, QRect, QEvent
+from qgis.PyQt.QtCore import QModelIndex, QObject, Qt, QRect, QEvent, QTimer
 from qgis.PyQt.QtGui import QColor, QPainter
 from qgis.PyQt.QtWidgets import (
     QWidget,
@@ -90,6 +90,11 @@ class ValidationResultsViewer(QWidget):
         self._filter_model = None
         self._list_view = None
         self._delegate = None
+        self._queued_zoom_and_flash_index: QModelIndex | None = None
+        self._zoom_and_flash_timeout = QTimer()
+        self._zoom_and_flash_timeout.setSingleShot(True)
+        self._zoom_and_flash_timeout.setInterval(50)
+        self._zoom_and_flash_timeout.timeout.connect(self._trigger_zoom_and_flash)
 
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -172,6 +177,7 @@ class ValidationResultsViewer(QWidget):
         self._list_view.selectionModel().selectionChanged.connect(
             self.on_selection_changed
         )
+        self._list_view.clicked.connect(self.on_item_clicked)
 
         self._delegate = ValidationAttributeTableDelegate([0], self)
         self._list_view.setItemDelegate(self._delegate)
@@ -212,6 +218,19 @@ class ValidationResultsViewer(QWidget):
 
         layer.conditionalStyles().setRowStyles([closed_row_style, open_row_style])
 
+    def _queue_zoom_and_flash(self, index: QModelIndex):
+        """
+        Queues the zoom and flash operation, after a short time-out
+        """
+        self._queued_zoom_and_flash_index = index
+
+    def on_item_clicked(self, index: QModelIndex):
+        """
+        Triggers every time a row is clicked, even if already selected.
+        """
+        self._queue_zoom_and_flash(index)
+        self._zoom_and_flash_timeout.start()
+
     def on_selection_changed(self, selected, deselected):
         """
         Triggered whenever the user clicks an item in the list view.
@@ -221,7 +240,13 @@ class ValidationResultsViewer(QWidget):
             return
 
         index = selected.indexes()[0]
-        fid = self._filter_model.rowToId(index)
+        self._queue_zoom_and_flash(index)
+
+    def _trigger_zoom_and_flash(self):
+        if self._queued_zoom_and_flash_index is None:
+            return
+
+        fid = self._filter_model.rowToId(self._queued_zoom_and_flash_index)
 
         self._canvas.zoomToFeatureIds(self._layer, [fid])
         self._canvas.refresh()
