@@ -22,14 +22,14 @@ class GuiUtilsTest(TopographicTestBase):
         self.assertFalse(GuiUtils.get_icon("buffer.svg").isNull())
         self.assertTrue(GuiUtils.get_icon("not_an_icon.svg").isNull())
 
-    @unittest.skip("no ui files yet")
     def testGetUiFilePath(self):
         """
         Tests get_ui_file_path svg path
         """
-        self.assertTrue(GuiUtils.get_ui_file_path("dockwidget_main.ui"))
+        self.assertTrue(GuiUtils.get_ui_file_path("widget_rock_outcrop_marker.ui"))
         self.assertIn(
-            "dockwidget_main.ui", GuiUtils.get_ui_file_path("dockwidget_main.ui")
+            "widget_rock_outcrop_marker.ui",
+            GuiUtils.get_ui_file_path("widget_rock_outcrop_marker.ui"),
         )
         self.assertFalse(GuiUtils.get_ui_file_path("not_a_form.ui"))
 
