@@ -30,7 +30,7 @@ class ProjectController(QObject):
     map_sheet_layer_loaded = pyqtSignal()
     map_sheet_layer_unloaded = pyqtSignal()
 
-    MAP_SHEET_LAYER_NAME = "nztopo50_map_sheet"
+    MAP_SHEET_LAYER_NAME_SUFFIX = "_map_sheet"
 
     def __init__(self, project: QgsProject, parent: QObject | None):
         super().__init__(parent)
@@ -95,7 +95,7 @@ class ProjectController(QObject):
             self.feature_types.append(layer_types)
             self.feature_types_found.emit(layer_types)
 
-        if layer_name == self.MAP_SHEET_LAYER_NAME:
+        if layer_name.lower().endswith(self.MAP_SHEET_LAYER_NAME_SUFFIX):
             self.map_sheet_layer_loaded.emit()
 
     def _remove_layer(self, layer: QgsMapLayer):
@@ -115,7 +115,7 @@ class ProjectController(QObject):
             self.feature_types = [t for t in self.feature_types if t != layer_types]
             self.feature_types_removed.emit(layer_types)
 
-        if layer_name == self.MAP_SHEET_LAYER_NAME:
+        if layer_name.lower().endswith(self.MAP_SHEET_LAYER_NAME_SUFFIX):
             self.map_sheet_layer_unloaded.emit()
 
     def _set_layer_schema(self, layer: QgsVectorLayer, schema: dict):
@@ -280,7 +280,19 @@ class ProjectController(QObject):
         """
         Returns the map sheet layer
         """
-        return self.layer_for_feature_type(self.MAP_SHEET_LAYER_NAME)
+        for _, layer in self._project.mapLayers().items():
+            if not isinstance(layer, QgsVectorLayer) or layer.readOnly():
+                continue
+
+            parts = QgsProviderRegistry.instance().decodeUri(
+                layer.providerType(), layer.source()
+            )
+            layer_name = parts.get("layerName")
+            layer_name = ProjectController.clean_layer_name(layer_name)
+
+            if layer_name.lower().endswith(self.MAP_SHEET_LAYER_NAME_SUFFIX):
+                return layer
+        return None
 
     def working_geopackage_path(self) -> str | None:
         """

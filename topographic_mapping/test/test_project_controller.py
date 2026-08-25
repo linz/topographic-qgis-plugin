@@ -182,7 +182,7 @@ class TestProjectController(TopographicTestBase):
         fields = QgsFields()
         fields.append(QgsField("type", QVariant.String))
         map_sheet_layer = self.create_dummy_layer(
-            ProjectController.MAP_SHEET_LAYER_NAME, fields
+            "some" + ProjectController.MAP_SHEET_LAYER_NAME_SUFFIX, fields
         )
         project.addMapLayer(map_sheet_layer)
 
