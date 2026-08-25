@@ -135,6 +135,7 @@ class ValidationDock(QgsDockWidget):
         self._extent_widget = QgsExtentWidget(
             None, QgsExtentWidget.WidgetStyle.ExpandedStyle
         )
+        self._extent_widget.setOutputCrs(QgsCoordinateReferenceSystem("EPSG:2193"))
         self._filter_by_extent_radio.toggled.connect(self._extent_widget.setEnabled)
         vl = QVBoxLayout()
         vl.addWidget(self._extent_widget)
