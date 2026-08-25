@@ -72,8 +72,6 @@ class TestProjectController(TopographicTestBase):
         fields.append(QgsField("type", QVariant.String))
         fields.append(QgsField("name", QVariant.String))
         fields.append(QgsField("capture_method", QVariant.String))
-        fields.append(QgsField("change_type", QVariant.String))
-        fields.append(QgsField("version", QVariant.Int))
 
         layer = self.create_dummy_layer("water_point", fields)
         self.assertTrue(layer.isValid())
