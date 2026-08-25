@@ -152,8 +152,11 @@ class ValidationDock(QgsDockWidget):
         self._filter_by_map_sheet_radio.toggled.connect(
             self._map_sheet_combo.setEnabled
         )
-
         run_layout.addLayout(vl)
+
+        self._no_extent_filter_radio = QRadioButton("No Geographic Filter")
+        self._no_extent_filter_radio.setChecked(False)
+        run_layout.addWidget(self._no_extent_filter_radio)
 
         self._filter_by_date_group = QGroupBox("Limit Date Range")
         self._filter_by_date_group.setCheckable(True)
@@ -425,10 +428,11 @@ class ValidationDock(QgsDockWidget):
     def _task_completed(self):
         if self.sender() != self._task:
             return
+
+        task_success = not self._task.result_code
         self._cancel_button.setEnabled(False)
         self._task = None
-        self._scroll_to_bottom_of_log()
-        self._tab_widget.setCurrentIndex(1)
+        self._tab_widget.setCurrentIndex(1 if task_success else 0)
 
         self._results_model.set_data(ValidationUtils.get_last_validation_results())
         self._result_layer_widget.reload()
