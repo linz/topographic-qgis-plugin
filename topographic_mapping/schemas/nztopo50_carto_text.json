@@ -7,8 +7,16 @@
       "type": "string",
       "description": "UUID for the feature."
     },
-    "t50_fid": {
-      "description": "Unique identifier for the feature"
+    "example_point_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "id (UUID) of the example feature."
     },
     "full_text": {
       "anyOf": [
@@ -254,7 +262,7 @@
       "$ref": "#/$defs/BBox"
     }
   },
-  "required": ["id", "t50_fid", "geometry"],
+  "required": ["id", "geometry"],
   "additionalProperties": false,
   "$defs": {
     "TextFontEnum": {
@@ -272,17 +280,17 @@
     },
     "FontEnum": {
       "type": "string",
-      "enum": ["", "Nimbus Sans"],
+      "enum": ["", "Nimbus Sans LINZ"],
       "description": "Auto-derived from observed values of `font`."
     },
     "StyleEnum": {
       "type": "string",
-      "enum": ["", "Italic", "Narrow", "Narrow Bold", "Narrow Oblique", "Regular"],
+      "enum": ["", "Italic", "Narrow", "Narrow Bold", "Narrow Italic", "Regular"],
       "description": "Auto-derived from observed values of `style`."
     },
     "ColourEnum": {
       "type": "string",
-      "enum": ["", "black", "steelblue", "red"],
+      "enum": ["", "black", "process_blue", "red"],
       "description": "Auto-derived from observed values of `colour`."
     },
     "PlacementEnum": {

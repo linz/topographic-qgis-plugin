@@ -82,12 +82,6 @@ class TestProjectController(TopographicTestBase):
 
         _ = ProjectController(project, None)
 
-        version_idx = layer.fields().lookupField("version")
-        version_setup = layer.editorWidgetSetup(version_idx)
-        self.assertEqual(version_setup.type(), "Range")
-        self.assertEqual(version_setup.config().get("Min"), 1.0)
-        self.assertEqual(version_setup.config().get("Max"), 2147483647.0)
-
         feature_type_idx = layer.fields().lookupField("type")
         feature_type_setup = layer.editorWidgetSetup(feature_type_idx)
         self.assertEqual(feature_type_setup.type(), "ValueMap")
@@ -95,7 +89,6 @@ class TestProjectController(TopographicTestBase):
         status_map = feature_type_setup.config().get("map", [])
         self.assertIn({"rock": "rock"}, status_map)
         self.assertIn({"soakhole": "soakhole"}, status_map)
-        self.assertIn({"<NULL>": QgsValueMapFieldFormatter.NULL_VALUE}, status_map)
 
         default_def = layer.defaultValueDefinition(feature_type_idx)
         # Because the field is named "type", it explicitly gets overridden

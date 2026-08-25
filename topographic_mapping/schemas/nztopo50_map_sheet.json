@@ -7,69 +7,37 @@
       "type": "string",
       "description": "UUID for the feature."
     },
-    "t50_fid": {
-      "description": "Unique identifier for the feature"
-    },
+    "t50_fid": {},
     "type": {
-      "anyOf": [
-        {
-          "type": "string",
-          "const": "nztopo50_map_sheet"
-        },
-        {
-          "type": "null"
-        }
-      ]
+      "type": "string",
+      "const": "nztopo50_map_sheet"
     },
     "sheet_code": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ]
+      "type": "string"
     },
     "sheet_name": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ]
+      "type": "string"
     },
-    "edition": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ]
+    "x_origin": {
+      "type": "number"
     },
-    "example_class": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/ExampleClassEnum"
-        },
-        {
-          "type": "null"
-        }
-      ]
+    "y_origin": {
+      "type": "number"
     },
-    "example_name": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ]
+    "example_point_id": {
+      "type": "string",
+      "description": "topo_id (UUID) of the example feature."
+    },
+    "published_version": {
+      "type": "string"
+    },
+    "published_at": {
+      "type": "object",
+      "properties": {}
+    },
+    "updated_at": {
+      "type": "object",
+      "properties": {}
     },
     "geometry": {
       "description": "WKB geometry. Validation only checks presence + non-null; semantic checks live elsewhere.",
@@ -81,14 +49,21 @@
       "$ref": "#/$defs/BBox"
     }
   },
-  "required": ["id", "t50_fid", "geometry"],
+  "required": [
+    "id",
+    "type",
+    "sheet_code",
+    "sheet_name",
+    "x_origin",
+    "y_origin",
+    "example_point_id",
+    "published_version",
+    "published_at",
+    "updated_at",
+    "geometry"
+  ],
   "additionalProperties": false,
   "$defs": {
-    "ExampleClassEnum": {
-      "type": "string",
-      "enum": ["geographic_name", "trig_pnt"],
-      "description": "Auto-derived from observed values of `example_class`."
-    },
     "BBox": {
       "type": "object",
       "properties": {

@@ -7,9 +7,6 @@
       "type": "string",
       "description": "UUID for the feature."
     },
-    "t50_fid": {
-      "description": "Unique identifier for the feature"
-    },
     "direction": {
       "anyOf": [
         {
@@ -40,7 +37,7 @@
       "$ref": "#/$defs/BBox"
     }
   },
-  "required": ["id", "t50_fid", "geometry"],
+  "required": ["id", "geometry"],
   "additionalProperties": false,
   "$defs": {
     "DirectionEnum": {
