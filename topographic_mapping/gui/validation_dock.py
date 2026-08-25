@@ -121,6 +121,7 @@ class ValidationDock(QgsDockWidget):
         super().__init__(parent)
 
         self._controller: ProjectController | None = None
+        self._canvas: QgsMapCanvas | None = None
 
         self._tab_widget = QTabWidget()
 
@@ -255,10 +256,21 @@ class ValidationDock(QgsDockWidget):
         self._results_viewer.cleanup()
 
     def set_map_canvas(self, canvas: QgsMapCanvas):
-        self._extent_widget.setMapCanvas(canvas)
-        if canvas.extent().isValid():
+        self._canvas = canvas
+        self._extent_widget.setMapCanvas(self._canvas)
+        if not self._canvas.extent().isNull():
             self._extent_widget.setOutputExtentFromCurrent()
-        self._results_viewer.set_canvas(canvas)
+        else:
+            # defer initial canvas extent setting until canvas is set to a valid extent
+            self._canvas.extentsChanged.connect(self._on_canvas_extent_changed)
+        self._results_viewer.set_canvas(self._canvas)
+
+    def _on_canvas_extent_changed(self):
+        if not self._canvas.extent().isNull():
+            self._extent_widget.setOutputExtentFromCurrent()
+
+        if not self._extent_widget.outputExtent().isNull():
+            self._canvas.extentsChanged.disconnect(self._on_canvas_extent_changed)
 
     def set_project_controller(self, controller: ProjectController):
         self._controller = controller
