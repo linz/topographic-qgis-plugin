@@ -31,6 +31,7 @@ class ProjectController(QObject):
     map_sheet_layer_unloaded = pyqtSignal()
 
     MAP_SHEET_LAYER_NAME_SUFFIX = "_map_sheet"
+    LABEL_TARGET_NAME_SUFFIX = "_carto_text"
 
     def __init__(self, project: QgsProject, parent: QObject | None):
         super().__init__(parent)
@@ -276,9 +277,9 @@ class ProjectController(QObject):
                 return layer
         return None
 
-    def map_sheet_layer(self) -> QgsVectorLayer | None:
+    def _find_layer_with_suffix(self, suffix: str) -> QgsVectorLayer | None:
         """
-        Returns the map sheet layer
+        Returns the layer matching the given suffix
         """
         for _, layer in self._project.mapLayers().items():
             if not isinstance(layer, QgsVectorLayer) or layer.readOnly():
@@ -290,9 +291,21 @@ class ProjectController(QObject):
             layer_name = parts.get("layerName")
             layer_name = ProjectController.clean_layer_name(layer_name)
 
-            if layer_name.lower().endswith(self.MAP_SHEET_LAYER_NAME_SUFFIX):
+            if layer_name.lower().endswith(suffix):
                 return layer
         return None
+
+    def map_sheet_layer(self) -> QgsVectorLayer | None:
+        """
+        Returns the map sheet layer
+        """
+        return self._find_layer_with_suffix(self.MAP_SHEET_LAYER_NAME_SUFFIX)
+
+    def label_target_layer(self) -> QgsVectorLayer | None:
+        """
+        Returns the label target layer
+        """
+        return self._find_layer_with_suffix(self.LABEL_TARGET_NAME_SUFFIX)
 
     def working_geopackage_path(self) -> str | None:
         """
