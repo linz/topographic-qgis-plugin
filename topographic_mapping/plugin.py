@@ -51,6 +51,7 @@ class TopographicMappingPlugin:
         )
         self._tool_dock.setObjectName("TopographicTools")
         self._tool_dock.setWindowTitle("Editing tools")
+        self._tool_dock.set_message_bar(self.iface.messageBar())
 
         self._validation_dock = ValidationDock(
             parent=None,
