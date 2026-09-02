@@ -13,6 +13,7 @@ from .gui import (
     SetTargetToolHandler,
     ValidationDock,
     PluginsOptionsFactory,
+    CLEAR_PRODUCT_EDITS,
 )
 from .core import StateManager, ProjectController, DbUtils
 from .core.symbol_layers import RockOutcropMarkerMetadata
@@ -106,6 +107,10 @@ class TopographicMappingPlugin:
         self.options_factory.setTitle("TopoMapping")
         self.iface.registerOptionsWidgetFactory(self.options_factory)
 
+        self._tool_registry.custom_action(CLEAR_PRODUCT_EDITS).triggered.connect(
+            self._clear_product_edits
+        )
+
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""
         self._tool_registry.unregister_shortcuts()
@@ -182,3 +187,27 @@ class TopographicMappingPlugin:
             "Create Product Views",
             "Product views created in {}".format(QDir.toNativeSeparators(path)),
         )
+
+    def _clear_product_edits(self):
+        """
+        Clears product edits for selected features
+        """
+        if not self._project_controller:
+            return
+
+        gpkg_path = self._project_controller.working_geopackage_path()
+        if not gpkg_path:
+            return
+
+        for layer in self._project_controller.editable_vector_layers_in_gpkg(gpkg_path):
+            if layer.isEditable() and layer.editBuffer().isModified():
+                self.iface.messageBar().pushWarning(
+                    None,
+                    "Cannot clear product view edits when layers have unsaved edits",
+                )
+                return False
+
+        self._project_controller.reset_product_view_edits(gpkg_path)
+        for layer in self._project_controller.editable_vector_layers_in_gpkg(gpkg_path):
+            if layer.isEditable():
+                layer.commitChanges(False)

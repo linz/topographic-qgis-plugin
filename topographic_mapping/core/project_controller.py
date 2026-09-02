@@ -364,3 +364,32 @@ class ProjectController(QObject):
                     layer.setDataSource(
                         encoded_source, layer.name(), layer.providerType()
                     )
+
+    def reset_product_view_edits(self, geopackage_path: str):
+        """
+        For all matching layers in the project, resets all product view edits
+        """
+        for layer in self.editable_vector_layers_in_gpkg(geopackage_path):
+            selection = layer.selectedFeatureIds()
+            if not selection or not layer.isEditable():
+                continue
+
+            parts = QgsProviderRegistry.instance().decodeUri(
+                layer.providerType(), layer.source()
+            )
+            layer_name = parts.get("layerName")
+            match = re.match(r"(.*)_product_view", layer_name)
+            layer.beginEditCommand("Reset product view edits")
+            if match:
+                # layer is set to product view -- so directly null geometries
+                for fid in selection:
+                    layer.changeGeometry(fid, QgsGeometry(), True)
+            else:
+                # layer is set to real-world view, so null product view binary field
+                product_geom_idx = layer.fields().lookupField("product_geom")
+                for fid in selection:
+                    layer.changeAttributeValue(
+                        fid, product_geom_idx, None, skipDefaultValues=True
+                    )
+
+            layer.endEditCommand()
