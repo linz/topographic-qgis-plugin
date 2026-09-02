@@ -29,6 +29,7 @@ class StateManager(QObject):
         self._current_target_layer: QgsVectorLayer | None = None
 
         self._iface.currentLayerChanged.connect(self._on_current_layer_changed)
+        self._on_current_layer_changed(iface.activeLayer())
 
     def target_layer(self) -> QgsVectorLayer | None:
         """
