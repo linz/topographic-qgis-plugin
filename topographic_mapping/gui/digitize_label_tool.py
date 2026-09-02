@@ -1,12 +1,18 @@
+from qgis.PyQt import sip
 from qgis.core import (
-    QgsFeature,
     QgsGeometry,
     QgsPoint,
     QgsVectorLayer,
     QgsLineString,
     Qgis,
 )
-from qgis.gui import QgsMapCanvas, QgsMapMouseEvent, QgsMapToolCapture
+from qgis.gui import (
+    QgsMapCanvas,
+    QgsMapMouseEvent,
+    QgsMapToolCapture,
+    QgsMapTool,
+    QgsRubberBand,
+)
 from qgis.PyQt.QtCore import Qt
 
 
@@ -18,33 +24,56 @@ class DigitizeLabelTool(QgsMapToolCapture):
     def __init__(
         self,
         canvas: QgsMapCanvas,
-        fixed_width: float,
-        target_layer: QgsVectorLayer,
         cad_dock_widget,
-        fid: int,
     ):
-        super().__init__(canvas, cad_dock_widget, QgsMapToolCapture.CaptureLine)
+        super().__init__(
+            canvas, cad_dock_widget, QgsMapToolCapture.CaptureMode.CaptureLine
+        )
         self.canvas = canvas
-        self.fixed_width = fixed_width
-        self._target_layer = target_layer
+        self._target_width: float | None = None
+        self._target_layer: QgsVectorLayer | None = None
+        self._target_fid: int | None = None
+        self._previous_tool: QgsMapTool | None = None
+
+        self._preview_band: QgsRubberBand | None = None
+
+    def set_target_layer(self, layer: QgsVectorLayer) -> None:
+        self._target_layer = layer
+
+    def set_target_feature(self, fid: int) -> None:
         self._target_fid = fid
 
-        self._preview_band = self.createRubberBandForLayer(
-            self._target_layer, [self._target_fid]
-        )
-        # self._preview_band.setRenderedComponents(Qgis.RubberBandComponent.PreviewItems)
-        self._preview_band.show()
+    def set_target_width(self, width: float) -> None:
+        self._target_width = width
 
     def cancel_tool(self) -> None:
         """Hides the rubber band preview and unsets the tool from the map canvas."""
-        if self._preview_band:
-            self._preview_band.hide()
+        self.remove_rubber_band()
         self.canvas.unsetMapTool(self)
 
+    def activate(self) -> None:
+        if self._preview_band and not sip.isdeleted(self._preview_band):
+            del self._preview_band
+        self._preview_band = None
+
+        if self._target_fid is not None and self._target_layer is not None:
+            self._preview_band = self.createRubberBandForLayer(
+                self._target_layer, [self._target_fid]
+            )
+            # self._preview_band.setRenderedComponents(
+            #    Qgis.RubberBandComponent.PreviewItems)
+            self._preview_band.show()
+
+    def remove_rubber_band(self):
+        if self._preview_band and not sip.isdeleted(self._preview_band):
+            del self._preview_band
+        self._preview_band = None
+
     def deactivate(self) -> None:
-        if self._preview_band:
-            self._preview_band.hide()
+        self.remove_rubber_band()
         super().deactivate()
+        if self._previous_tool is not None and not sip.isdeleted(self._previous_tool):
+            self.canvas.setMapTool(self._previous_tool)
 
     def keyPressEvent(self, e) -> None:
         if e.key() == Qt.Key.Key_Escape:
@@ -56,7 +85,7 @@ class DigitizeLabelTool(QgsMapToolCapture):
         super().canvasMoveEvent(e)
 
         start_pt = e.mapPoint()
-        end_pt = QgsPoint(start_pt.x() + self.fixed_width, start_pt.y())
+        end_pt = QgsPoint(start_pt.x() + self._target_width, start_pt.y())
         line_geom = QgsGeometry(QgsLineString([start_pt, end_pt]))
         self._preview_band.setToGeometry(line_geom, self._target_layer)
 
@@ -68,8 +97,11 @@ class DigitizeLabelTool(QgsMapToolCapture):
         if e.button() != Qt.MouseButton.LeftButton:
             return
 
+        if self._target_fid is None or self._target_width is None:
+            return
+
         start_pt = e.mapPoint()
-        end_pt = QgsPoint(start_pt.x() + self.fixed_width, start_pt.y())
+        end_pt = QgsPoint(start_pt.x() + self._target_width, start_pt.y())
         line_geom = QgsGeometry(QgsLineString([start_pt, end_pt]))
 
         self._target_layer.changeGeometry(self._target_fid, line_geom)

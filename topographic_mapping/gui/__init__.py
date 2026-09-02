@@ -13,3 +13,4 @@ from .validation_dock import ValidationDock  # NOQA
 from .options_widget import PluginsOptionsFactory  # NOQA
 from .label_dock import LabelDock  # NOQA
 from .edit_tool_dock import EditToolDock  # NOQA
+from .digitize_label_tool import DigitizeLabelTool  # NOQA

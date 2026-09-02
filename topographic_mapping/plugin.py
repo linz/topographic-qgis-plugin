@@ -6,7 +6,7 @@ from qgis.PyQt.QtWidgets import QMenu, QAction, QMessageBox
 from qgis.core import QgsSettingsTree, QgsProject, QgsApplication
 from qgis.gui import QgisInterface
 
-from .gui import (
+from topographic_mapping.gui import (
     EditToolDock,
     ToolRegistry,
     SetTargetTool,
@@ -18,6 +18,7 @@ from .gui import (
     DIGITIZING_GROUP,
     LABELING_GROUP,
     CREATE_LABEL_ACTION,
+    DigitizeLabelTool,
 )
 from .core import StateManager, ProjectController, DbUtils, LabelManager
 from .core.symbol_layers import RockOutcropMarkerMetadata
@@ -40,6 +41,8 @@ class TopographicMappingPlugin:
         self._menu: QMenu | None = None
         self._options_factory: PluginsOptionsFactory | None = None
         self._symbol_layer_metadata = []
+
+        self._digitize_label_tool: DigitizeLabelTool | None = None
 
     def initGui(self) -> None:
         self._symbol_layer_metadata = [RockOutcropMarkerMetadata()]
@@ -136,6 +139,10 @@ class TopographicMappingPlugin:
 
         self._tool_registry.custom_action(CREATE_LABEL_ACTION).triggered.connect(
             self._create_labels
+        )
+
+        self._digitize_label_tool = DigitizeLabelTool(
+            self.iface.mapCanvas(), self.iface.cadDockWidget()
         )
 
     def unload(self) -> None:
@@ -243,15 +250,11 @@ class TopographicMappingPlugin:
         new_feature = QgsFeature(label_layer.fields())
         new_feature["text_string"] = label_text
         label_layer.addFeature(new_feature)
-        print(new_feature.id())
 
-        from topographic_mapping.gui.digitize_label_tool import DigitizeLabelTool
+        self._digitize_label_tool.set_target_feature(new_feature.id())
+        self._digitize_label_tool.set_target_layer(label_layer)
+        self._digitize_label_tool.set_target_width(label_width)
 
-        self._tool = DigitizeLabelTool(
-            self.iface.mapCanvas(),
-            label_width,
-            self._project_controller.label_target_layer(),
-            self.iface.cadDockWidget(),
-            new_feature.id(),
-        )
-        self.iface.mapCanvas().setMapTool(self._tool)
+        self._digitize_label_tool._previous_tool = self.iface.mapCanvas().mapTool()
+
+        self.iface.mapCanvas().setMapTool(self._digitize_label_tool)
