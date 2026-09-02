@@ -66,6 +66,76 @@ class LabelManager:
         )
         return text_metrics
 
+    def create_render_context(self) -> QgsRenderContext:
+        """
+        Creates a render context suitable for labeling calculations
+        """
+        label_target = self._project_controller.label_target_layer()
+
+        rc = QgsRenderContext()
+
+        ref_scale = 50000.0
+        if (
+            label_target
+            and label_target.renderer()
+            and label_target.renderer().referenceScale() > 0
+        ):
+            ref_scale = label_target.renderer().referenceScale()
+        rc.setRendererScale(ref_scale)
+        rc.setSymbologyReferenceScale(ref_scale)
+        dpi = 96.0
+        rc.setMapToPixel(
+            QgsMapToPixel.fromScale(
+                ref_scale,
+                label_target.crs().mapUnits()
+                if label_target
+                else Qgis.DistanceUnit.Unknown,
+                dpi,
+            )
+        )
+        rc.setDpiTarget(dpi)
+        rc.setScaleFactor(dpi / 25.4)
+        return rc
+
+    def get_label_width_for_feature(self, layer: QgsVectorLayer, fid: int) -> float:
+        """
+        Returns the required map unit width for a feature's label
+        """
+        label_target = self._project_controller.label_target_layer()
+        if not label_target:
+            # todo - warning
+            return 0
+
+        if not label_target.isEditable():
+            label_target.startEditing()
+
+        rc = self.create_render_context()
+
+        request = QgsFeatureRequest()
+        request.setFilterFid(fid)
+        # todo - project not private
+        request.setDestinationCrs(
+            label_target.crs(), self._project_controller._project.transformContext()
+        )
+        for feature in layer.getFeatures(request):
+            # todo -- move to project controller
+            feature_type = feature["type"]
+
+            label_text = feature["name"]
+
+            document_metrics = self.label_metrics(rc, label_text)
+
+            text_width_painter_units = document_metrics.documentSize(
+                Qgis.TextLayoutMode.Labeling, Qgis.TextOrientation.Horizontal
+            ).width()
+
+            text_width_map_units = rc.convertToMapUnits(
+                text_width_painter_units, Qgis.RenderUnit.Pixels
+            )
+            return label_text, text_width_map_units
+
+        return 0
+
     def create_labels_for_features(self, layer: QgsVectorLayer, fids):
         """
         Creates labels for the specified features
@@ -78,19 +148,7 @@ class LabelManager:
         if not label_target.isEditable():
             label_target.startEditing()
 
-        rc = QgsRenderContext()
-
-        ref_scale = 50000.0
-        if label_target.renderer() and label_target.renderer().referenceScale() > 0:
-            ref_scale = label_target.renderer().referenceScale()
-        rc.setRendererScale(ref_scale)
-        rc.setSymbologyReferenceScale(ref_scale)
-        dpi = 96.0
-        rc.setMapToPixel(
-            QgsMapToPixel.fromScale(ref_scale, label_target.crs().mapUnits(), dpi)
-        )
-        rc.setDpiTarget(dpi)
-        rc.setScaleFactor(dpi / 25.4)
+        rc = self.create_render_context()
 
         request = QgsFeatureRequest()
         request.setFilterFids(fids)

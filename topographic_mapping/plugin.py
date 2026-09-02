@@ -135,7 +135,7 @@ class TopographicMappingPlugin:
         self.iface.registerOptionsWidgetFactory(self.options_factory)
 
         self._tool_registry.custom_action(CREATE_LABEL_ACTION).triggered.connect(
-            self._label_manager.create_labels
+            self._create_labels
         )
 
     def unload(self) -> None:
@@ -219,4 +219,39 @@ class TopographicMappingPlugin:
         )
 
     def _create_labels(self):
-        print("create labels")
+        target_layer = self._state_manager.target_layer()
+        if not target_layer:
+            # todo - warning
+            print(" no target layer")
+            return
+
+        target_fids = target_layer.selectedFeatureIds()
+        if not target_fids:
+            # todo - warning
+            print(" no target features")
+            return
+
+        target_fid = next(iter(target_fids))
+
+        label_text, label_width = self._label_manager.get_label_width_for_feature(
+            target_layer, target_fid
+        )
+
+        label_layer = self._project_controller.label_target_layer()
+        from qgis.core import QgsFeature
+
+        new_feature = QgsFeature(label_layer.fields())
+        new_feature["text_string"] = label_text
+        label_layer.addFeature(new_feature)
+        print(new_feature.id())
+
+        from topographic_mapping.gui.digitize_label_tool import DigitizeLabelTool
+
+        self._tool = DigitizeLabelTool(
+            self.iface.mapCanvas(),
+            label_width,
+            self._project_controller.label_target_layer(),
+            self.iface.cadDockWidget(),
+            new_feature.id(),
+        )
+        self.iface.mapCanvas().setMapTool(self._tool)
