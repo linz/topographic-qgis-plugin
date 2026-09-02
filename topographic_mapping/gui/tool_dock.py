@@ -26,6 +26,7 @@ from qgis.gui import (
     QgsConfigureShortcutsDialog,
     QgsMapLayerComboBox,
     QgsFilterLineEdit,
+    QgsMessageBar,
 )
 from qgis.utils import OverrideCursor
 
@@ -47,6 +48,7 @@ class ToolDock(QgsDockWidget):
 
         self._controller: ProjectController | None = None
         self._state_manager: StateManager | None = None
+        self._message_bar: QgsMessageBar | None = None
 
         scroll_area = QScrollArea()
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -148,6 +150,12 @@ class ToolDock(QgsDockWidget):
             self._add_to_favorites(favorite, store=False)
 
         self._target_layer_combo.layerChanged.connect(self._on_target_layer_changed)
+
+    def set_message_bar(self, message_bar: QgsMessageBar):
+        """
+        Sets the message bar to use for user feedback
+        """
+        self._message_bar = message_bar
 
     def set_project_controller(self, controller: ProjectController):
         self._controller = controller
