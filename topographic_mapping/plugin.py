@@ -19,7 +19,7 @@ from .gui import (
     LABELING_GROUP,
     CREATE_LABEL_ACTION,
 )
-from .core import StateManager, ProjectController, DbUtils
+from .core import StateManager, ProjectController, DbUtils, LabelManager
 from .core.symbol_layers import RockOutcropMarkerMetadata
 
 
@@ -36,6 +36,7 @@ class TopographicMappingPlugin:
         self._set_target_tool: SetTargetTool | None = None
         self._set_target_tool_handler: SetTargetToolHandler | None = None
         self._project_controller: ProjectController | None = None
+        self._label_manager: LabelManager | None = None
         self._menu: QMenu | None = None
         self._options_factory: PluginsOptionsFactory | None = None
         self._symbol_layer_metadata = []
@@ -49,6 +50,9 @@ class TopographicMappingPlugin:
             QgsProject.instance(), self._gui_owner
         )
         self._state_manager = StateManager(self.iface, QgsProject.instance())
+        self._label_manager = LabelManager(
+            self._project_controller, self._state_manager
+        )
         self._tool_registry = ToolRegistry(self._gui_owner)
 
         self._tool_dock = EditToolDock(
@@ -131,7 +135,7 @@ class TopographicMappingPlugin:
         self.iface.registerOptionsWidgetFactory(self.options_factory)
 
         self._tool_registry.custom_action(CREATE_LABEL_ACTION).triggered.connect(
-            self._create_labels
+            self._label_manager.create_labels
         )
 
     def unload(self) -> None:
