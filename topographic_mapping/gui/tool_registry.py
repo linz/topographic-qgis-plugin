@@ -1,3 +1,4 @@
+from typing import Dict
 from collections import defaultdict
 from dataclasses import dataclass
 
@@ -43,6 +44,18 @@ class DigitizeTechniqueAction:
 
     title: str
     qgis_action_names: list[str]
+    icon: str
+    description: str
+
+
+@dataclass
+class CustomAction:
+    """
+    Encapsulates a custom (plugin specific) action (currently single-shot actions only)
+    """
+
+    id: str
+    title: str
     icon: str
     description: str
 
@@ -162,6 +175,7 @@ class ToolRegistry(QObject):
             "Sets the current edit target by selecting features on the map",
         )
         self._actions["_private"].append(self.set_target_tool_action)
+        self._custom_actions: Dict[str, QAction] = {}
 
     @staticmethod
     def title_to_object_name(title: str) -> str:
@@ -176,6 +190,8 @@ class ToolRegistry(QObject):
                     self._process_compound_action(action, group, iface)
                 elif isinstance(action, DigitizeTechniqueAction):
                     self._process_digitize_technique_action(action, group, iface)
+                elif isinstance(action, CustomAction):
+                    self._process_custom_action(action, group, iface)
                 else:
                     assert False
 
@@ -246,6 +262,26 @@ class ToolRegistry(QObject):
         assert action.description[0].isupper()
         proxy_action.setProperty("description", action.description)
         self._actions[group].append(proxy_action)
+
+    def _process_custom_action(
+        self, action: CustomAction, group: str, iface: QgisInterface
+    ):
+        new_action = QAction()
+        new_action.setText(action.title)
+        new_action.setObjectName(ToolRegistry.title_to_object_name(action.title))
+        new_action.setIcon(GuiUtils.get_colorized_icon(action.icon))
+
+        assert action.description[-1] == "."
+        assert action.description[0].isupper()
+        new_action.setProperty("description", action.description)
+        self._actions[group].append(new_action)
+        self._custom_actions[action.id] = new_action
+
+    def custom_action(self, action_id: str) -> QAction:
+        """
+        Returns the custom action with specified ID
+        """
+        return self._custom_actions[action_id]
 
     def populate_tool_dock(self, dock: ToolDock):
         for group, actions in self._actions.items():
