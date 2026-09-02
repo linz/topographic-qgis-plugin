@@ -37,13 +37,16 @@ class ToolDock(QgsDockWidget):
 
     target_layer_set = pyqtSignal(QgsVectorLayer)
 
-    def __init__(self, edit_target_tool_action: QAction, parent):
+    def __init__(
+        self, edit_target_tool_action: QAction, vertical_layout_offset: int, parent
+    ):
         super().__init__(parent)
 
         self._controller: ProjectController | None = None
         self._state_manager: StateManager | None = None
         self._message_bar: QgsMessageBar | None = None
         self._digitize_description_label = None
+        self._vertical_layout_offset: int = vertical_layout_offset
 
         scroll_area = QScrollArea()
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -147,9 +150,11 @@ class ToolDock(QgsDockWidget):
         if is_favorites_group:
             insert_index = self._vlayout.count() - 2
         elif is_digitizing_group:
-            insert_index = self._vlayout.count() - 2
+            insert_index = self._vlayout.count() - 1 - self._vertical_layout_offset
         else:
-            insert_index = self._vlayout.count() - 4
+            insert_index = (
+                self._vlayout.count() - 2 - (2 if self._vertical_layout_offset else 0)
+            )
         self._vlayout.insertWidget(insert_index, group_box)
         group_widget = ResponsiveTableWidget()
         group_box_layout.addWidget(group_widget)

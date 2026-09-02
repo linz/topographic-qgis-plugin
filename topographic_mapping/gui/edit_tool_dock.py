@@ -30,7 +30,9 @@ class EditToolDock(ToolDock):
     target_layer_set = pyqtSignal(QgsVectorLayer)
 
     def __init__(self, edit_target_tool_action: QAction, parent):
-        super().__init__(edit_target_tool_action, parent)
+        super().__init__(
+            edit_target_tool_action, vertical_layout_offset=1, parent=parent
+        )
 
         edit_mode_layout = QHBoxLayout()
         self._button_edit_real_data = QToolButton()

@@ -17,6 +17,7 @@ from .gui import (
     EDITING_GROUP,
     DIGITIZING_GROUP,
     LABELING_GROUP,
+    CREATE_LABEL_ACTION,
 )
 from .core import StateManager, ProjectController, DbUtils
 from .core.symbol_layers import RockOutcropMarkerMetadata
@@ -129,6 +130,10 @@ class TopographicMappingPlugin:
         self.options_factory.setTitle("TopoMapping")
         self.iface.registerOptionsWidgetFactory(self.options_factory)
 
+        self._tool_registry.custom_action(CREATE_LABEL_ACTION).triggered.connect(
+            self._create_labels
+        )
+
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""
         self._tool_registry.unregister_shortcuts()
@@ -208,3 +213,6 @@ class TopographicMappingPlugin:
             "Create Product Views",
             "Product views created in {}".format(QDir.toNativeSeparators(path)),
         )
+
+    def _create_labels(self):
+        print("create labels")
