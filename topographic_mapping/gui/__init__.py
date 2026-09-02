@@ -1,8 +1,9 @@
 from .gui_utils import GuiUtils  # NOQA
-from .tool_dock import ToolDock  # NOQA
 from .proxy_action import ProxyAction  # NOQA
-from .tool_registry import ToolRegistry  # NOQA
+from .tool_registry import ToolRegistry, EDITING_GROUP, DIGITIZING_GROUP, LABELING_GROUP  # NOQA
 from .set_target_tool import SetTargetTool, SetTargetToolHandler  # NOQA
 from .feature_type_model import FeatureTypeTreeModel  # NOQA
 from .validation_dock import ValidationDock  # NOQA
 from .options_widget import PluginsOptionsFactory  # NOQA
+from .label_dock import LabelDock  # NOQA
+from .edit_tool_dock import EditToolDock  # NOQA
