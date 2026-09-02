@@ -64,6 +64,8 @@ EDITING_GROUP = "Topographic editing"
 DIGITIZING_GROUP = "Digitize feature"
 LABELING_GROUP = "Labeling"
 
+CREATE_LABEL_ACTION = "CREATE_LABEL_ACTION"
+
 TOOLS = {
     EDITING_GROUP: [
         Action(
@@ -154,8 +156,13 @@ TOOLS = {
         ),
     ],
     LABELING_GROUP: [
-
-    ]
+        CustomAction(
+            CREATE_LABEL_ACTION,
+            "Create Label",
+            "delete_product_view.svg",
+            "Creates labels for the selected features.",
+        ),
+    ],
 }
 
 
