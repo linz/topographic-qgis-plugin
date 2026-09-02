@@ -270,6 +270,9 @@ class ProjectController(QObject):
                 layer.providerType(), layer.source()
             )
             layer_name = parts.get("layerName")
+            if not layer_name:
+                continue
+
             layer_name = ProjectController.clean_layer_name(layer_name)
 
             if layer_name == parent_feature_type:
