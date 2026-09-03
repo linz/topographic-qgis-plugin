@@ -2,7 +2,9 @@
 Label manager
 """
 
-from qgis.PyQt.QtGui import QFontMetricsF
+import json
+from typing import Dict
+from pathlib import Path
 
 from qgis.core import (
     Qgis,
@@ -19,17 +21,66 @@ from qgis.core import (
 from .project_controller import ProjectController
 from .state_manager import StateManager
 
+RESOURCES_DIR = Path(__file__) / ".." / ".." / "resources"
+
 
 class LabelManager:
     """
     Responsible for labeling logic
     """
 
+    _DEFINITIONS = {}
+
     def __init__(
         self, project_controller: ProjectController, state_manager: StateManager
     ):
         self._project_controller = project_controller
         self._state_manager = state_manager
+
+    @staticmethod
+    def label_defaults_dict() -> Dict:
+        if not LabelManager._DEFINITIONS:
+            definition_file = (RESOURCES_DIR / "label_defaults.json").resolve()
+            with open(definition_file) as json_file:
+                LabelManager._DEFINITIONS = json.load(json_file)
+
+        return LabelManager._DEFINITIONS
+
+    @staticmethod
+    def style_for_feature_type(feature_type: str, sub_type: str | None) -> str:
+        """
+        Returns the label style name for a given feature type and subtype
+        """
+        label_definitions = LabelManager.label_defaults_dict()
+        if feature_type not in label_definitions["styles_for_feature_types"]:
+            return label_definitions["default_style"]
+
+        styles_for_feature_types = label_definitions["styles_for_feature_types"]
+        if isinstance(styles_for_feature_types[feature_type], str):
+            return styles_for_feature_types[feature_type]
+
+        if sub_type in styles_for_feature_types[feature_type]:
+            return styles_for_feature_types[feature_type][sub_type]
+
+        return label_definitions["default_style"]
+
+    @staticmethod
+    def style_definition(style_name: str) -> Dict[str, object]:
+        """
+        Returns the style definition for the specified style
+        """
+        label_definitions = LabelManager.label_defaults_dict()
+        return label_definitions["label_styles"][style_name]
+
+    @staticmethod
+    def style_definition_for_feature_type(
+        feature_type: str, sub_type: str | None
+    ) -> Dict[str, object]:
+        """
+        Returns the style definition for the specified feature type
+        """
+        style_name = LabelManager.style_for_feature_type(feature_type, sub_type)
+        return LabelManager.style_definition(style_name)
 
     def create_labels(self):
         """
