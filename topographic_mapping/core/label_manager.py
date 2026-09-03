@@ -3,6 +3,7 @@ Label manager
 """
 
 import json
+from dataclasses import dataclass
 from typing import Dict
 from pathlib import Path
 
@@ -11,7 +12,6 @@ from qgis.core import (
     QgsVectorLayer,
     QgsFeatureRequest,
     QgsFeature,
-    QgsLineString,
     QgsRenderContext,
     QgsTextDocument,
     QgsTextDocumentMetrics,
@@ -22,6 +22,17 @@ from .project_controller import ProjectController
 from .state_manager import StateManager
 
 RESOURCES_DIR = Path(__file__) / ".." / ".." / "resources"
+
+
+@dataclass()
+class LabelProperties:
+    """
+    Encapsulates label properties
+    """
+
+    label_text: str | None = None
+    label_feature: QgsFeature | None = None
+    label_width: float | None = None
 
 
 class LabelManager:
@@ -100,15 +111,21 @@ class LabelManager:
         self.create_labels_for_features(self._state_manager.target_layer(), target_fids)
 
     def label_metrics(
-        self, render_context: QgsRenderContext, text: str
-    ) -> QgsTextDocumentMetrics:
+        self, render_context: QgsRenderContext, text: str, label_feature: QgsFeature
+    ) -> QgsTextDocumentMetrics | None:
         label_target = self._project_controller.label_target_layer()
         if not label_target:
-            return
+            return None
 
-        # TODO -- define from dictionary!
+        expression_context = label_target.createExpressionContext()
+        expression_context.setFeature(label_feature)
+        render_context.setExpressionContext(expression_context)
+
         label_settings = label_target.labeling().settings()
         text_format = label_settings.format()
+
+        text_format.setDataDefinedProperties(label_settings.dataDefinedProperties())
+        text_format.updateDataDefinedProperties(render_context)
 
         document = QgsTextDocument.fromTextAndFormat([text], text_format)
 
@@ -148,14 +165,38 @@ class LabelManager:
         rc.setScaleFactor(dpi / 25.4)
         return rc
 
-    def get_label_width_for_feature(self, layer: QgsVectorLayer, fid: int) -> float:
+    def create_label_feature(self, source_feature: QgsFeature) -> QgsFeature:
+        """
+        Creates a label feature corresponding to a source feature
+        """
+        # todo -- move to project controller
+        feature_type = source_feature["type"]
+        try:
+            sub_type = source_feature["subtype"]
+        except KeyError:
+            sub_type = None
+
+        style_defaults = LabelManager.style_definition_for_feature_type(
+            feature_type, sub_type
+        )
+
+        new_feature = QgsFeature(self._project_controller.label_target_layer().fields())
+        new_feature["text_string"] = source_feature["name"]
+        for p, v in style_defaults.items():
+            new_feature[p] = v
+
+        return new_feature
+
+    def get_label_properties_for_feature(
+        self, layer: QgsVectorLayer, fid: int
+    ) -> LabelProperties:
         """
         Returns the required map unit width for a feature's label
         """
         label_target = self._project_controller.label_target_layer()
         if not label_target:
             # todo - warning
-            return 0
+            return LabelProperties()
 
         if not label_target.isEditable():
             label_target.startEditing()
@@ -169,67 +210,28 @@ class LabelManager:
             label_target.crs(), self._project_controller._project.transformContext()
         )
         for feature in layer.getFeatures(request):
-            # todo -- move to project controller
-            feature_type = feature["type"]
+            label_feature = self.create_label_feature(feature)
 
-            label_text = feature["name"]
+            document_metrics = self.label_metrics(
+                rc, label_feature["text_string"], label_feature
+            )
+            if document_metrics is None:
+                # TODO warn
+                return LabelProperties()
 
-            document_metrics = self.label_metrics(rc, label_text)
-
-            text_width_painter_units = document_metrics.documentSize(
-                Qgis.TextLayoutMode.Labeling, Qgis.TextOrientation.Horizontal
-            ).width()
+            # grow by a small amount to ensure text fully fits at different sizes/styles/zoom levels
+            text_width_painter_units = (
+                document_metrics.documentSize(
+                    Qgis.TextLayoutMode.Labeling, Qgis.TextOrientation.Horizontal
+                ).width()
+                * 1.02
+            )
 
             text_width_map_units = rc.convertToMapUnits(
                 text_width_painter_units, Qgis.RenderUnit.Pixels
             )
-            return label_text, text_width_map_units
-
-        return 0
-
-    def create_labels_for_features(self, layer: QgsVectorLayer, fids):
-        """
-        Creates labels for the specified features
-        """
-        label_target = self._project_controller.label_target_layer()
-        if not label_target:
-            # todo - warning
-            return
-
-        if not label_target.isEditable():
-            label_target.startEditing()
-
-        rc = self.create_render_context()
-
-        request = QgsFeatureRequest()
-        request.setFilterFids(fids)
-        # todo - project not private
-        request.setDestinationCrs(
-            label_target.crs(), self._project_controller._project.transformContext()
-        )
-        for feature in layer.getFeatures(request):
-            # todo -- move to project controller
-            feature_type = feature["type"]
-
-            label_text = feature["name"]
-
-            document_metrics = self.label_metrics(rc, label_text)
-
-            text_width_painter_units = document_metrics.documentSize(
-                Qgis.TextLayoutMode.Labeling, Qgis.TextOrientation.Horizontal
-            ).width()
-
-            text_width_map_units = rc.convertToMapUnits(
-                text_width_painter_units, Qgis.RenderUnit.Pixels
+            return LabelProperties(
+                label_feature["text_string"], label_feature, text_width_map_units
             )
 
-            ref_point = feature.geometry().centroid().asPoint()
-
-            label_feature = QgsFeature(label_target.fields())
-            label_feature["text_string"] = label_text
-            geom = QgsLineString(
-                [ref_point, ref_point.project(text_width_map_units, 90)]
-            )
-            label_feature.setGeometry(geom)
-
-            label_target.addFeature(label_feature)
+        return LabelProperties()

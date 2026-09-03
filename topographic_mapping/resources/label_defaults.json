@@ -21,6 +21,8 @@
     "water": "water_body",
     "water_line": "water_body",
     "water_point": "water_body",
+    "river": "water_body",
+    "drain": "water_body",
     "geographic_name": "place_name",
     "marine": {
       "reef": "water_body"

@@ -3,7 +3,7 @@ from pathlib import Path
 from qgis.PyQt.QtCore import Qt, QCoreApplication, QObject, QDir
 from qgis.PyQt.QtWidgets import QMenu, QAction, QMessageBox
 
-from qgis.core import QgsSettingsTree, QgsProject, QgsApplication
+from qgis.core import QgsSettingsTree, QgsProject, QgsApplication, QgsFeature
 from qgis.gui import QgisInterface
 
 from topographic_mapping.gui import (
@@ -240,20 +240,22 @@ class TopographicMappingPlugin:
 
         target_fid = next(iter(target_fids))
 
-        label_text, label_width = self._label_manager.get_label_width_for_feature(
+        label_properties = self._label_manager.get_label_properties_for_feature(
             target_layer, target_fid
         )
+        if not label_properties.label_text:
+            self.iface.messageBar().pushWarning(
+                "", "Selected feature has no label text"
+            )
+            return
 
         label_layer = self._project_controller.label_target_layer()
-        from qgis.core import QgsFeature
-
-        new_feature = QgsFeature(label_layer.fields())
-        new_feature["text_string"] = label_text
+        new_feature = QgsFeature(label_properties.label_feature)
         label_layer.addFeature(new_feature)
 
         self._digitize_label_tool.set_target_feature(new_feature.id())
         self._digitize_label_tool.set_target_layer(label_layer)
-        self._digitize_label_tool.set_target_width(label_width)
+        self._digitize_label_tool.set_target_width(label_properties.label_width)
 
         self._digitize_label_tool._previous_tool = self.iface.mapCanvas().mapTool()
 
