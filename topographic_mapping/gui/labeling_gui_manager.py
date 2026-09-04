@@ -10,9 +10,15 @@ from qgis.core import QgsFeature, QgsPoint, QgsGeometry, QgsLineString
 
 from topographic_mapping.core import LabelManager, StateManager, ProjectController
 
-from .tool_registry import ToolRegistry, CREATE_LABEL_ACTION, RESET_LABEL_ACTION
+from .tool_registry import (
+    ToolRegistry,
+    CREATE_LABEL_ACTION,
+    RESET_LABEL_ACTION,
+    SELECT_LABELS_ACTION,
+)
 
 from .digitize_label_tool import DigitizeLabelTool
+from .select_by_label_tool import SelectByLabelRectangleTool
 
 
 class LabelingGuiManager(QObject):
@@ -35,8 +41,12 @@ class LabelingGuiManager(QObject):
         self._project_controller: ProjectController | None = None
         self._state_manager: StateManager | None = None
         self._create_label_action: QAction | None = None
+        self._select_labels_action: QAction | None = None
+        self._reset_label_action: QAction | None = None
 
-        self._digitize_label_tool: DigitizeLabelTool | None = None
+        self._select_by_label_tool: SelectByLabelRectangleTool = (
+            SelectByLabelRectangleTool(self._canvas)
+        )
 
         self._digitize_label_tool = DigitizeLabelTool(self._canvas, self._cad_dock)
 
@@ -55,11 +65,20 @@ class LabelingGuiManager(QObject):
         self._project_controller = controller
 
     def register_tools(self, tool_registry: ToolRegistry):
+        self._select_labels_action = tool_registry.custom_action(SELECT_LABELS_ACTION)
+        self._select_labels_action.triggered.connect(self._select_labels)
+
         self._create_label_action = tool_registry.custom_action(CREATE_LABEL_ACTION)
         self._create_label_action.triggered.connect(self._create_labels)
 
         self._reset_label_action = tool_registry.custom_action(RESET_LABEL_ACTION)
         self._reset_label_action.triggered.connect(self._reset_labels)
+
+    def _select_labels(self):
+        self._select_by_label_tool.set_label_layer(
+            self._project_controller.label_target_layer()
+        )
+        self._canvas.setMapTool(self._select_by_label_tool)
 
     def _create_labels(self):
         target_layer = self._state_manager.target_layer()
@@ -120,7 +139,7 @@ class LabelingGuiManager(QObject):
             label_layer.startEditing()
 
         rc = self._label_manager.create_render_context()
-        label_layer.beginEditCommand('Reset labels')
+        label_layer.beginEditCommand("Reset labels")
         for label_feature in label_layer.getSelectedFeatures():
             width = self._label_manager.get_width_for_label(label_feature, rc)
 
