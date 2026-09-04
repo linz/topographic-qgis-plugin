@@ -93,23 +93,6 @@ class LabelManager:
         style_name = LabelManager.style_for_feature_type(feature_type, sub_type)
         return LabelManager.style_definition(style_name)
 
-    def create_labels(self):
-        """
-        Creates labels for the active target features
-        """
-        if not self._state_manager.target_layer():
-            # todo - warning
-            print(" no target layer")
-            return
-
-        target_fids = self._state_manager.target_layer().selectedFeatureIds()
-        if not target_fids:
-            # todo - warning
-            print(" no target features")
-            return
-
-        self.create_labels_for_features(self._state_manager.target_layer(), target_fids)
-
     def label_metrics(
         self, render_context: QgsRenderContext, text: str, label_feature: QgsFeature
     ) -> QgsTextDocumentMetrics | None:
@@ -187,6 +170,28 @@ class LabelManager:
 
         return new_feature
 
+    def get_width_for_label(
+        self, label_feature: QgsFeature, render_context: QgsRenderContext
+    ) -> float:
+        """
+        Returns the required map unit width for a feature's label
+        """
+        document_metrics = self.label_metrics(
+            render_context, label_feature["text_string"], label_feature
+        )
+
+        # grow by a small amount to ensure text fully fits at different sizes/styles/zoom levels
+        text_width_painter_units = (
+            document_metrics.documentSize(
+                Qgis.TextLayoutMode.Labeling, Qgis.TextOrientation.Horizontal
+            ).width()
+            * 1.02
+        )
+
+        return render_context.convertToMapUnits(
+            text_width_painter_units, Qgis.RenderUnit.Pixels
+        )
+
     def get_label_properties_for_feature(
         self, layer: QgsVectorLayer, fid: int
     ) -> LabelProperties:
@@ -195,7 +200,6 @@ class LabelManager:
         """
         label_target = self._project_controller.label_target_layer()
         if not label_target:
-            # todo - warning
             return LabelProperties()
 
         if not label_target.isEditable():
@@ -211,25 +215,8 @@ class LabelManager:
         )
         for feature in layer.getFeatures(request):
             label_feature = self.create_label_feature(feature)
+            text_width_map_units = self.get_width_for_label(label_feature, rc)
 
-            document_metrics = self.label_metrics(
-                rc, label_feature["text_string"], label_feature
-            )
-            if document_metrics is None:
-                # TODO warn
-                return LabelProperties()
-
-            # grow by a small amount to ensure text fully fits at different sizes/styles/zoom levels
-            text_width_painter_units = (
-                document_metrics.documentSize(
-                    Qgis.TextLayoutMode.Labeling, Qgis.TextOrientation.Horizontal
-                ).width()
-                * 1.02
-            )
-
-            text_width_map_units = rc.convertToMapUnits(
-                text_width_painter_units, Qgis.RenderUnit.Pixels
-            )
             return LabelProperties(
                 label_feature["text_string"], label_feature, text_width_map_units
             )
