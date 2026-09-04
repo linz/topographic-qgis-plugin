@@ -58,9 +58,14 @@ class TopographicMappingPlugin:
         )
         self._tool_registry = ToolRegistry(self._gui_owner)
         self._label_gui_manager = LabelingGuiManager(
-            self.iface.mapCanvas(), self.iface.cadDockWidget(), parent=self._gui_owner
+            self.iface.mapCanvas(),
+            self.iface.cadDockWidget(),
+            self.iface.messageBar(),
+            parent=self._gui_owner,
         )
         self._label_gui_manager.set_label_manager(self._label_manager)
+        self._label_gui_manager.set_project_controller(self._project_controller)
+        self._label_gui_manager.set_state_manager(self._state_manager)
 
         self._tool_dock = EditToolDock(
             edit_target_tool_action=self._tool_registry.set_target_tool_action,
