@@ -19,6 +19,7 @@ from topographic_mapping.gui import (
     LABELING_GROUP,
     CREATE_LABEL_ACTION,
     DigitizeLabelTool,
+    LabelingGuiManager,
 )
 from .core import StateManager, ProjectController, DbUtils, LabelManager
 from .core.symbol_layers import RockOutcropMarkerMetadata
@@ -38,11 +39,10 @@ class TopographicMappingPlugin:
         self._set_target_tool_handler: SetTargetToolHandler | None = None
         self._project_controller: ProjectController | None = None
         self._label_manager: LabelManager | None = None
+        self._label_gui_manager: LabelingGuiManager | None = None
         self._menu: QMenu | None = None
         self._options_factory: PluginsOptionsFactory | None = None
         self._symbol_layer_metadata = []
-
-        self._digitize_label_tool: DigitizeLabelTool | None = None
 
     def initGui(self) -> None:
         self._symbol_layer_metadata = [RockOutcropMarkerMetadata()]
@@ -57,6 +57,10 @@ class TopographicMappingPlugin:
             self._project_controller, self._state_manager
         )
         self._tool_registry = ToolRegistry(self._gui_owner)
+        self._label_gui_manager = LabelingGuiManager(
+            self.iface.mapCanvas(), self.iface.cadDockWidget(), parent=self._gui_owner
+        )
+        self._label_gui_manager.set_label_manager(self._label_manager)
 
         self._tool_dock = EditToolDock(
             edit_target_tool_action=self._tool_registry.set_target_tool_action,
@@ -102,6 +106,7 @@ class TopographicMappingPlugin:
             self._tool_dock, [EDITING_GROUP, DIGITIZING_GROUP]
         )
         self._tool_registry.populate_tool_dock(self._label_dock, [LABELING_GROUP])
+        self._label_gui_manager.register_tools(self._tool_registry)
 
         self._set_target_tool = SetTargetTool(self.iface.mapCanvas())
         self._set_target_tool_handler = SetTargetToolHandler(
@@ -136,14 +141,6 @@ class TopographicMappingPlugin:
         self.options_factory = PluginsOptionsFactory()
         self.options_factory.setTitle("TopoMapping")
         self.iface.registerOptionsWidgetFactory(self.options_factory)
-
-        self._tool_registry.custom_action(CREATE_LABEL_ACTION).triggered.connect(
-            self._create_labels
-        )
-
-        self._digitize_label_tool = DigitizeLabelTool(
-            self.iface.mapCanvas(), self.iface.cadDockWidget()
-        )
 
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""
@@ -224,39 +221,3 @@ class TopographicMappingPlugin:
             "Create Product Views",
             "Product views created in {}".format(QDir.toNativeSeparators(path)),
         )
-
-    def _create_labels(self):
-        target_layer = self._state_manager.target_layer()
-        if not target_layer:
-            # todo - warning
-            print(" no target layer")
-            return
-
-        target_fids = target_layer.selectedFeatureIds()
-        if not target_fids:
-            # todo - warning
-            print(" no target features")
-            return
-
-        target_fid = next(iter(target_fids))
-
-        label_properties = self._label_manager.get_label_properties_for_feature(
-            target_layer, target_fid
-        )
-        if not label_properties.label_text:
-            self.iface.messageBar().pushWarning(
-                "", "Selected feature has no label text"
-            )
-            return
-
-        label_layer = self._project_controller.label_target_layer()
-        new_feature = QgsFeature(label_properties.label_feature)
-        label_layer.addFeature(new_feature)
-
-        self._digitize_label_tool.set_target_feature(new_feature.id())
-        self._digitize_label_tool.set_target_layer(label_layer)
-        self._digitize_label_tool.set_target_width(label_properties.label_width)
-
-        self._digitize_label_tool._previous_tool = self.iface.mapCanvas().mapTool()
-
-        self.iface.mapCanvas().setMapTool(self._digitize_label_tool)

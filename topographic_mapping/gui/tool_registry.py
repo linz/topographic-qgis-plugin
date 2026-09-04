@@ -65,6 +65,7 @@ DIGITIZING_GROUP = "Digitize feature"
 LABELING_GROUP = "Labeling"
 
 CREATE_LABEL_ACTION = "CREATE_LABEL_ACTION"
+RESET_LABEL_ACTION = "RESET_LABEL_ACTION"
 
 TOOLS = {
     EDITING_GROUP: [
@@ -161,6 +162,12 @@ TOOLS = {
             "Create Label",
             "delete_product_view.svg",
             "Creates labels for the selected features.",
+        ),
+        CustomAction(
+            RESET_LABEL_ACTION,
+            "Reset Label",
+            "delete_product_view.svg",
+            "Resets selected labels to their default appearance.",
         ),
     ],
 }
