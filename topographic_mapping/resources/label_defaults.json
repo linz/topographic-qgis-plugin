@@ -1,0 +1,32 @@
+{
+  "label_styles": {
+    "water_body":
+    {
+      "font": "Nimbus Sans LINZ",
+      "style": "Italic",
+      "colour": "process_blue",
+      "size": 6,
+      "placement": "AL"
+    },
+    "place_name":
+    {
+      "font": "Nimbus Sans LINZ",
+      "style": "Regular",
+      "colour": "black",
+      "size":7.5,
+      "placement": "AL"
+    }
+  },
+  "styles_for_feature_types": {
+    "water": "water_body",
+    "water_line": "water_body",
+    "water_point": "water_body",
+    "river": "water_body",
+    "drain": "water_body",
+    "geographic_name": "place_name",
+    "marine": {
+      "reef": "water_body"
+    }
+  },
+  "default_style": "place_name"
+}

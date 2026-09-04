@@ -156,6 +156,24 @@ class TestProjectController(TopographicTestBase):
             controller.layer_for_feature_type("water_point").name(), "water point"
         )
 
+    def test_label_target_and_signals(self):
+        """
+        Tests label target layer retrieval
+        """
+        project = QgsProject()
+        controller = ProjectController(project, None)
+
+        self.assertIsNone(controller.label_target_layer())
+
+        fields = QgsFields()
+        fields.append(QgsField("type", QVariant.String))
+        label_layer = self.create_dummy_layer(
+            "some" + ProjectController.LABEL_TARGET_NAME_SUFFIX, fields
+        )
+        project.addMapLayer(label_layer)
+
+        self.assertEqual(controller.label_target_layer(), label_layer)
+
     def test_map_sheet_layer_and_signals(self):
         """
         Tests map sheet layer retrieval and signal emissions on add/remove.

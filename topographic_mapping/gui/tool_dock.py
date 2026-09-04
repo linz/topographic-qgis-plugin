@@ -1,10 +1,9 @@
 from typing import Optional
 
-from qgis.PyQt.QtCore import Qt, QSize, QEvent, pyqtSignal, QItemSelection
+from qgis.PyQt.QtCore import Qt, QSize, QEvent, pyqtSignal
 from qgis.PyQt.QtGui import QPalette, QCursor, QFontMetrics
 from qgis.PyQt.QtWidgets import (
     QToolButton,
-    QActionGroup,
     QSizePolicy,
     QAction,
     QVBoxLayout,
@@ -13,11 +12,9 @@ from qgis.PyQt.QtWidgets import (
     QLabel,
     QGroupBox,
     QMenu,
-    QTreeView,
     QScrollArea,
     QFrame,
     QTreeWidget,
-    QButtonGroup,
 )
 from qgis.core import Qgis, QgsVectorLayer, QgsMapLayer
 from qgis.gui import (
@@ -25,14 +22,11 @@ from qgis.gui import (
     QgsCollapsibleGroupBox,
     QgsConfigureShortcutsDialog,
     QgsMapLayerComboBox,
-    QgsFilterLineEdit,
     QgsMessageBar,
 )
-from qgis.utils import OverrideCursor
 
-from .feature_type_model import FeatureTypeTreeModel, FeatureTypeFilterProxyModel
 from .responsive_table_widget import ResponsiveTableWidget
-from ..core import ProjectController, StateManager, EditMode
+from ..core import ProjectController, StateManager
 from topographic_mapping.settings import FAVORITES
 
 
@@ -43,12 +37,16 @@ class ToolDock(QgsDockWidget):
 
     target_layer_set = pyqtSignal(QgsVectorLayer)
 
-    def __init__(self, edit_target_tool_action: QAction, parent):
+    def __init__(
+        self, edit_target_tool_action: QAction, vertical_layout_offset: int, parent
+    ):
         super().__init__(parent)
 
         self._controller: ProjectController | None = None
         self._state_manager: StateManager | None = None
         self._message_bar: QgsMessageBar | None = None
+        self._digitize_description_label = None
+        self._vertical_layout_offset: int = vertical_layout_offset
 
         scroll_area = QScrollArea()
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -58,33 +56,6 @@ class ToolDock(QgsDockWidget):
 
         self._vlayout = QVBoxLayout()
         self._vlayout.setContentsMargins(0, 10, 6, 0)
-
-        edit_mode_layout = QHBoxLayout()
-        self._block_view_changes: int = 0
-        self._button_edit_real_data = QToolButton()
-        self._button_edit_real_data.setCheckable(True)
-        self._button_edit_real_data.setText("Real World")
-        self._button_edit_real_data.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum
-        )
-
-        self._button_edit_product_data = QToolButton()
-        self._button_edit_product_data.setCheckable(True)
-        self._button_edit_product_data.setText("Product Data")
-        self._button_edit_product_data.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum
-        )
-
-        self._button_edit_real_data.toggled.connect(self._toggle_real_data)
-        self._button_edit_product_data.toggled.connect(self._toggle_product_data)
-
-        edit_mode_layout.addWidget(self._button_edit_real_data)
-        edit_mode_layout.addWidget(self._button_edit_product_data)
-        self._edit_mode_group = QButtonGroup(self)
-        self._edit_mode_group.addButton(self._button_edit_real_data)
-        self._edit_mode_group.addButton(self._button_edit_product_data)
-
-        self._vlayout.addLayout(edit_mode_layout)
 
         self._vlayout.addWidget(QLabel("Current edit target"))
 
@@ -109,30 +80,6 @@ class ToolDock(QgsDockWidget):
         self._description_label.setMinimumHeight(fm.height() * 2)
         self._vlayout.addWidget(self._description_label)
 
-        self._digitize_widget = QWidget()
-        digitize_vl = QVBoxLayout()
-        digitize_vl.setContentsMargins(0, 0, 0, 0)
-        digitize_vl.addWidget(QLabel("New feature type"))
-        self._filter_types_widget = QgsFilterLineEdit()
-        self._filter_types_widget.setShowSearchIcon(True)
-        self._filter_types_widget.setPlaceholderText("Filter types")
-        self._filter_types_widget.textChanged.connect(self._feature_type_filter_changed)
-        digitize_vl.addWidget(self._filter_types_widget)
-        self._feature_type_view = QTreeView()
-        self._feature_type_view.setHeaderHidden(True)
-        self._feature_type_model: FeatureTypeTreeModel | None = None
-        self._feature_type_proxy_model: FeatureTypeFilterProxyModel | None = None
-        self._filter_types_widget.cleared.connect(self._feature_type_view.expandAll)
-
-        self._feature_type_view.setFixedHeight(fm.height() * 20)
-
-        digitize_vl.addWidget(self._feature_type_view, 1)
-        self._digitize_widget.setLayout(digitize_vl)
-        self._vlayout.addWidget(self._digitize_widget)
-        self._digitize_description_label = QLabel()
-        self._digitize_description_label.setWordWrap(True)
-        self._vlayout.addWidget(self._digitize_description_label)
-
         self._vlayout.addStretch()
         _widget = QWidget()
         _widget.setLayout(self._vlayout)
@@ -144,7 +91,9 @@ class ToolDock(QgsDockWidget):
         self._actions = []
 
         self._favorites = []
-        self._favorites_group = self._create_tool_group("Favorites", collapsible=False)
+        self._favorites_group = self._create_tool_group(
+            "Favorites", collapsible=False, is_favorites_group=True
+        )
         self._favorites_group.parent().hide()
 
         for favorite in FAVORITES.value():
@@ -160,35 +109,12 @@ class ToolDock(QgsDockWidget):
 
     def set_project_controller(self, controller: ProjectController):
         self._controller = controller
-        self._set_feature_types(controller.feature_types)
-        self._controller.feature_types_found.connect(self._feature_type_model.add_types)
-        self._controller.feature_types_removed.connect(
-            self._feature_type_model.remove_types
-        )
 
     def set_state_manager(self, state_manager: StateManager):
         self._state_manager = state_manager
 
         self._state_manager.target_layer_changed.connect(self.set_target_layer)
         self.target_layer_set.connect(self._state_manager.set_target_layer)
-
-    def _set_feature_types(self, feature_types):
-        self._feature_type_model = FeatureTypeTreeModel(feature_types, self)
-        self._feature_type_proxy_model = FeatureTypeFilterProxyModel(self)
-        self._feature_type_proxy_model.setSourceModel(self._feature_type_model)
-        self._feature_type_view.setModel(self._feature_type_proxy_model)
-        self._feature_type_view.selectionModel().selectionChanged.connect(
-            self._selected_feature_type_changed
-        )
-        self._feature_type_model.rowsInserted.connect(self._expand_rows)
-        self._feature_type_view.expandAll()
-
-    def _expand_rows(self, parent, first, last):
-        for row in range(first, last + 1):
-            proxy_index = self._feature_type_proxy_model.mapFromSource(
-                self._feature_type_model.index(row, 0, parent)
-            )
-            self._feature_type_view.expand(proxy_index)
 
     def _create_heading_label(self, text: str) -> QLabel:
         label = QLabel(text)
@@ -208,6 +134,7 @@ class ToolDock(QgsDockWidget):
         self,
         group_title: str,
         collapsible: bool = True,
+        is_favorites_group: bool = False,
         is_digitizing_group: bool = False,
     ) -> ResponsiveTableWidget:
         if collapsible:
@@ -220,10 +147,14 @@ class ToolDock(QgsDockWidget):
         group_box_layout.setContentsMargins(0, 0, 0, 0)
         group_box.setLayout(group_box_layout)
 
-        if is_digitizing_group:
+        if is_favorites_group:
             insert_index = self._vlayout.count() - 2
+        elif is_digitizing_group:
+            insert_index = self._vlayout.count() - 1 - self._vertical_layout_offset
         else:
-            insert_index = self._vlayout.count() - 4
+            insert_index = (
+                self._vlayout.count() - 2 - (2 if self._vertical_layout_offset else 0)
+            )
         self._vlayout.insertWidget(insert_index, group_box)
         group_widget = ResponsiveTableWidget()
         group_box_layout.addWidget(group_widget)
@@ -377,86 +308,3 @@ class ToolDock(QgsDockWidget):
 
     def _on_target_layer_changed(self, layer: QgsMapLayer | None):
         self.target_layer_set.emit(layer)
-
-    def _feature_type_filter_changed(self, text: str):
-        if self._feature_type_proxy_model:
-            self._feature_type_proxy_model.set_filter_text(text)
-
-    def _selected_feature_type_changed(
-        self, selected: QItemSelection, deselected: QItemSelection
-    ):
-        if not self._state_manager or not self._controller:
-            return
-
-        feature_type = None
-        parent_feature_type = None
-        if selected.indexes():
-            selected_type_index = self._feature_type_proxy_model.mapToSource(
-                selected.indexes()[0]
-            )
-            parent_feature_type = self._feature_type_model.data(
-                selected_type_index, FeatureTypeTreeModel.PARENT_FEATURE_TYPE_ROLE
-            )
-            feature_type = self._feature_type_model.data(
-                selected_type_index, FeatureTypeTreeModel.FEATURE_TYPE_ROLE
-            )
-
-        target_layer = self._controller.layer_for_feature_type(parent_feature_type)
-        if target_layer:
-            self._state_manager.set_target_layer(target_layer)
-
-        self._state_manager.set_current_feature_type(feature_type)
-
-    def _prepare_view_change(self) -> bool:
-        """
-        Prepares for a view change, returns False if the change
-        should be aborted
-        """
-        gpkg_path = self._controller.working_geopackage_path()
-        if not gpkg_path:
-            return False
-
-        for layer in self._controller.editable_vector_layers_in_gpkg(gpkg_path):
-            if layer.isEditable() and layer.editBuffer().isModified():
-                if self._message_bar:
-                    self._message_bar.pushWarning(
-                        None, "Cannot change view when layers have unsaved edits"
-                    )
-                return False
-
-        # ensure all layers are non-editable
-        for layer in self._controller.editable_vector_layers_in_gpkg(gpkg_path):
-            if layer.isEditable():
-                layer.commitChanges()
-        return True
-
-    def _toggle_real_data(self, enabled: bool):
-        if self._block_view_changes or not enabled or not self._controller:
-            return
-
-        gpkg_path = self._controller.working_geopackage_path()
-        if not gpkg_path or not self._prepare_view_change():
-            self._block_view_changes += 1
-            self._button_edit_product_data.setChecked(True)
-            self._block_view_changes -= 1
-            return
-
-        with OverrideCursor(Qt.CursorShape.WaitCursor):
-            self._controller.set_edit_mode(gpkg_path, EditMode.RealWorld)
-
-    def _toggle_product_data(self, enabled: bool):
-        if self._block_view_changes or not enabled or not self._controller:
-            return
-
-        gpkg_path = self._controller.working_geopackage_path()
-        if not gpkg_path or not self._prepare_view_change():
-            self._block_view_changes += 1
-            self._button_edit_real_data.setChecked(True)
-            self._block_view_changes -= 1
-            return
-
-        with OverrideCursor(Qt.CursorShape.WaitCursor):
-            self._controller.set_edit_mode(gpkg_path, EditMode.ProductData)
-
-
-# locator
