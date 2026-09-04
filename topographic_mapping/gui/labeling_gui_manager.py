@@ -5,9 +5,10 @@ Labeling GUI manager
 from qgis.PyQt.QtCore import QObject
 from qgis.PyQt.QtGui import QAction
 
-from qgis.gui import QgsMapCanvas, QgsAdvancedDigitizingDockWidget
+from qgis.gui import QgsMapCanvas, QgsAdvancedDigitizingDockWidget, QgsMessageBar
+from qgis.core import QgsFeature
 
-from topographic_mapping.core import LabelManager
+from topographic_mapping.core import LabelManager, StateManager, ProjectController
 
 from .tool_registry import ToolRegistry, CREATE_LABEL_ACTION
 
@@ -23,12 +24,16 @@ class LabelingGuiManager(QObject):
         self,
         canvas: QgsMapCanvas,
         cad_dock: QgsAdvancedDigitizingDockWidget,
+        message_bar: QgsMessageBar,
         parent: QObject | None = None,
     ):
         super().__init__(parent)
         self._canvas: QgsMapCanvas = canvas
         self._cad_dock: QgsAdvancedDigitizingDockWidget = cad_dock
+        self._message_bar: QgsMessageBar = message_bar
         self._label_manager: LabelManager | None = None
+        self._project_controller: ProjectController | None = None
+        self._state_manager: StateManager | None = None
         self._create_label_action: QAction | None = None
 
         self._digitize_label_tool: DigitizeLabelTool | None = None
@@ -37,6 +42,12 @@ class LabelingGuiManager(QObject):
 
     def set_label_manager(self, manager: LabelManager):
         self._label_manager = manager
+
+    def set_state_manager(self, manager: StateManager):
+        self._state_manager = manager
+
+    def set_project_controller(self, controller: ProjectController):
+        self._project_controller = controller
 
     def register_tools(self, tool_registry: ToolRegistry):
         self._create_label_action = tool_registry.custom_action(CREATE_LABEL_ACTION)
@@ -62,9 +73,7 @@ class LabelingGuiManager(QObject):
             target_layer, target_fid
         )
         if not label_properties.label_text:
-            self.iface.messageBar().pushWarning(
-                "", "Selected feature has no label text"
-            )
+            self._message_bar.pushWarning("", "Selected feature has no label text")
             return
 
         label_layer = self._project_controller.label_target_layer()
@@ -75,6 +84,6 @@ class LabelingGuiManager(QObject):
         self._digitize_label_tool.set_target_layer(label_layer)
         self._digitize_label_tool.set_target_width(label_properties.label_width)
 
-        self._digitize_label_tool._previous_tool = self.iface.mapCanvas().mapTool()
+        self._digitize_label_tool._previous_tool = self._canvas.mapTool()
 
-        self.iface.mapCanvas().setMapTool(self._digitize_label_tool)
+        self._canvas.setMapTool(self._digitize_label_tool)
