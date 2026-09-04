@@ -161,19 +161,19 @@ TOOLS = {
         CustomAction(
             SELECT_LABELS_ACTION,
             "Select Labels",
-            "delete_product_view.svg",
+            "select_label.svg",
             "Selects labels.",
         ),
         CustomAction(
             CREATE_LABEL_ACTION,
             "Create Label",
-            "delete_product_view.svg",
+            "create_label.svg",
             "Creates labels for the selected features.",
         ),
         CustomAction(
             RESET_LABEL_ACTION,
             "Reset Label",
-            "delete_product_view.svg",
+            "reset_label.svg",
             "Resets selected labels to their default appearance.",
         ),
     ],
