@@ -149,6 +149,7 @@ class TopographicMappingPlugin:
 
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""
+        self._label_gui_manager.unregister()
         self._tool_registry.unregister_shortcuts()
         self.iface.unregisterOptionsWidgetFactory(self.options_factory)
 
