@@ -43,7 +43,7 @@ class StateManager(QObject):
 
         Returns True if the layer was accepted
         """
-        if not LayerUtils.can_edit(layer):
+        if layer is None or not LayerUtils.can_edit(layer):
             return False
 
         if not layer.isEditable():
@@ -66,6 +66,9 @@ class StateManager(QObject):
         Triggered when the user changes the current project layer
         """
         target_layer = None
+        if not isinstance(layer, QgsVectorLayer):
+            return
+
         if LayerUtils.can_edit(layer) and layer.isEditable():
             target_layer = layer
 

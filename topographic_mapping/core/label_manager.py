@@ -100,11 +100,15 @@ class LabelManager:
         if not label_target:
             return None
 
+        labeling = label_target.labeling()
+        if labeling is None:
+            return None
+
         expression_context = label_target.createExpressionContext()
         expression_context.setFeature(label_feature)
         render_context.setExpressionContext(expression_context)
 
-        label_settings = label_target.labeling().settings()
+        label_settings = labeling.settings()
         text_format = label_settings.format()
 
         text_format.setDataDefinedProperties(label_settings.dataDefinedProperties())
@@ -148,10 +152,14 @@ class LabelManager:
         rc.setScaleFactor(dpi / 25.4)
         return rc
 
-    def create_label_feature(self, source_feature: QgsFeature) -> QgsFeature:
+    def create_label_feature(self, source_feature: QgsFeature) -> QgsFeature | None:
         """
         Creates a label feature corresponding to a source feature
         """
+        label_target_layer = self._project_controller.label_target_layer()
+        if label_target_layer is None:
+            return None
+
         # todo -- move to project controller
         feature_type = source_feature["type"]
         try:
@@ -163,7 +171,7 @@ class LabelManager:
             feature_type, sub_type
         )
 
-        new_feature = QgsFeature(self._project_controller.label_target_layer().fields())
+        new_feature = QgsFeature(label_target_layer.fields())
         new_feature["text_string"] = source_feature["name"]
         for p, v in style_defaults.items():
             new_feature[p] = v
@@ -179,6 +187,8 @@ class LabelManager:
         document_metrics = self.label_metrics(
             render_context, label_feature["text_string"], label_feature
         )
+        if document_metrics is None:
+            return 0
 
         # grow by a small amount to ensure text fully fits at different sizes/styles/zoom levels
         text_width_painter_units = (
@@ -215,6 +225,9 @@ class LabelManager:
         )
         for feature in layer.getFeatures(request):
             label_feature = self.create_label_feature(feature)
+            if label_feature is None:
+                continue
+
             text_width_map_units = self.get_width_for_label(label_feature, rc)
 
             return LabelProperties(
