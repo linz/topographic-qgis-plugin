@@ -3,18 +3,25 @@ from pathlib import Path
 from qgis.PyQt.QtCore import Qt, QCoreApplication, QObject, QDir
 from qgis.PyQt.QtWidgets import QMenu, QAction, QMessageBox
 
-from qgis.core import QgsSettingsTree, QgsProject, QgsApplication
+from qgis.core import QgsSettingsTree, QgsProject, QgsApplication, QgsFeature
 from qgis.gui import QgisInterface
 
-from .gui import (
-    ToolDock,
+from topographic_mapping.gui import (
+    EditToolDock,
     ToolRegistry,
     SetTargetTool,
     SetTargetToolHandler,
     ValidationDock,
     PluginsOptionsFactory,
+    LabelDock,
+    EDITING_GROUP,
+    DIGITIZING_GROUP,
+    LABELING_GROUP,
+    CREATE_LABEL_ACTION,
+    DigitizeLabelTool,
+    LabelingGuiManager,
 )
-from .core import StateManager, ProjectController, DbUtils
+from .core import StateManager, ProjectController, DbUtils, LabelManager
 from .core.symbol_layers import RockOutcropMarkerMetadata
 
 
@@ -22,7 +29,8 @@ class TopographicMappingPlugin:
     def __init__(self, iface: QgisInterface):
         self.iface = iface
         self._gui_owner = QObject()
-        self._tool_dock: ToolDock | None = None
+        self._tool_dock: EditToolDock | None = None
+        self._label_dock: LabelDock | None = None
         self._validation_dock: ValidationDock | None = None
         self._action_group = None
         self._tool_registry: ToolRegistry | None = None
@@ -30,6 +38,8 @@ class TopographicMappingPlugin:
         self._set_target_tool: SetTargetTool | None = None
         self._set_target_tool_handler: SetTargetToolHandler | None = None
         self._project_controller: ProjectController | None = None
+        self._label_manager: LabelManager | None = None
+        self._label_gui_manager: LabelingGuiManager | None = None
         self._menu: QMenu | None = None
         self._options_factory: PluginsOptionsFactory | None = None
         self._symbol_layer_metadata = []
@@ -43,15 +53,34 @@ class TopographicMappingPlugin:
             QgsProject.instance(), self._gui_owner
         )
         self._state_manager = StateManager(self.iface, QgsProject.instance())
+        self._label_manager = LabelManager(
+            self._project_controller, self._state_manager
+        )
         self._tool_registry = ToolRegistry(self._gui_owner)
+        self._label_gui_manager = LabelingGuiManager(
+            self.iface.mapCanvas(),
+            self.iface.cadDockWidget(),
+            self.iface.messageBar(),
+            parent=self._gui_owner,
+        )
+        self._label_gui_manager.set_label_manager(self._label_manager)
+        self._label_gui_manager.set_project_controller(self._project_controller)
+        self._label_gui_manager.set_state_manager(self._state_manager)
 
-        self._tool_dock = ToolDock(
+        self._tool_dock = EditToolDock(
             edit_target_tool_action=self._tool_registry.set_target_tool_action,
             parent=None,
         )
         self._tool_dock.setObjectName("TopographicTools")
         self._tool_dock.setWindowTitle("Editing tools")
         self._tool_dock.set_message_bar(self.iface.messageBar())
+
+        self._label_dock = LabelDock(
+            edit_target_tool_action=self._tool_registry.set_target_tool_action,
+            parent=None,
+        )
+        self._label_dock.setObjectName("TopographicLabelTools")
+        self._label_dock.setWindowTitle("Labeling tools")
 
         self._validation_dock = ValidationDock(
             parent=None,
@@ -66,13 +95,23 @@ class TopographicMappingPlugin:
         self.iface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._tool_dock)
         self.iface.addTabifiedDockWidget(
             Qt.DockWidgetArea.RightDockWidgetArea,
-            self._validation_dock,
+            self._label_dock,
             [self._tool_dock.objectName()],
         )
+        self.iface.addTabifiedDockWidget(
+            Qt.DockWidgetArea.RightDockWidgetArea,
+            self._validation_dock,
+            [self._tool_dock.objectName(), self._label_dock.objectName()],
+        )
+
         # defaults to closed
         self._validation_dock.close()
 
-        self._tool_registry.populate_tool_dock(self._tool_dock)
+        self._tool_registry.populate_tool_dock(
+            self._tool_dock, [EDITING_GROUP, DIGITIZING_GROUP]
+        )
+        self._tool_registry.populate_tool_dock(self._label_dock, [LABELING_GROUP])
+        self._label_gui_manager.register_tools(self._tool_registry)
 
         self._set_target_tool = SetTargetTool(self.iface.mapCanvas())
         self._set_target_tool_handler = SetTargetToolHandler(
@@ -83,6 +122,8 @@ class TopographicMappingPlugin:
 
         self._tool_dock.set_project_controller(self._project_controller)
         self._tool_dock.set_state_manager(self._state_manager)
+        self._label_dock.set_project_controller(self._project_controller)
+        self._label_dock.set_state_manager(self._state_manager)
 
         self._validation_dock.set_project_controller(self._project_controller)
 
@@ -108,6 +149,7 @@ class TopographicMappingPlugin:
 
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""
+        self._label_gui_manager.unregister()
         self._tool_registry.unregister_shortcuts()
         self.iface.unregisterOptionsWidgetFactory(self.options_factory)
 
@@ -120,6 +162,9 @@ class TopographicMappingPlugin:
         if self._tool_dock:
             self._tool_dock.deleteLater()
             self._tool_dock = None
+        if self._label_dock:
+            self._label_dock.deleteLater()
+            self._label_dock = None
         if self._validation_dock:
             self._validation_dock.cleanup()
             self._validation_dock.deleteLater()

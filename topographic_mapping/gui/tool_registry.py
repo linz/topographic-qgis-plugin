@@ -1,6 +1,6 @@
-from typing import Dict
 from collections import defaultdict
 from dataclasses import dataclass
+from typing import List, Dict
 
 from qgis.PyQt.QtCore import QObject
 from qgis.PyQt.QtWidgets import QAction
@@ -62,6 +62,11 @@ class CustomAction:
 
 EDITING_GROUP = "Topographic editing"
 DIGITIZING_GROUP = "Digitize feature"
+LABELING_GROUP = "Labeling"
+
+SELECT_LABELS_ACTION = "SELECT_LABELS_ACTION"
+CREATE_LABEL_ACTION = "CREATE_LABEL_ACTION"
+RESET_LABEL_ACTION = "RESET_LABEL_ACTION"
 
 TOOLS = {
     EDITING_GROUP: [
@@ -150,6 +155,26 @@ TOOLS = {
             ["mActionAddFeature", "mActionStreamDigitize"],
             "digitize_stream.svg",
             "Digitize features immediately as mouse moves.",
+        ),
+    ],
+    LABELING_GROUP: [
+        CustomAction(
+            SELECT_LABELS_ACTION,
+            "Select Labels",
+            "select_label.svg",
+            "Selects labels.",
+        ),
+        CustomAction(
+            CREATE_LABEL_ACTION,
+            "Create Label",
+            "create_label.svg",
+            "Creates labels for the selected features.",
+        ),
+        CustomAction(
+            RESET_LABEL_ACTION,
+            "Reset Label",
+            "reset_label.svg",
+            "Resets selected labels to their default appearance.",
         ),
     ],
 }
@@ -283,8 +308,11 @@ class ToolRegistry(QObject):
         """
         return self._custom_actions[action_id]
 
-    def populate_tool_dock(self, dock: ToolDock):
+    def populate_tool_dock(self, dock: ToolDock, groups: List[str]):
         for group, actions in self._actions.items():
+            if group not in groups:
+                continue
+
             if group[0] == "_":
                 continue
 

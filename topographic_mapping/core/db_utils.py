@@ -23,9 +23,15 @@ class DbUtils:
         Creates a connection to a sqlite/geopackage database
         """
         metadata = QgsProviderRegistry.instance().providerMetadata("ogr")
-        assert metadata
+        if metadata is None:
+            raise AssertionError(
+                "OGR provider is not available -- QGIS install is corrupted or not initialized correctly"
+            )
 
-        return metadata.createConnection(db_path.as_posix(), {})
+        conn = metadata.createConnection(db_path.as_posix(), {})
+        if not isinstance(conn, QgsAbstractDatabaseProviderConnection):
+            raise RuntimeError(f"Failed to create a database connection for {db_path}")
+        return conn
 
     @staticmethod
     def product_view_exists(db_path: Path, layer_name: str) -> bool:

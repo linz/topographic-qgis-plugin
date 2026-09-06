@@ -14,12 +14,10 @@ from qgis.core import (
     QgsDefaultValue,
     QgsExpression,
     QgsValueMapFieldFormatter,
-    QgsGeometry,
 )
 
 from .constants import CURRENT_FEATURE_TYPE_VAR_NAME
 from .enums import EditMode
-from .db_utils import DbUtils
 
 SCHEMAS_DIR = Path(__file__) / ".." / ".." / "schemas"
 
@@ -31,6 +29,7 @@ class ProjectController(QObject):
     map_sheet_layer_unloaded = pyqtSignal()
 
     MAP_SHEET_LAYER_NAME_SUFFIX = "_map_sheet"
+    LABEL_TARGET_NAME_SUFFIX = "_carto_text"
 
     def __init__(self, project: QgsProject, parent: QObject | None):
         super().__init__(parent)
@@ -51,6 +50,9 @@ class ProjectController(QObject):
     def _project_layers_removed(self, layers: list[str]):
         for layer_id in layers:
             map_layer = self._project.mapLayer(layer_id)
+            if map_layer is None:
+                continue
+
             self._remove_layer(map_layer)
 
     @staticmethod
@@ -60,12 +62,13 @@ class ProjectController(QObject):
             return match.group(1)
         return name
 
-    def _has_schema(self, layer: QgsMapLayer) -> bool:
+    @staticmethod
+    def _has_schema(layer: QgsMapLayer) -> bool:
         parts = QgsProviderRegistry.instance().decodeUri(
             layer.providerType(), layer.source()
         )
         layer_name = parts.get("layerName")
-        if not layer_name:
+        if not isinstance(layer_name, str) or not layer_name:
             return False
         layer_name = ProjectController.clean_layer_name(layer_name)
 
@@ -80,7 +83,7 @@ class ProjectController(QObject):
             layer.providerType(), layer.source()
         )
         layer_name = parts.get("layerName")
-        if not layer_name:
+        if not isinstance(layer_name, str) or not layer_name:
             return
         layer_name = ProjectController.clean_layer_name(layer_name)
 
@@ -106,7 +109,7 @@ class ProjectController(QObject):
             layer.providerType(), layer.source()
         )
         layer_name = parts.get("layerName")
-        if not layer_name:
+        if not isinstance(layer_name, str) or not layer_name:
             return
 
         layer_name = ProjectController.clean_layer_name(layer_name)
@@ -118,17 +121,18 @@ class ProjectController(QObject):
         if layer_name.lower().endswith(self.MAP_SHEET_LAYER_NAME_SUFFIX):
             self.map_sheet_layer_unloaded.emit()
 
-    def _set_layer_schema(self, layer: QgsVectorLayer, schema: dict):
+    @staticmethod
+    def _set_layer_schema(layer: QgsVectorLayer, schema: dict):
         properties = schema["properties"]
         fields = layer.fields()
         edit_form_config = layer.editFormConfig()
-        for name, property in properties.items():
+        for name, _property in properties.items():
             field_index = fields.lookupField(name)
             if field_index < 0:
                 continue
 
             edit_widget_setup = layer.editorWidgetSetup(field_index)
-            description = property.get("description")
+            description = _property.get("description")
             if description:
                 try:
                     layer.setFieldCustomComment(field_index, str(description))
@@ -136,15 +140,15 @@ class ProjectController(QObject):
                     # requires QGIS 4.2
                     layer.setFieldAlias(field_index, str(description))
 
-            if "minimum" in property:
+            if "minimum" in _property:
                 config = edit_widget_setup.config()
-                config["Min"] = float(property["minimum"])
-                config["Max"] = float(property["maximum"])
+                config["Min"] = float(_property["minimum"])
+                config["Max"] = float(_property["maximum"])
                 edit_widget_setup = QgsEditorWidgetSetup("Range", config)
                 # not nullable
 
-            elif "$ref" in property:
-                ref = property["$ref"][len("#/$defs/") :]
+            elif "$ref" in _property:
+                ref = _property["$ref"][len("#/$defs/") :]
                 definition = schema["$defs"][ref]
                 if "enum" in definition:
                     enum_values = definition["enum"]
@@ -153,11 +157,11 @@ class ProjectController(QObject):
                     edit_widget_setup = QgsEditorWidgetSetup("ValueMap", config)
                     # not nullable
 
-            if "anyOf" in property:
+            if "anyOf" in _property:
                 string_options = []
                 ref_options = []
                 is_nullable = False
-                for _type in property["anyOf"]:
+                for _type in _property["anyOf"]:
                     if _type.get("type") == "null":
                         is_nullable = True
                     if _type.get("type") == "string" and "const" in _type:
@@ -188,9 +192,9 @@ class ProjectController(QObject):
                             )
                         edit_widget_setup = QgsEditorWidgetSetup("ValueMap", config)
 
-            if "default" in property:
+            if "default" in _property:
                 default_value = QgsDefaultValue(
-                    QgsExpression.quotedValue(property["default"])
+                    QgsExpression.quotedValue(_property["default"])
                 )
                 layer.setDefaultValueDefinition(field_index, default_value)
 
@@ -219,8 +223,9 @@ class ProjectController(QObject):
 
         layer.setEditFormConfig(edit_form_config)
 
+    @staticmethod
     def _collect_feature_types_from_layer(
-        self, layer: QgsMapLayer
+        layer: QgsMapLayer,
     ) -> None | dict[str, list[str]] | str:
         if not isinstance(layer, QgsVectorLayer):
             return None
@@ -229,7 +234,7 @@ class ProjectController(QObject):
             layer.providerType(), layer.source()
         )
         layer_name = parts.get("layerName")
-        if not layer_name:
+        if not isinstance(layer_name, str) or not layer_name:
             return None
 
         layer_name = ProjectController.clean_layer_name(layer_name)
@@ -270,7 +275,7 @@ class ProjectController(QObject):
                 layer.providerType(), layer.source()
             )
             layer_name = parts.get("layerName")
-            if not layer_name:
+            if not isinstance(layer_name, str) or not layer_name:
                 continue
 
             layer_name = ProjectController.clean_layer_name(layer_name)
@@ -279,9 +284,9 @@ class ProjectController(QObject):
                 return layer
         return None
 
-    def map_sheet_layer(self) -> QgsVectorLayer | None:
+    def _find_layer_with_suffix(self, suffix: str) -> QgsVectorLayer | None:
         """
-        Returns the map sheet layer
+        Returns the layer matching the given suffix
         """
         for _, layer in self._project.mapLayers().items():
             if not isinstance(layer, QgsVectorLayer) or layer.readOnly():
@@ -291,11 +296,30 @@ class ProjectController(QObject):
                 layer.providerType(), layer.source()
             )
             layer_name = parts.get("layerName")
+            if not isinstance(layer_name, str) or not layer_name:
+                continue
+
             layer_name = ProjectController.clean_layer_name(layer_name)
 
-            if layer_name.lower().endswith(self.MAP_SHEET_LAYER_NAME_SUFFIX):
+            if layer_name.lower().endswith(suffix):
                 return layer
         return None
+
+    def map_sheet_layer(self) -> QgsVectorLayer | None:
+        """
+        Returns the map sheet layer
+        """
+        return self._find_layer_with_suffix(self.MAP_SHEET_LAYER_NAME_SUFFIX)
+
+    def label_target_layer(self) -> QgsVectorLayer | None:
+        """
+        Returns the label target layer
+        """
+        candidate_layer = self._find_layer_with_suffix(self.LABEL_TARGET_NAME_SUFFIX)
+        if candidate_layer is None or candidate_layer.labeling() is None:
+            return None
+
+        return candidate_layer
 
     def working_geopackage_path(self) -> str | None:
         """
@@ -306,7 +330,7 @@ class ProjectController(QObject):
                 layer.providerType(), layer.source()
             )
             layer_name = parts.get("layerName")
-            if not layer_name:
+            if not isinstance(layer_name, str) or not layer_name:
                 continue
 
             layer_name = ProjectController.clean_layer_name(layer_name)
@@ -315,6 +339,9 @@ class ProjectController(QObject):
                 continue
 
             path = parts.get("path")
+            if not isinstance(path, str) or not path:
+                continue
+
             if path and Path(path).suffix == ".gpkg":
                 return path
 
@@ -346,6 +373,9 @@ class ProjectController(QObject):
                 layer.providerType(), layer.source()
             )
             layer_name = parts.get("layerName")
+            if not isinstance(layer_name, str) or not layer_name:
+                continue
+
             if layer_name and mode == EditMode.RealWorld:
                 match = re.match(r"(.*)_product_view", layer_name)
                 if match:
