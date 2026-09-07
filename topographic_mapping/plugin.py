@@ -153,7 +153,7 @@ class TopographicMappingPlugin:
         create_product_views_action.triggered.connect(self._create_product_views)
         self._menu.addAction(create_product_views_action)
 
-        update_layer_styles_action = QAction("Update Layer Styles", self._menu)
+        update_layer_styles_action = QAction("Update Layer Styles…", self._menu)
         update_layer_styles_action.triggered.connect(self._update_layer_styles)
         self._menu.addAction(update_layer_styles_action)
 
@@ -250,6 +250,14 @@ class TopographicMappingPlugin:
         """
         Updates layer styles
         """
-        # TODO confirm
-
-        self._style_manager.download_styles()
+        if (
+            QMessageBox.question(
+                self.iface.mainWindow(),
+                "Update Layer Styles",
+                "Are you sure you want to replace all existing layer styles with updated definitions?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            == QMessageBox.StandardButton.Yes
+        ):
+            self._style_manager.download_styles()
