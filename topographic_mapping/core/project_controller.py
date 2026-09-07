@@ -325,10 +325,34 @@ class ProjectController(QObject):
         """
         Attempts to determine the current working geopackage data path
         """
-        for layer in self.editable_vector_layers():
+        for layer in self.feature_layers():
+            if layer.readOnly():
+                continue
+
             parts = QgsProviderRegistry.instance().decodeUri(
                 layer.providerType(), layer.source()
             )
+            path = parts.get("path")
+            if not isinstance(path, str) or not path:
+                continue
+
+            if path and Path(path).suffix == ".gpkg":
+                return path
+
+        return None
+
+    def feature_layers(self) -> Iterator[QgsVectorLayer]:
+        """
+        Returns an iterator over all feature layers
+        """
+        for _, layer in self._project.mapLayers().items():
+            if not isinstance(layer, QgsVectorLayer):
+                continue
+
+            parts = QgsProviderRegistry.instance().decodeUri(
+                layer.providerType(), layer.source()
+            )
+
             layer_name = parts.get("layerName")
             if not isinstance(layer_name, str) or not layer_name:
                 continue
@@ -338,12 +362,7 @@ class ProjectController(QObject):
             if not any([t for t in self.feature_types if t != layer_name]):
                 continue
 
-            path = parts.get("path")
-            if not isinstance(path, str) or not path:
-                continue
-
-            if path and Path(path).suffix == ".gpkg":
-                return path
+            yield layer
 
         return None
 
