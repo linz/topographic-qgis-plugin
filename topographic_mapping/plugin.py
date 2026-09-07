@@ -21,7 +21,14 @@ from topographic_mapping.gui import (
     DigitizeLabelTool,
     LabelingGuiManager,
 )
-from .core import StateManager, ProjectController, DbUtils, LabelManager, StyleManager
+from .core import (
+    StateManager,
+    ProjectController,
+    DbUtils,
+    LabelManager,
+    StyleManager,
+    STORED_OBJECT_MANAGER,
+)
 from .core.symbol_layers import RockOutcropMarkerMetadata
 
 
@@ -44,6 +51,10 @@ class TopographicMappingPlugin:
         self._menu: QMenu | None = None
         self._options_factory: PluginsOptionsFactory | None = None
         self._symbol_layer_metadata = []
+
+        QgsApplication.localizedDataPathRegistry().registerPath(
+            STORED_OBJECT_MANAGER.get_base_plugin_data_dir().as_posix()
+        )
 
     def initGui(self) -> None:
         self._symbol_layer_metadata = [RockOutcropMarkerMetadata()]
