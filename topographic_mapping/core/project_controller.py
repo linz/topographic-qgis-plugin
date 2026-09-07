@@ -43,6 +43,25 @@ class ProjectController(QObject):
         self._project.layersAdded.connect(self._update_project_layers)
         self._project.layersWillBeRemoved.connect(self._project_layers_removed)
 
+    def feature_layer_names(self) -> list[str]:
+        """
+        Returns a list of all relevant layer names corresponding to known feature
+        types
+        """
+        names = []
+        for layer in self.feature_layers():
+            parts = QgsProviderRegistry.instance().decodeUri(
+                layer.providerType(), layer.source()
+            )
+            layer_name = parts.get("layerName")
+            if not isinstance(layer_name, str) or not layer_name:
+                continue
+
+            layer_name = ProjectController.clean_layer_name(layer_name)
+            names.append(layer_name)
+
+        return names
+
     def _update_project_layers(self, layers: list[QgsMapLayer]):
         for layer in layers:
             self._initialize_layer(layer)

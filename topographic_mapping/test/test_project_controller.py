@@ -323,6 +323,26 @@ class TestProjectController(TopographicTestBase):
         controller.set_edit_mode(gpkg_path, EditMode.RealWorld)
         self.assertNotIn("water_point_product_view", layer.source())
 
+    def test_feature_names(self):
+        """
+        Test retrieving layers with feature types
+        """
+        project = QgsProject()
+        fields = QgsFields()
+        fields.append(QgsField("id", QVariant.Int))
+        fields.append(QgsField("type", QVariant.String))
+
+        layer1 = self.create_dummy_layer("water_point", fields)
+        layer2 = self.create_dummy_layer("airport", fields)
+        layer2.setReadOnly(True)
+        project.addMapLayer(layer1)
+        project.addMapLayer(layer2)
+
+        controller = ProjectController(project, None)
+        self.assertCountEqual(
+            controller.feature_layer_names(), ["airport", "water_point"]
+        )
+
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(TestProjectController)
