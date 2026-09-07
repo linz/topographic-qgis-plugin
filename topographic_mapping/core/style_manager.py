@@ -4,6 +4,7 @@ Manages layer styling for a project
 
 from typing import List, Dict
 import json
+import re
 from pathlib import Path
 
 from qgis.PyQt import sip
@@ -63,12 +64,37 @@ class StyleManager:
         styles = self._download_task.styles
         feature_type_layers = self._project_controller.feature_layer_names()
 
+        svg_dir = STORED_OBJECT_MANAGER.get_plugin_data_dir("svg")
+        existing_svgs = (
+            {p.name for p in svg_dir.glob("*.svg")} if svg_dir.exists() else set()
+        )
+
+        def _replace_svg_path(match: re.Match) -> str:
+            svg_name = match.group(2)
+            if svg_name.startswith("topo"):
+                svg_name = "nz" + svg_name
+
+            if svg_name.endswith("_poly.svg"):
+                svg_name = svg_name[:-9] + ".svg"
+
+            if svg_name in existing_svgs:
+                print(f"*SVG IS in repo {svg_name}")
+                return f"localized:svg/{svg_name}"
+            print(f"!SVG file not in repo {svg_name}")
+            return match.group(0)
+
         for layer_name, layer in feature_type_layers:
             if layer_name not in styles:
                 continue
 
             style_raw = styles[layer_name]
             doc = QDomDocument()
+
+            # temporary hack to set localized data paths
+            style_raw = re.sub(
+                r'([^"\'>\s]*/)?([^"\'>\s]+\.svg)', _replace_svg_path, style_raw
+            )
+
             res, error_msg, _, __ = doc.setContent(style_raw)
             if res:
                 res, error_msg = layer.importNamedStyle(doc)
