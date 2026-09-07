@@ -1,5 +1,7 @@
 import re
 import json
+from typing import Tuple
+
 from collections.abc import Iterator
 from pathlib import Path
 from qgis.PyQt.QtCore import QObject, pyqtSignal
@@ -43,7 +45,7 @@ class ProjectController(QObject):
         self._project.layersAdded.connect(self._update_project_layers)
         self._project.layersWillBeRemoved.connect(self._project_layers_removed)
 
-    def feature_layer_names(self) -> list[str]:
+    def feature_layer_names(self) -> list[Tuple[str, QgsVectorLayer]]:
         """
         Returns a list of all relevant layer names corresponding to known feature
         types
@@ -58,7 +60,7 @@ class ProjectController(QObject):
                 continue
 
             layer_name = ProjectController.clean_layer_name(layer_name)
-            names.append(layer_name)
+            names.append((layer_name, layer))
 
         return names
 

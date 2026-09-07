@@ -8,3 +8,4 @@ from .validation_results_model import ValidationResultModel  # NOQA
 from .db_utils import DbUtils  # NOQA
 from .enums import EditMode  # NOQA
 from .label_manager import LabelManager  # NOQA
+from .style_manager import StyleManager  # NOQA
