@@ -3,6 +3,8 @@ Manages layer styling for a project
 """
 
 from typing import List, Dict
+import json
+from pathlib import Path
 
 from qgis.PyQt import sip
 from qgis.PyQt.QtCore import QEventLoop, QUrl
@@ -10,7 +12,7 @@ from qgis.PyQt.QtNetwork import QNetworkReply, QNetworkRequest
 from qgis.PyQt.QtXml import QDomDocument
 
 from qgis.core import (
-    QgsProject,
+    QgsBlockingNetworkRequest,
     QgsTask,
     QgsFeedback,
     QgsNetworkAccessManager,
@@ -18,6 +20,7 @@ from qgis.core import (
 )
 
 from .project_controller import ProjectController
+from .stored_object_manager import STORED_OBJECT_MANAGER
 
 
 class StyleManager:
@@ -26,6 +29,7 @@ class StyleManager:
     """
 
     STYLE_URL_BASE = "https://raw.githubusercontent.com/linz/topographic-qgis/refs/heads/master/map-series/nztopo50/style-layer/"
+    SVG_GRAPHICS_PATH = f"https://api.github.com/repos/linz/topographic-qgis/contents/map-series/nztopo50/symbol"
 
     def __init__(self, project_controller: ProjectController):
         self._project_controller = project_controller
@@ -45,7 +49,9 @@ class StyleManager:
         feature_type_layers = self._project_controller.feature_layer_names()
         feature_types = [l[0] for l in feature_type_layers]
 
-        self._download_task = StyleDownloadTask(feature_types)
+        self._download_task = StyleDownloadTask(
+            feature_types, STORED_OBJECT_MANAGER.get_plugin_data_dir("svg")
+        )
         self._download_task.taskCompleted.connect(self._apply_styles)
         QgsApplication.taskManager().addTask(self._download_task)
 
@@ -78,9 +84,10 @@ class StyleDownloadTask(QgsTask):
     A background task for downloading layer styles
     """
 
-    def __init__(self, feature_types: List[str]):
+    def __init__(self, feature_types: List[str], svg_dir: str | Path):
         QgsTask.__init__(self, "Fetching layer styles")
         self._feature_types = feature_types
+        self._svg_dir = Path(svg_dir)
         self._feedback: QgsFeedback | None = None
         self.styles: Dict[str, str] = {}
 
@@ -94,11 +101,44 @@ class StyleDownloadTask(QgsTask):
             return True
 
         self._feedback = QgsFeedback()
-        loop = QEventLoop()
         nam = QgsNetworkAccessManager.instance()
+
+        request = QNetworkRequest(QUrl(StyleManager.SVG_GRAPHICS_PATH))
+        blocking_request = QgsBlockingNetworkRequest()
+        err = blocking_request.get(request)
+
+        if err != QgsBlockingNetworkRequest.ErrorCode.NoError:
+            return True
+
+        reply = blocking_request.reply()
+        svg_files = []
+        try:
+            items = json.loads(bytes(reply.content()).decode("utf-8"))
+            if isinstance(items, list):
+                for item in items:
+                    if item.get("type") == "file" and item.get("download_url"):
+                        svg_files.append((item.get("name"), item.get("download_url")))
+        except json.JSONDecodeError as e:
+            print(f"Error parsing SVG metadata: {e}")
+
+        if self.isCanceled() or self._feedback.isCanceled():
+            self._feedback = None
+            return False
+
+        if svg_files and self._svg_dir:
+            self._svg_dir.mkdir(parents=True, exist_ok=True)
+
+        loop = QEventLoop()
 
         replies: List[QNetworkReply] = []
         pending_count = 0
+
+        def _check_pending():
+            nonlocal pending_count
+            nonlocal loop
+            pending_count -= 1
+            if pending_count == 0 and loop and loop.isRunning():
+                loop.quit()
 
         for feature_type in self._feature_types:
             if self.isCanceled() or self._feedback.isCanceled():
@@ -118,16 +158,44 @@ class StyleDownloadTask(QgsTask):
             self._feedback.canceled.connect(reply.abort)
             pending_count += 1
 
-            def _on_finished(_reply: QNetworkReply = reply, ft: str = feature_type):
+            def _on_style_finished(
+                _reply: QNetworkReply = reply, ft: str = feature_type
+            ):
                 nonlocal pending_count
                 if _reply.error() == QNetworkReply.NetworkError.NoError:
                     self.styles[ft] = bytes(_reply.readAll()).decode("utf-8")
 
-                pending_count -= 1
-                if pending_count == 0 and loop and loop.isRunning():
-                    loop.quit()
+                _check_pending()
 
-            reply.finished.connect(_on_finished)
+            reply.finished.connect(_on_style_finished)
+
+        for file_name, download_url in svg_files:
+            if self.isCanceled() or self._feedback.isCanceled():
+                self._feedback = None
+                return False
+
+            svg_request = QNetworkRequest(QUrl(download_url))
+            svg_reply = nam.get(svg_request)
+            if svg_reply is None:
+                continue
+
+            replies.append(svg_reply)
+            self._feedback.canceled.connect(svg_reply.abort)
+            pending_count += 1
+
+            def _on_svg_finished(
+                _reply: QNetworkReply = svg_reply, name: str = file_name
+            ):
+                if _reply.error() == QNetworkReply.NetworkError.NoError:
+                    file_path = self._svg_dir / name
+                    try:
+                        with open(file_path, "wb") as f:
+                            f.write(bytes(_reply.readAll()))
+                    except IOError as e:
+                        print(f"Failed to write SVG {name}: {e}")
+                _check_pending()
+
+            svg_reply.finished.connect(_on_svg_finished)
 
         if pending_count == 0:
             self._feedback = None
