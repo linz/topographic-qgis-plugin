@@ -121,7 +121,9 @@ class StyleManager:
                 layer_style_manager.addStyle(
                     self.PRODUCT_VIEW_STYLE_NAME, QgsMapLayerStyle(style_raw)
                 )
-                if style_count == 1:
+                if style_count == 1 and layer_style_manager.styles() != [
+                    self.PRODUCT_VIEW_STYLE_NAME
+                ]:
                     # if only one style, remove the other
                     # TODO: handle real-world style name
                     layer_style_manager.removeStyle(
