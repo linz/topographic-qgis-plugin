@@ -9,16 +9,20 @@ from pathlib import Path
 
 from qgis.PyQt import sip
 from qgis.PyQt.QtCore import QEventLoop, QUrl
+from qgis.PyQt.QtWidgets import QPushButton
 from qgis.PyQt.QtNetwork import QNetworkReply, QNetworkRequest
 from qgis.PyQt.QtXml import QDomDocument
 
 from qgis.core import (
+    Qgis,
     QgsBlockingNetworkRequest,
     QgsTask,
     QgsFeedback,
     QgsNetworkAccessManager,
     QgsApplication,
+    QgsMessageOutput,
 )
+from qgis.gui import QgsMessageBar
 
 from topographic_mapping.core.project_controller import ProjectController
 from topographic_mapping.core.stored_object_manager import STORED_OBJECT_MANAGER
@@ -32,8 +36,12 @@ class StyleManager:
     STYLE_URL_BASE = "https://raw.githubusercontent.com/linz/topographic-qgis/refs/heads/master/map-series/nztopo50/style-layer/"
     SVG_GRAPHICS_PATH = f"https://api.github.com/repos/linz/topographic-qgis/contents/map-series/nztopo50/symbol"
 
-    def __init__(self, project_controller: ProjectController):
-        self._project_controller = project_controller
+    def __init__(
+        self, project_controller: ProjectController, message_bar: QgsMessageBar
+    ):
+        self._project_controller: ProjectController = project_controller
+        self._message_bar: QgsMessageBar = message_bar
+        self._message_item = None
         self._download_task: StyleDownloadTask | None = None
 
     @staticmethod
@@ -64,23 +72,30 @@ class StyleManager:
         styles = self._download_task.styles
         feature_type_layers = self._project_controller.feature_layer_names()
 
+        errors = self._download_task.errors[:]
+
         svg_dir = STORED_OBJECT_MANAGER.get_plugin_data_dir("svg")
         existing_svgs = (
             {p.name for p in svg_dir.glob("*.svg")} if svg_dir.exists() else set()
         )
 
         def _replace_svg_path(match: re.Match) -> str:
+            nonlocal errors
             svg_name = match.group(2)
             if svg_name.startswith("topo"):
                 svg_name = "nz" + svg_name
+                if svg_name in existing_svgs:
+                    errors.append(f"Renamed {svg_name} to nz{svg_name}")
 
             if svg_name.endswith("_poly.svg"):
                 svg_name = svg_name[:-9] + ".svg"
+                if svg_name in existing_svgs:
+                    errors.append(f"Renamed {match.group(2)} to {svg_name}")
 
             if svg_name in existing_svgs:
-                print(f"*SVG IS in repo {svg_name}")
                 return f"localized:svg/{svg_name}"
-            print(f"!SVG file not in repo {svg_name}")
+
+            errors.append(f"SVG file {svg_name} is not stored in git repository")
             return match.group(0)
 
         for layer_name, layer in feature_type_layers:
@@ -99,10 +114,37 @@ class StyleManager:
             if res:
                 res, error_msg = layer.importNamedStyle(doc)
                 if error_msg:
-                    print(error_msg)
+                    errors.append(error_msg)
                 layer.triggerRepaint()
             else:
-                print(error_msg)
+                errors.append(error_msg)
+
+        if errors:
+            message_widget = self._message_bar.createMessage(
+                "", "Some errors were encountered while updating layer styles."
+            )
+            details_button = QPushButton("Details")
+
+            def show_warnings(_):
+                if self._message_item and not sip.isdeleted(self._message_item):
+                    self._message_bar.popWidget(self._message_item)
+                    self._message_item = None
+
+                dialog = QgsMessageOutput.createMessageOutput()
+                dialog.setTitle("Update Layer Styles")
+                long_message = "<p>Some errors were encountered while updating layer styles:</p><ul><li>"
+                long_message += "</li><li>".join(errors)
+                long_message += "</li></ul>"
+                dialog.setMessage(
+                    long_message, QgsMessageOutput.MessageType.MessageHtml
+                )
+                dialog.showMessage()
+
+            details_button.clicked.connect(show_warnings)
+            self._message_item = message_widget.layout().addWidget(details_button)
+            self._message_bar.pushWidget(message_widget, Qgis.MessageLevel.Warning, 0)
+        else:
+            self._message_bar.pushSuccess("", "Layer styles successfully updated")
 
 
 class StyleDownloadTask(QgsTask):
@@ -116,6 +158,7 @@ class StyleDownloadTask(QgsTask):
         self._svg_dir = Path(svg_dir)
         self._feedback: QgsFeedback | None = None
         self.styles: Dict[str, str] = {}
+        self.errors: List[str] = []
 
     def cancel(self) -> None:
         super().cancel()
@@ -145,7 +188,7 @@ class StyleDownloadTask(QgsTask):
                     if item.get("type") == "file" and item.get("download_url"):
                         svg_files.append((item.get("name"), item.get("download_url")))
         except json.JSONDecodeError as e:
-            print(f"Error parsing SVG metadata: {e}")
+            self.errors.append(f"Error parsing SVG metadata: {e}")
 
         if self.isCanceled() or self._feedback.isCanceled():
             self._feedback = None
@@ -218,7 +261,7 @@ class StyleDownloadTask(QgsTask):
                         with open(file_path, "wb") as f:
                             f.write(bytes(_reply.readAll()))
                     except IOError as e:
-                        print(f"Failed to write SVG {name}: {e}")
+                        self.errors.append(f"Failed to write SVG {name}: {e}")
                 _check_pending()
 
             svg_reply.finished.connect(_on_svg_finished)

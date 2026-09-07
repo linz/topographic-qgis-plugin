@@ -18,7 +18,7 @@ from topographic_mapping.gui import (
     DIGITIZING_GROUP,
     LABELING_GROUP,
     LabelingGuiManager,
-    StyleManager
+    StyleManager,
 )
 from .core import (
     StateManager,
@@ -66,7 +66,9 @@ class TopographicMappingPlugin:
         self._label_manager = LabelManager(
             self._project_controller, self._state_manager
         )
-        self._style_manager = StyleManager(self._project_controller)
+        self._style_manager = StyleManager(
+            self._project_controller, self.iface.messageBar()
+        )
 
         self._tool_registry = ToolRegistry(self._gui_owner)
         self._label_gui_manager = LabelingGuiManager(
@@ -251,4 +253,3 @@ class TopographicMappingPlugin:
         # TODO confirm
 
         self._style_manager.download_styles()
-        # TODO FEEDBACK
