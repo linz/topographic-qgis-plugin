@@ -17,11 +17,16 @@ from topographic_mapping.gui import (
     EDITING_GROUP,
     DIGITIZING_GROUP,
     LABELING_GROUP,
-    CREATE_LABEL_ACTION,
-    DigitizeLabelTool,
     LabelingGuiManager,
+    StyleManager,
 )
-from .core import StateManager, ProjectController, DbUtils, LabelManager
+from .core import (
+    StateManager,
+    ProjectController,
+    DbUtils,
+    LabelManager,
+    STORED_OBJECT_MANAGER,
+)
 from .core.symbol_layers import RockOutcropMarkerMetadata
 
 
@@ -38,11 +43,16 @@ class TopographicMappingPlugin:
         self._set_target_tool: SetTargetTool | None = None
         self._set_target_tool_handler: SetTargetToolHandler | None = None
         self._project_controller: ProjectController | None = None
+        self._style_manager: StyleManager | None = None
         self._label_manager: LabelManager | None = None
         self._label_gui_manager: LabelingGuiManager | None = None
         self._menu: QMenu | None = None
         self._options_factory: PluginsOptionsFactory | None = None
         self._symbol_layer_metadata = []
+
+        QgsApplication.localizedDataPathRegistry().registerPath(
+            STORED_OBJECT_MANAGER.get_base_plugin_data_dir().as_posix()
+        )
 
     def initGui(self) -> None:
         self._symbol_layer_metadata = [RockOutcropMarkerMetadata()]
@@ -56,6 +66,10 @@ class TopographicMappingPlugin:
         self._label_manager = LabelManager(
             self._project_controller, self._state_manager
         )
+        self._style_manager = StyleManager(
+            self._project_controller, self.iface.messageBar()
+        )
+
         self._tool_registry = ToolRegistry(self._gui_owner)
         self._label_gui_manager = LabelingGuiManager(
             self.iface.mapCanvas(),
@@ -138,6 +152,10 @@ class TopographicMappingPlugin:
         create_product_views_action = QAction("Create GPKG Product Views", self._menu)
         create_product_views_action.triggered.connect(self._create_product_views)
         self._menu.addAction(create_product_views_action)
+
+        update_layer_styles_action = QAction("Update Layer Styles…", self._menu)
+        update_layer_styles_action.triggered.connect(self._update_layer_styles)
+        self._menu.addAction(update_layer_styles_action)
 
         run_validation_action = QAction("Run Validation…", validation_menu)
         run_validation_action.triggered.connect(self.show_validation_dock)
@@ -227,3 +245,19 @@ class TopographicMappingPlugin:
             "Create Product Views",
             "Product views created in {}".format(QDir.toNativeSeparators(path)),
         )
+
+    def _update_layer_styles(self):
+        """
+        Updates layer styles
+        """
+        if (
+            QMessageBox.question(
+                self.iface.mainWindow(),
+                "Update Layer Styles",
+                "Are you sure you want to replace all existing layer styles with updated definitions?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            == QMessageBox.StandardButton.Yes
+        ):
+            self._style_manager.download_styles()

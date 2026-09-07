@@ -15,6 +15,12 @@ class StoredObjectManager(QObject):
         if not self._plugin_data_path.exists():
             self._plugin_data_path.mkdir(parents=True)
 
+    def get_base_plugin_data_dir(self) -> Path:
+        """
+        Returns the base directory for the plugin's stored data
+        """
+        return self._plugin_data_path
+
     def get_plugin_data_dir(self, dir_name: str) -> Path:
         """
         Returns the path to a directory within the plugin's stored data.
