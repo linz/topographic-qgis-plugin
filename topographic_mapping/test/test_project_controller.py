@@ -340,7 +340,10 @@ class TestProjectController(TopographicTestBase):
 
         controller = ProjectController(project, None)
         self.assertCountEqual(
-            controller.feature_layer_names(), ["airport", "water_point"]
+            [f[0] for f in controller.feature_layer_names()], ["airport", "water_point"]
+        )
+        self.assertCountEqual(
+            [f[1] for f in controller.feature_layer_names()], [layer1, layer2]
         )
 
 
