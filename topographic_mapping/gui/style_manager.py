@@ -21,6 +21,7 @@ from qgis.core import (
     QgsNetworkAccessManager,
     QgsApplication,
     QgsMessageOutput,
+    QgsMapLayerStyle,
 )
 from qgis.gui import QgsMessageBar
 
@@ -35,6 +36,7 @@ class StyleManager:
 
     STYLE_URL_BASE = "https://raw.githubusercontent.com/linz/topographic-qgis/refs/heads/master/map-series/nztopo50/style-layer/"
     SVG_GRAPHICS_PATH = f"https://api.github.com/repos/linz/topographic-qgis/contents/map-series/nztopo50/symbol"
+    PRODUCT_VIEW_STYLE_NAME = "Product View"
 
     def __init__(
         self, project_controller: ProjectController, message_bar: QgsMessageBar
@@ -110,11 +112,25 @@ class StyleManager:
                 r'([^"\'>\s]*/)?([^"\'>\s]+\.svg)', _replace_svg_path, style_raw
             )
 
+            # check XML validity before we proceed
             res, error_msg, _, __ = doc.setContent(style_raw)
             if res:
-                res, error_msg = layer.importNamedStyle(doc)
-                if error_msg:
-                    errors.append(error_msg)
+                layer_style_manager = layer.styleManager()
+                layer_style_manager.removeStyle(self.PRODUCT_VIEW_STYLE_NAME)
+                style_count = len(layer_style_manager.styles())
+                layer_style_manager.addStyle(
+                    self.PRODUCT_VIEW_STYLE_NAME, QgsMapLayerStyle(style_raw)
+                )
+                if style_count == 1:
+                    # if only one style, remove the other
+                    # TODO: handle real-world style name
+                    layer_style_manager.removeStyle(
+                        [
+                            name
+                            for name in layer_style_manager.styles()
+                            if name != self.PRODUCT_VIEW_STYLE_NAME
+                        ][0]
+                    )
                 layer.triggerRepaint()
             else:
                 errors.append(error_msg)
