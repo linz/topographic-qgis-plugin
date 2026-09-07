@@ -15,3 +15,4 @@ from .label_dock import LabelDock  # NOQA
 from .edit_tool_dock import EditToolDock  # NOQA
 from .digitize_label_tool import DigitizeLabelTool  # NOQA
 from .labeling_gui_manager import LabelingGuiManager  # NOQA
+from .style_manager import StyleManager  # NOQA

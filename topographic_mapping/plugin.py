@@ -17,16 +17,14 @@ from topographic_mapping.gui import (
     EDITING_GROUP,
     DIGITIZING_GROUP,
     LABELING_GROUP,
-    CREATE_LABEL_ACTION,
-    DigitizeLabelTool,
     LabelingGuiManager,
+    StyleManager
 )
 from .core import (
     StateManager,
     ProjectController,
     DbUtils,
     LabelManager,
-    StyleManager,
     STORED_OBJECT_MANAGER,
 )
 from .core.symbol_layers import RockOutcropMarkerMetadata

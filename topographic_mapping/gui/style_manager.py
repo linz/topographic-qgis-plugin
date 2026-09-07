@@ -20,8 +20,8 @@ from qgis.core import (
     QgsApplication,
 )
 
-from .project_controller import ProjectController
-from .stored_object_manager import STORED_OBJECT_MANAGER
+from topographic_mapping.core.project_controller import ProjectController
+from topographic_mapping.core.stored_object_manager import STORED_OBJECT_MANAGER
 
 
 class StyleManager:
