@@ -2,10 +2,13 @@
 Label manager
 """
 
+import re
 import json
 from dataclasses import dataclass
 from typing import Dict
 from pathlib import Path
+
+from qgis.PyQt.QtCore import QSizeF
 
 from qgis.core import (
     Qgis,
@@ -16,6 +19,7 @@ from qgis.core import (
     QgsTextDocument,
     QgsTextDocumentMetrics,
     QgsMapToPixel,
+    QgsTextFormat,
 )
 
 from .project_controller import ProjectController
@@ -235,3 +239,108 @@ class LabelManager:
             )
 
         return LabelProperties()
+
+    def get_text_format(
+        self, label_feature: QgsFeature, render_context: QgsRenderContext
+    ) -> QgsTextFormat | None:
+        """
+        Returns the evaluated text format for a given label feature.
+        """
+        label_target = self._project_controller.label_target_layer()
+        if not label_target:
+            return None
+
+        labeling = label_target.labeling()
+        if labeling is None:
+            return None
+
+        expression_context = label_target.createExpressionContext()
+        expression_context.setFeature(label_feature)
+        render_context.setExpressionContext(expression_context)
+
+        label_settings = labeling.settings()
+        text_format = label_settings.format()
+        text_format.setDataDefinedProperties(label_settings.dataDefinedProperties())
+        text_format.updateDataDefinedProperties(render_context)
+        return text_format
+
+    def wrap_label_text(
+        self,
+        label_feature: QgsFeature,
+        text_format: QgsTextFormat,
+        target_map_unit_width: float | None,
+        render_context: QgsRenderContext,
+    ) -> tuple[str, QSizeF]:
+        """
+        Calculates line breaks on whitespace/punctuation to fit label text within the target map unit width.
+
+        Returns a tuple containing:
+          1. The wrapped text string with newline characters inserted.
+          2. The total size (width, height in pixels) occupied by the wrapped text document.
+        """
+        text_val = label_feature.attribute("text_string")
+        if text_val is None or not str(text_val):
+            return "", QSizeF(0.0, 0.0)
+
+        raw_text = str(text_val)
+
+        # break into words on whitespace, or after special break characters (eg hyphens)
+        tokens = re.findall(r"[^\s-]+[-\s]*|[-\s]+", raw_text)
+        if not tokens:
+            tokens = [raw_text]
+
+        lines = []
+        current_line = ""
+
+        target_pixel_width = (
+            render_context.convertToPainterUnits(
+                target_map_unit_width, Qgis.RenderUnit.MapUnits
+            )
+            if target_map_unit_width is not None
+            else None
+        )
+
+        for token in tokens:
+            candidate = current_line + token
+
+            # measure width of candidate line
+            document = QgsTextDocument.fromTextAndFormat(
+                [candidate.rstrip()], text_format
+            )
+            text_metrics = QgsTextDocumentMetrics.calculateMetrics(
+                document, text_format, render_context
+            )
+            candidate_width = text_metrics.documentSize(
+                Qgis.TextLayoutMode.Labeling, Qgis.TextOrientation.Horizontal
+            ).width()
+
+            # accept token if within max width or if starting a new line
+            if (
+                target_pixel_width is None or candidate_width <= target_pixel_width
+            ) or not current_line:
+                current_line = candidate
+            else:
+                lines.append(current_line.rstrip())
+                current_line = token
+
+        if current_line:
+            lines.append(current_line.rstrip())
+
+        wrapped_text = "\n".join(lines)
+
+        # metrics for the final multi-line document
+        document = QgsTextDocument.fromTextAndFormat(lines, text_format)
+        final_metrics = QgsTextDocumentMetrics.calculateMetrics(
+            document, text_format, render_context
+        )
+
+        doc_size = final_metrics.documentSize(
+            Qgis.TextLayoutMode.Labeling, Qgis.TextOrientation.Horizontal
+        )
+
+        doc_size_map_units = QSizeF(
+            render_context.convertToMapUnits(doc_size.width(), Qgis.RenderUnit.Pixels),
+            render_context.convertToMapUnits(doc_size.height(), Qgis.RenderUnit.Pixels),
+        )
+
+        return wrapped_text, doc_size_map_units
