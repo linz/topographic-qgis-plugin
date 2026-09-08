@@ -15,10 +15,12 @@ from .tool_registry import (
     CREATE_LABEL_ACTION,
     RESET_LABEL_ACTION,
     SELECT_LABELS_ACTION,
+    REWRAP_LABEL_ACTION,
 )
 
 from .digitize_label_tool import DigitizeLabelTool
 from .select_by_label_tool import SelectByLabelRectangleTool
+from .label_wrap_tool import RewrapLabelTool
 
 
 class LabelingGuiManager(QObject):
@@ -43,12 +45,15 @@ class LabelingGuiManager(QObject):
         self._create_label_action: QAction | None = None
         self._select_labels_action: QAction | None = None
         self._reset_label_action: QAction | None = None
+        self._rewrap_label_action: QAction | None = None
 
         self._select_by_label_tool: SelectByLabelRectangleTool = (
             SelectByLabelRectangleTool(self._canvas)
         )
 
         self._digitize_label_tool = DigitizeLabelTool(self._canvas, self._cad_dock)
+
+        self._rewrap_label_tool: RewrapLabelTool | None = None
 
     def unregister(self):
         if self._digitize_label_tool:
@@ -74,11 +79,21 @@ class LabelingGuiManager(QObject):
         self._reset_label_action = tool_registry.custom_action(RESET_LABEL_ACTION)
         self._reset_label_action.triggered.connect(self._reset_labels)
 
+        self._rewrap_label_tool = RewrapLabelTool(
+            self._canvas, self._label_manager, self._project_controller
+        )
+
+        self._rewrap_label_action = tool_registry.custom_action(REWRAP_LABEL_ACTION)
+        self._rewrap_label_action.triggered.connect(self._rewrap_labels)
+
     def _select_labels(self):
         self._select_by_label_tool.set_label_layer(
             self._project_controller.label_target_layer()
         )
         self._canvas.setMapTool(self._select_by_label_tool)
+
+    def _rewrap_labels(self):
+        self._canvas.setMapTool(self._rewrap_label_tool)
 
     def _create_labels(self):
         target_layer = self._state_manager.target_layer()

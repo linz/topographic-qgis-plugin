@@ -67,6 +67,7 @@ LABELING_GROUP = "Labeling"
 SELECT_LABELS_ACTION = "SELECT_LABELS_ACTION"
 CREATE_LABEL_ACTION = "CREATE_LABEL_ACTION"
 RESET_LABEL_ACTION = "RESET_LABEL_ACTION"
+REWRAP_LABEL_ACTION = "REWRAP_LABEL_ACTION"
 
 TOOLS = {
     EDITING_GROUP: [
@@ -175,6 +176,12 @@ TOOLS = {
             "Reset Label",
             "reset_label.svg",
             "Resets selected labels to their default appearance.",
+        ),
+        CustomAction(
+            REWRAP_LABEL_ACTION,
+            "Rewrap Label",
+            "reset_label.svg",
+            "Rewraps label text.",
         ),
     ],
 }
