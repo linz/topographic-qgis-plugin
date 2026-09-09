@@ -3,13 +3,21 @@ Map tool for selecting features by their labels
 """
 
 from qgis.core import Qgis, QgsGeometry, QgsPointXY, QgsRectangle, QgsVectorLayer
-from qgis.gui import QgsMapCanvas, QgsMapMouseEvent, QgsMapTool, QgsRubberBand
+from qgis.gui import (
+    QgsMapCanvas,
+    QgsMapMouseEvent,
+    QgsMapTool,
+    QgsRubberBand,
+    QgsAdvancedDigitizingDockWidget,
+)
 from qgis.PyQt.QtCore import Qt, QPoint
 from qgis.PyQt.QtGui import QColor, QKeyEvent
 from qgis.PyQt.QtWidgets import QApplication
 
+from .label_tool_base import MapToolLabel
 
-class SelectByLabelRectangleTool(QgsMapTool):
+
+class SelectByLabelRectangleTool(MapToolLabel):
     """
     Map tool that allows rectangular drag selection on label features,
     selecting their associated target vector layer features.
@@ -18,8 +26,12 @@ class SelectByLabelRectangleTool(QgsMapTool):
     # to match QGIS behavior
     SINGLE_CLICK_BOX_SIZE_PX = 5
 
-    def __init__(self, canvas: QgsMapCanvas):
-        super().__init__(canvas)
+    def __init__(
+        self,
+        canvas: QgsMapCanvas,
+        cad_dock: QgsAdvancedDigitizingDockWidget,
+    ):
+        super().__init__(canvas, cad_dock)
         self._canvas = canvas
         self._label_layer: QgsVectorLayer | None = None
 
@@ -42,12 +54,13 @@ class SelectByLabelRectangleTool(QgsMapTool):
             self._rubber_band.reset(Qgis.GeometryType.Polygon)
 
     def canvasMoveEvent(self, e: QgsMapMouseEvent) -> None:
-        if not self._is_dragging or not self._start_point:
-            return
-
-        current_point = e.mapPoint()
-        rect = QgsRectangle(self._start_map_point, current_point)
-        self._rubber_band.setToGeometry(QgsGeometry.fromRect(rect), None)
+        if self._is_dragging and self._start_point:
+            self.clear_hovered_label()
+            current_point = e.mapPoint()
+            rect = QgsRectangle(self._start_map_point, current_point)
+            self._rubber_band.setToGeometry(QgsGeometry.fromRect(rect), None)
+        else:
+            super().canvasMoveEvent(e)
 
     def canvasReleaseEvent(self, e: QgsMapMouseEvent) -> None:
         if e.button() != Qt.MouseButton.LeftButton or not self._is_dragging:

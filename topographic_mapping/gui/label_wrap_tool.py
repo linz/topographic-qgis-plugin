@@ -16,11 +16,17 @@ from qgis.core import (
     QgsTextRenderer,
     QgsVectorLayer,
 )
-from qgis.gui import QgsMapCanvasItem, QgsMapCanvas, QgsMapMouseEvent, QgsMapTool
+from qgis.gui import (
+    QgsMapCanvasItem,
+    QgsMapCanvas,
+    QgsMapMouseEvent,
+    QgsAdvancedDigitizingDockWidget,
+)
 from qgis.PyQt.QtCore import QPointF, QRectF, QSizeF, Qt
 from qgis.PyQt.QtGui import QBrush, QColor, QCursor, QKeyEvent, QPen, QPainter
 
 from topographic_mapping.core import LabelManager, ProjectController
+from .label_tool_base import MapToolLabel
 
 
 class InteractionMode(Enum):
@@ -165,7 +171,7 @@ class LabelSelectionCanvasItem(QgsMapCanvasItem):
         painter.drawRect(self._right_handle_rect())
 
 
-class RewrapLabelTool(QgsMapTool):
+class RewrapLabelTool(MapToolLabel):
     """
     A map tool for selecting, moving, and horizontally wrapping canvas labels.
     """
@@ -173,10 +179,11 @@ class RewrapLabelTool(QgsMapTool):
     def __init__(
         self,
         canvas: QgsMapCanvas,
+        cad_dock: QgsAdvancedDigitizingDockWidget,
         label_manager: LabelManager,
         project_controller: ProjectController,
     ):
-        super().__init__(canvas)
+        super().__init__(canvas, cad_dock)
         self._canvas: QgsMapCanvas = canvas
         self._label_manager: LabelManager = label_manager
         self._project_controller: ProjectController = project_controller
@@ -222,10 +229,15 @@ class RewrapLabelTool(QgsMapTool):
             hover_mode = self._selection_item.interaction_mode_for_point(screen_pos)
             if hover_mode == InteractionMode.RESIZING_RIGHT:
                 self.setCursor(QCursor(Qt.CursorShape.SizeHorCursor))
+                self.clear_hovered_label()
             elif hover_mode == InteractionMode.MOVING:
                 self.setCursor(QCursor(Qt.CursorShape.SizeAllCursor))
+                self.clear_hovered_label()
             else:
                 self.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
+                # show hover over other labels
+                super().canvasMoveEvent(e)
+
             return
 
         dx_pixels = screen_pos.x() - self._drag_start_screen.x()
