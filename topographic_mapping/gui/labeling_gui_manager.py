@@ -48,7 +48,7 @@ class LabelingGuiManager(QObject):
         self._rewrap_label_action: QAction | None = None
 
         self._select_by_label_tool: SelectByLabelRectangleTool = (
-            SelectByLabelRectangleTool(self._canvas)
+            SelectByLabelRectangleTool(self._canvas, self._cad_dock)
         )
 
         self._digitize_label_tool = DigitizeLabelTool(self._canvas, self._cad_dock)
