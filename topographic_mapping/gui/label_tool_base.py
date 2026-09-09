@@ -1,7 +1,13 @@
+from dataclasses import dataclass
 import sys
-
-from qgis.PyQt.QtGui import QColor
-from qgis.core import Qgis, QgsLabelPosition, QgsPalLayerSettings, QgsVectorLayer
+from qgis.core import (
+    Qgis,
+    QgsFeature,
+    QgsGeometry,
+    QgsLabelPosition,
+    QgsPalLayerSettings,
+    QgsVectorLayer,
+)
 from qgis.gui import (
     QgsAdvancedDigitizingDockWidget,
     QgsMapCanvas,
@@ -9,6 +15,8 @@ from qgis.gui import (
     QgsMapToolAdvancedDigitizing,
     QgsRubberBand,
 )
+from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtGui import QColor, QMouseEvent
 
 
 class LabelDetails:
@@ -56,11 +64,6 @@ class MapToolLabel(QgsMapToolAdvancedDigitizing):
 
         self._current_label = LabelDetails()
         self._current_hover_label = LabelDetails()
-
-    def __del__(self):
-        if self._hover_rubber_band:
-            self._hover_rubber_band.deleteLater()
-            self._hover_rubber_band = None
 
     def deactivate(self) -> None:
         self.clear_hovered_label()
@@ -125,14 +128,12 @@ class MapToolLabel(QgsMapToolAdvancedDigitizing):
         """
         if not self._hover_rubber_band:
             self._hover_rubber_band = QgsRubberBand(
-                self._canvas, Qgis.GeometryType.Line
+                self._canvas, Qgis.GeometryType.Polygon
             )
             self._hover_rubber_band.setWidth(2)
             self._hover_rubber_band.setSecondaryStrokeColor(QColor(255, 255, 255, 100))
-            self._hover_rubber_band.setColor(QColor(200, 0, 120, 255))
-            self._hover_rubber_band.setIcon(Qgis.RubberBandIconType.Box)
-            scale_factor = self._canvas.fontMetrics().xHeight()
-            self._hover_rubber_band.setIconSize(int(scale_factor))
+            self._hover_rubber_band.setColor(QColor(200, 0, 120, 40))
+            self._hover_rubber_band.setStrokeColor(QColor(200, 0, 120, 255))
 
         found, label_pos = self.label_at_position(e)
         if not found:
@@ -154,21 +155,27 @@ class MapToolLabel(QgsMapToolAdvancedDigitizing):
         self._current_hover_label = new_hover_label
 
         self._hover_rubber_band.show()
-        self._hover_rubber_band.reset(Qgis.GeometryType.Line)
+        self._hover_rubber_band.reset(Qgis.GeometryType.Polygon)
 
         labeling_results = self._canvas.labelingResults()
-        if labeling_results:
-            if label_pos.groupedLabelId != 0:
-                # Highlight all characters/segments for curved or multi-part labels
-                all_positions = labeling_results.groupedLabelPositions(
-                    label_pos.groupedLabelId
-                )
-                for position in all_positions:
-                    self._hover_rubber_band.addGeometry(position.labelGeometry)
+        if labeling_results and label_pos.groupedLabelId != 0:
+            all_positions = labeling_results.groupedLabelPositions(
+                label_pos.groupedLabelId
+            )
+            geoms = [
+                pos.labelGeometry
+                for pos in all_positions
+                if pos.labelGeometry and not pos.labelGeometry.isEmpty()
+            ]
+
+            if geoms:
+                combined_geom = QgsGeometry.unaryUnion(geoms)
+                hull_geom = combined_geom.concaveHullOfPolygons(0.2)
+                self._hover_rubber_band.setToGeometry(hull_geom, None)
             else:
-                self._hover_rubber_band.addGeometry(label_pos.labelGeometry)
+                self._hover_rubber_band.setToGeometry(label_pos.labelGeometry, None)
         else:
-            self._hover_rubber_band.addGeometry(label_pos.labelGeometry)
+            self._hover_rubber_band.setToGeometry(label_pos.labelGeometry, None)
 
     def clear_hovered_label(self) -> None:
         """
