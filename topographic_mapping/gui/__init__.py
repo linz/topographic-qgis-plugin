@@ -18,3 +18,4 @@ from .digitize_label_tool import DigitizeLabelTool  # NOQA
 from .labeling_gui_manager import LabelingGuiManager  # NOQA
 from .style_manager import StyleManager  # NOQA
 from .change_feature_class_dialog import ChangeFeatureClassDialog  # NOQA
+from .select_feature_class_dialog import SelectFeatureClassDialog  # NOQA
