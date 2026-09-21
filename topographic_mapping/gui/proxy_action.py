@@ -3,6 +3,10 @@ from typing import Optional
 from qgis.PyQt.QtCore import QObject
 from qgis.PyQt.QtWidgets import QAction, QMenu
 
+from qgis.core import QgsVectorLayer, Qgis
+
+from qgis.utils import iface
+
 
 class ProxyAction(QAction):
     def __init__(
@@ -85,11 +89,13 @@ class DigitizeTechniqueProxyAction(QAction):
         title: str,
         source_actions: list[QAction],
         fallback_action: QAction,
+        geometry_types: list[Qgis.GeometryType],
         parent: Optional[QObject] = None,
     ):
         super().__init__(title, parent)
 
         self._source_actions = source_actions
+        self._geometry_types = geometry_types
         self._fallback_action = fallback_action
 
         for source_action in self._source_actions:
@@ -99,6 +105,7 @@ class DigitizeTechniqueProxyAction(QAction):
         self.toggled.connect(self._proxy_action_toggled)
 
         self._source_action_enable_changed()
+        iface.currentLayerChanged.connect(self._source_action_enable_changed)
 
     def _proxy_action_toggled(self, checked: bool):
         if checked:
@@ -113,5 +120,21 @@ class DigitizeTechniqueProxyAction(QAction):
         self.setChecked(all_checked)
         self.blockSignals(False)
 
+    def _is_compatible_with_layer(self):
+        active_layer = iface.activeLayer()
+        if not isinstance(active_layer, QgsVectorLayer):
+            return False
+
+        if active_layer.geometryType() not in self._geometry_types:
+            return False
+
+        return active_layer.isEditable()
+
     def _source_action_enable_changed(self):
-        self.setEnabled(self._source_actions[0].isEnabled())
+        _can_enable = self._is_compatible_with_layer()
+        if not self._is_compatible_with_layer():
+            _can_enable = False
+        else:
+            _can_enable = self._source_actions[0].isEnabled()
+
+        self.setEnabled(_can_enable)
