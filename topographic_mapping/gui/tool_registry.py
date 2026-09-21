@@ -4,6 +4,8 @@ from typing import List, Dict
 
 from qgis.PyQt.QtCore import QObject
 from qgis.PyQt.QtWidgets import QAction
+
+from qgis.core import Qgis
 from qgis.gui import QgisInterface, QgsGui
 
 from .gui_utils import GuiUtils
@@ -46,6 +48,7 @@ class DigitizeTechniqueAction:
     qgis_action_names: list[str]
     icon: str
     description: str
+    geometry_types: list[Qgis.GeometryType]
 
 
 @dataclass
@@ -134,28 +137,39 @@ TOOLS = {
     ],
     DIGITIZING_GROUP: [
         DigitizeTechniqueAction(
+            "Point Digitize",
+            ["mActionAddFeature", "mActionDigitizeWithSegment"],
+            "digitize_point.svg",
+            "Digitize point features.",
+            [Qgis.GeometryType.Point],
+        ),
+        DigitizeTechniqueAction(
             "Digitize Straight Segments",
             ["mActionAddFeature", "mActionDigitizeWithSegment"],
             "digitize_segment.svg",
             "Digitize feature with straight line segments.",
+            [Qgis.GeometryType.Line, Qgis.GeometryType.Polygon],
         ),
         DigitizeTechniqueAction(
             "Digitize With Circular String",
             ["mActionAddFeature", "mActionDigitizeWithCurve"],
             "digitize_curve.svg",
             "Digitize feature with circular strings.",
+            [Qgis.GeometryType.Line, Qgis.GeometryType.Polygon],
         ),
         DigitizeTechniqueAction(
             "Digitize With Bezier",
             ["mActionAddFeature", "mActionDigitizeWithBezier"],
             "digitize_bezier.svg",
             "Digitize feature with bezier curves.",
+            [Qgis.GeometryType.Line, Qgis.GeometryType.Polygon],
         ),
         DigitizeTechniqueAction(
             "Stream Digitize",
             ["mActionAddFeature", "mActionStreamDigitize"],
             "digitize_stream.svg",
             "Digitize features immediately as mouse moves.",
+            [Qgis.GeometryType.Line, Qgis.GeometryType.Polygon],
         ),
     ],
     LABELING_GROUP: [
@@ -284,6 +298,7 @@ class ToolRegistry(QObject):
             action.title,
             source_actions=source_actions,
             fallback_action=fallback_action,
+            geometry_types=action.geometry_types,
             parent=self,
         )
         proxy_action.setObjectName(ToolRegistry.title_to_object_name(action.title))
