@@ -134,6 +134,18 @@ TOOLS = {
             "duplicate.svg",
             "Duplicate single or multiple features.",
         ),
+        Action(
+            "Create Hole in Object",
+            "mActionAddRing",
+            "create_hole.svg",
+            "Cut a hole in a polygon feature.",
+        ),
+        Action(
+            "Fill Hole in Object",
+            "mActionDeleteRing",
+            "fill_hole.svg",
+            "Remove a hole or void from polygon features.",
+        ),
     ],
     DIGITIZING_GROUP: [
         DigitizeTechniqueAction(
