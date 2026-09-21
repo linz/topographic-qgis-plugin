@@ -2,6 +2,7 @@
 StateManager: Manages project and editing states
 """
 
+from qgis.PyQt import sip
 from qgis.PyQt.QtCore import QObject, pyqtSignal
 
 from qgis.core import QgsMapLayer, QgsVectorLayer, QgsProject, QgsExpressionContextUtils
@@ -18,6 +19,7 @@ class StateManager(QObject):
 
     # Emitted when the target editable layer is changed
     target_layer_changed = pyqtSignal(QgsMapLayer)
+    current_layer_selection_changed = pyqtSignal(QgsVectorLayer, object)
 
     def __init__(
         self, iface: QgisInterface, project: QgsProject, parent: QObject | None = None
@@ -65,6 +67,13 @@ class StateManager(QObject):
         """
         Triggered when the user changes the current project layer
         """
+        if self._current_target_layer is not None and not sip.isdeleted(
+            self._current_target_layer
+        ):
+            self._current_target_layer.selectionChanged.disconnect(
+                self._current_layer_selection_changed
+            )
+
         target_layer = None
         if not isinstance(layer, QgsVectorLayer):
             return
@@ -77,6 +86,10 @@ class StateManager(QObject):
 
         self._current_target_layer = target_layer
         self.target_layer_changed.emit(self._current_target_layer)
+        if self._current_target_layer is not None:
+            self._current_target_layer.selectionChanged.connect(
+                self._current_layer_selection_changed
+            )
 
     def set_current_feature_type(self, feature_type: str | None):
         """
@@ -85,3 +98,9 @@ class StateManager(QObject):
         QgsExpressionContextUtils.setProjectVariable(
             self._project, CURRENT_FEATURE_TYPE_VAR_NAME, feature_type
         )
+
+    def _current_layer_selection_changed(self, selected, deselected, _):
+        """
+        Triggered when the selection for the current layer is changed
+        """
+        self.current_layer_selection_changed.emit(self._current_target_layer, selected)

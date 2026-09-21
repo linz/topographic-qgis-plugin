@@ -1,9 +1,20 @@
 from pathlib import Path
 
-from qgis.PyQt.QtCore import Qt, QCoreApplication, QObject, QDir
+from qgis.PyQt.QtCore import Qt, QCoreApplication, QObject, QDir, QVariant
 from qgis.PyQt.QtWidgets import QMenu, QAction, QMessageBox
 
-from qgis.core import QgsSettingsTree, QgsProject, QgsApplication, QgsFeature
+from qgis.core import (
+    Qgis,
+    QgsSettingsTree,
+    QgsProject,
+    QgsApplication,
+    QgsVectorLayerUtils,
+    QgsFeatureSink,
+    QgsFeatureRequest,
+    QgsGeometry,
+    QgsExpression,
+    QgsFeature,
+)
 from qgis.gui import QgisInterface
 
 from topographic_mapping.gui import (
@@ -17,8 +28,13 @@ from topographic_mapping.gui import (
     EDITING_GROUP,
     DIGITIZING_GROUP,
     LABELING_GROUP,
+    CHANGE_FEATURE_CLASS_ACTION,
+    PASTRY_DELETE_ACTION,
+    PASTRY_CUT_ACTION,
     LabelingGuiManager,
     StyleManager,
+    ChangeFeatureClassDialog,
+    SelectFeatureClassDialog,
 )
 from .core import (
     StateManager,
@@ -70,7 +86,7 @@ class TopographicMappingPlugin:
             self._project_controller, self.iface.messageBar()
         )
 
-        self._tool_registry = ToolRegistry(self._gui_owner)
+        self._tool_registry = ToolRegistry(self._gui_owner, self._state_manager)
         self._label_gui_manager = LabelingGuiManager(
             self.iface.mapCanvas(),
             self.iface.cadDockWidget(),
@@ -164,6 +180,17 @@ class TopographicMappingPlugin:
         self.options_factory = PluginsOptionsFactory()
         self.options_factory.setTitle("TopoMapping")
         self.iface.registerOptionsWidgetFactory(self.options_factory)
+
+        change_feature_class_action = self._tool_registry.custom_action(
+            CHANGE_FEATURE_CLASS_ACTION
+        )
+        change_feature_class_action.triggered.connect(self._change_feature_class)
+
+        pastry_delete_action = self._tool_registry.custom_action(PASTRY_DELETE_ACTION)
+        pastry_delete_action.triggered.connect(self._pastry_delete)
+
+        pastry_cut_action = self._tool_registry.custom_action(PASTRY_CUT_ACTION)
+        pastry_cut_action.triggered.connect(self._pastry_cut)
 
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""
@@ -261,3 +288,182 @@ class TopographicMappingPlugin:
             == QMessageBox.StandardButton.Yes
         ):
             self._style_manager.download_styles()
+
+    def _change_feature_class(self):
+        current_layer = self._state_manager.target_layer()
+        if current_layer is None:
+            self.iface.messageBar().pushWarning(
+                "", "Changing feature classes requires an active layer"
+            )
+            return
+
+        current_selection = current_layer.selectedFeatureIds()
+        if not current_selection:
+            self.iface.messageBar().pushWarning(
+                "", "Changing feature classes requires a selection"
+            )
+            return
+
+        dlg = ChangeFeatureClassDialog(self._project_controller.feature_types)
+        if dlg.exec():
+            new_types = dlg.new_feature_type()
+            message = "The selected features will be changed to the {} class. Attributes or geometry properties may be lost as a result. Are you sure you want to proceed?".format(
+                new_types[-1]
+            )
+            if (
+                QMessageBox.question(
+                    self.iface.mainWindow(),
+                    "Change Feature Class",
+                    message,
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                == QMessageBox.StandardButton.No
+            ):
+                return
+
+            features = self._state_manager.target_layer().selectedFeatures()
+
+            target_layer = self._project_controller.layer_for_feature_type(new_types[0])
+            if not target_layer.isEditable():
+                target_layer.startEditing()
+
+            compatible_features = QgsVectorLayerUtils.makeFeaturesCompatible(
+                features, target_layer, QgsFeatureSink.SinkFlag.RegeneratePrimaryKey
+            )
+            for f in compatible_features:
+                f["type"] = new_types[1]
+
+            current_layer.deleteFeatures(current_selection)
+            target_layer.addFeatures(compatible_features)
+
+    def _pastry_delete(self):
+        current_layer = self._state_manager.target_layer()
+        if current_layer is None:
+            self.iface.messageBar().pushWarning(
+                "", "Pastry delete requires an active layer"
+            )
+            return
+
+        current_selection = current_layer.selectedFeatures()
+        if not current_selection:
+            self.iface.messageBar().pushWarning(
+                "", "Pastry delete requires a selection"
+            )
+            return
+
+        pastry_geom = QgsGeometry.unaryUnion([f.geometry() for f in current_selection])
+
+        dlg = SelectFeatureClassDialog(self._project_controller.feature_types)
+        dlg.setWindowTitle("Pastry Delete")
+        dlg.label.setText(
+            "Select target classes to pastry delete using the current selection"
+        )
+        if dlg.exec():
+            target_types = dlg.new_feature_type()
+
+            target_layer = self._project_controller.layer_for_feature_type(
+                target_types[0]
+            )
+            if not target_layer.isEditable():
+                target_layer.startEditing()
+
+            req = QgsFeatureRequest()
+            req.setFilterExpression(
+                QgsExpression.createFieldEqualityExpression(
+                    "type", target_types[1], QVariant.String
+                )
+            )
+            req.setFilterRect(pastry_geom.boundingBox())
+            cut_features = [f for f in target_layer.getFeatures(req)]
+
+            geom_engine = QgsGeometry.createGeometryEngine(pastry_geom.constGet())
+            geom_engine.prepareGeometry()
+
+            target_layer.beginEditCommand("Pastry Delete")
+            for f in cut_features:
+                geom = f.geometry()
+                if not geom_engine.intersects(geom.constGet()):
+                    continue
+
+                new_geom = geom.difference(pastry_geom)
+                target_layer.changeGeometry(f.id(), new_geom)
+
+            target_layer.endEditCommand()
+
+    def _pastry_cut(self):
+        current_layer = self._state_manager.target_layer()
+        if current_layer is None:
+            self.iface.messageBar().pushWarning(
+                "", "Pastry cut requires an active layer"
+            )
+            return
+
+        current_selection = current_layer.selectedFeatures()
+        if not current_selection:
+            self.iface.messageBar().pushWarning("", "Pastry cut requires a selection")
+            return
+
+        pastry_geom = QgsGeometry.unaryUnion([f.geometry() for f in current_selection])
+        if pastry_geom.type() == Qgis.GeometryType.Polygon:
+            pastry_geom = QgsGeometry(pastry_geom.constGet().boundary())
+        elif pastry_geom.type() == Qgis.GeometryType.Point:
+            self.iface.messageBar().pushWarning(
+                "", "Pastry cut requires a polygon or line selection"
+            )
+            return
+
+        dlg = SelectFeatureClassDialog(self._project_controller.feature_types)
+        dlg.setWindowTitle("Pastry Cut")
+        dlg.label.setText(
+            "Select target classes to pastry cut using the current selection"
+        )
+        if dlg.exec():
+            target_types = dlg.new_feature_type()
+
+            target_layer = self._project_controller.layer_for_feature_type(
+                target_types[0]
+            )
+            if not target_layer.isEditable():
+                target_layer.startEditing()
+
+            req = QgsFeatureRequest()
+            req.setFilterExpression(
+                QgsExpression.createFieldEqualityExpression(
+                    "type", target_types[1], QVariant.String
+                )
+            )
+            req.setFilterRect(pastry_geom.boundingBox())
+            cut_features = [f for f in target_layer.getFeatures(req)]
+
+            geom_engine = QgsGeometry.createGeometryEngine(pastry_geom.constGet())
+            geom_engine.prepareGeometry()
+
+            target_layer.beginEditCommand("Pastry Cut")
+            for f in cut_features:
+                geom = f.geometry()
+
+                if not geom_engine.intersects(geom.constGet()):
+                    continue
+
+                new_parts = [geom]
+                for pastry_part in pastry_geom.constParts():
+                    new_parts_this_round = []
+                    split_line = [v for v in pastry_part.vertices()]
+                    for new_part in new_parts:
+                        res, split_parts, _ = new_part.splitGeometry(split_line, False)
+                        new_parts_this_round.append(new_part)
+                        if res == Qgis.GeometryOperationResult.Success:
+                            new_parts_this_round.extend(split_parts)
+                    new_parts = new_parts_this_round
+
+                old_part = new_parts[0]
+                new_parts = new_parts[1:]
+                target_layer.changeGeometry(f.id(), old_part)
+
+                for part in new_parts:
+                    new_feature = QgsFeature(f)
+                    new_feature.setGeometry(part)
+                    target_layer.addFeature(new_feature)
+
+            target_layer.endEditCommand()
