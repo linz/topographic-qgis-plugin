@@ -17,8 +17,10 @@ from topographic_mapping.gui import (
     EDITING_GROUP,
     DIGITIZING_GROUP,
     LABELING_GROUP,
+    CHANGE_FEATURE_CLASS_ACTION,
     LabelingGuiManager,
     StyleManager,
+    ChangeFeatureClassDialog,
 )
 from .core import (
     StateManager,
@@ -165,6 +167,11 @@ class TopographicMappingPlugin:
         self.options_factory.setTitle("TopoMapping")
         self.iface.registerOptionsWidgetFactory(self.options_factory)
 
+        change_feature_class_action = self._tool_registry.custom_action(
+            CHANGE_FEATURE_CLASS_ACTION
+        )
+        change_feature_class_action.triggered.connect(self._change_feature_class)
+
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""
         self._label_gui_manager.unregister()
@@ -261,3 +268,38 @@ class TopographicMappingPlugin:
             == QMessageBox.StandardButton.Yes
         ):
             self._style_manager.download_styles()
+
+    def _change_feature_class(self):
+        current_layer = self._state_manager.target_layer()
+        if current_layer is None:
+            self.iface.messageBar().pushWarning(
+                "", "Changing feature classes requires an active layer"
+            )
+            return
+
+        current_selection = current_layer.selectedFeatureIds()
+        if not current_selection:
+            self.iface.messageBar().pushWarning(
+                "", "Changing feature classes requires a selection"
+            )
+            return
+
+        dlg = ChangeFeatureClassDialog(self._project_controller.feature_types)
+        if dlg.exec():
+            new_types = dlg.new_feature_type()
+            message = "The selected features will be changed to the {} class. Attributes or geometry properties may be lost as a result. Are you sure you want to proceed?".format(
+                new_types[-1]
+            )
+            if (
+                QMessageBox.question(
+                    self.iface.mainWindow(),
+                    "Change Feature Class",
+                    message,
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                == QMessageBox.StandardButton.No
+            ):
+                return
+
+            print(dlg.new_feature_type())

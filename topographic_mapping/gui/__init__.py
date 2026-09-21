@@ -6,6 +6,7 @@ from .tool_registry import (
     DIGITIZING_GROUP,
     LABELING_GROUP,
     CREATE_LABEL_ACTION,
+    CHANGE_FEATURE_CLASS_ACTION,
 )  # NOQA
 from .set_target_tool import SetTargetTool, SetTargetToolHandler  # NOQA
 from .feature_type_model import FeatureTypeTreeModel  # NOQA
@@ -16,3 +17,4 @@ from .edit_tool_dock import EditToolDock  # NOQA
 from .digitize_label_tool import DigitizeLabelTool  # NOQA
 from .labeling_gui_manager import LabelingGuiManager  # NOQA
 from .style_manager import StyleManager  # NOQA
+from .change_feature_class_dialog import ChangeFeatureClassDialog  # NOQA

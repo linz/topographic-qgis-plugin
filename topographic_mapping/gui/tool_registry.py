@@ -70,6 +70,7 @@ EDITING_GROUP = "Topographic editing"
 DIGITIZING_GROUP = "Digitize feature"
 LABELING_GROUP = "Labeling"
 
+CHANGE_FEATURE_CLASS_ACTION = "CHANGE_FEATURE_CLASS_ACTION"
 SELECT_LABELS_ACTION = "SELECT_LABELS_ACTION"
 CREATE_LABEL_ACTION = "CREATE_LABEL_ACTION"
 RESET_LABEL_ACTION = "RESET_LABEL_ACTION"
@@ -82,6 +83,13 @@ TOOLS = {
             "mActionMultiEditAttributes",
             "edit_attributes.svg",
             "Populate or modify feature attributes.",
+        ),
+        CustomAction(
+            CHANGE_FEATURE_CLASS_ACTION,
+            "Change Class of Feature",
+            "select_label.svg",
+            "Change class of selected features.",
+            requires_selection=True,
         ),
         Action(
             "Filter Out Points",
