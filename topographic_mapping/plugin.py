@@ -317,6 +317,8 @@ class TopographicMappingPlugin:
             compatible_features = QgsVectorLayerUtils.makeFeaturesCompatible(
                 features, target_layer, QgsFeatureSink.SinkFlag.RegeneratePrimaryKey
             )
+            for f in compatible_features:
+                f["type"] = new_types[1]
 
             current_layer.deleteFeatures(current_selection)
             target_layer.addFeatures(compatible_features)
