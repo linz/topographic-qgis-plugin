@@ -152,6 +152,12 @@ TOOLS = {
             "fill_hole.svg",
             "Remove a hole or void from polygon features.",
         ),
+        Action(
+            "Reverse Order of Vertices",
+            "mActionReverseLine",
+            "reverse_line.svg",
+            "Change direction of line feature.",
+        ),
     ],
     DIGITIZING_GROUP: [
         DigitizeTechniqueAction(
