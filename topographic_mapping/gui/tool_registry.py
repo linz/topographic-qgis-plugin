@@ -72,6 +72,7 @@ LABELING_GROUP = "Labeling"
 
 CHANGE_FEATURE_CLASS_ACTION = "CHANGE_FEATURE_CLASS_ACTION"
 PASTRY_DELETE_ACTION = "PASTRY_DELETE_ACTION"
+PASTRY_CUT_ACTION = "PASTRY_CUT_ACTION"
 SELECT_LABELS_ACTION = "SELECT_LABELS_ACTION"
 CREATE_LABEL_ACTION = "CREATE_LABEL_ACTION"
 RESET_LABEL_ACTION = "RESET_LABEL_ACTION"
@@ -175,6 +176,13 @@ TOOLS = {
             "Pastry Delete",
             "change_class.svg",
             "Remove parts of an object which intersect a related feature.",
+            requires_selection=True,
+        ),
+        CustomAction(
+            PASTRY_CUT_ACTION,
+            "Pastry Cut",
+            "change_class.svg",
+            "Split features using other features as cutting lines.",
             requires_selection=True,
         ),
     ],
