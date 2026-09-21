@@ -3,7 +3,13 @@ from pathlib import Path
 from qgis.PyQt.QtCore import Qt, QCoreApplication, QObject, QDir
 from qgis.PyQt.QtWidgets import QMenu, QAction, QMessageBox
 
-from qgis.core import QgsSettingsTree, QgsProject, QgsApplication, QgsFeature
+from qgis.core import (
+    QgsSettingsTree,
+    QgsProject,
+    QgsApplication,
+    QgsVectorLayerUtils,
+    QgsFeatureSink,
+)
 from qgis.gui import QgisInterface
 
 from topographic_mapping.gui import (
@@ -302,4 +308,15 @@ class TopographicMappingPlugin:
             ):
                 return
 
-            print(dlg.new_feature_type())
+            features = self._state_manager.target_layer().selectedFeatures()
+
+            target_layer = self._project_controller.layer_for_feature_type(new_types[0])
+            if not target_layer.isEditable():
+                target_layer.startEditing()
+
+            compatible_features = QgsVectorLayerUtils.makeFeaturesCompatible(
+                features, target_layer, QgsFeatureSink.SinkFlag.RegeneratePrimaryKey
+            )
+
+            current_layer.deleteFeatures(current_selection)
+            target_layer.addFeatures(compatible_features)
