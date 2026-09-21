@@ -87,7 +87,7 @@ TOOLS = {
         CustomAction(
             CHANGE_FEATURE_CLASS_ACTION,
             "Change Class of Feature",
-            "select_label.svg",
+            "change_class.svg",
             "Change class of selected features.",
             requires_selection=True,
         ),
