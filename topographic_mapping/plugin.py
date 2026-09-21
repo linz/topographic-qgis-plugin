@@ -70,7 +70,7 @@ class TopographicMappingPlugin:
             self._project_controller, self.iface.messageBar()
         )
 
-        self._tool_registry = ToolRegistry(self._gui_owner)
+        self._tool_registry = ToolRegistry(self._gui_owner, self._state_manager)
         self._label_gui_manager = LabelingGuiManager(
             self.iface.mapCanvas(),
             self.iface.cadDockWidget(),

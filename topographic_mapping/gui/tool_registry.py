@@ -1,6 +1,7 @@
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import List, Dict
+from functools import partial
 
 from qgis.PyQt.QtCore import QObject
 from qgis.PyQt.QtWidgets import QAction
@@ -8,6 +9,7 @@ from qgis.PyQt.QtWidgets import QAction
 from qgis.core import Qgis
 from qgis.gui import QgisInterface, QgsGui
 
+from topographic_mapping.core import StateManager
 from .gui_utils import GuiUtils
 from .proxy_action import ProxyAction, CompoundProxyAction, DigitizeTechniqueProxyAction
 from .tool_dock import ToolDock
@@ -61,6 +63,7 @@ class CustomAction:
     title: str
     icon: str
     description: str
+    requires_selection: bool = False
 
 
 EDITING_GROUP = "Topographic editing"
@@ -226,9 +229,10 @@ TOOLS = {
 
 
 class ToolRegistry(QObject):
-    def __init__(self, parent: QObject):
+    def __init__(self, parent: QObject, state_manager: StateManager):
         super().__init__(parent)
         self._actions = defaultdict(list)
+        self._state_manager = state_manager
 
         # built in actions
         self.set_target_tool_action = QAction(self)
@@ -347,6 +351,21 @@ class ToolRegistry(QObject):
         new_action.setProperty("description", action.description)
         self._actions[group].append(new_action)
         self._custom_actions[action.id] = new_action
+
+        if action.requires_selection:
+            self._state_manager.target_layer_changed.connect(
+                partial(self._custom_action_update_state, new_action)
+            )
+            self._state_manager.current_layer_selection_changed.connect(
+                partial(self._custom_action_update_state, new_action)
+            )
+            self._custom_action_update_state(new_action)
+
+    def _custom_action_update_state(self, action: QAction):
+        action.setEnabled(
+            self._state_manager.target_layer() is not None
+            and self._state_manager.target_layer().selectedFeatureCount() > 0
+        )
 
     def custom_action(self, action_id: str) -> QAction:
         """
