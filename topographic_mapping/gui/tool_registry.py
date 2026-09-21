@@ -137,6 +137,13 @@ TOOLS = {
     ],
     DIGITIZING_GROUP: [
         DigitizeTechniqueAction(
+            "Point Digitize",
+            ["mActionAddFeature", "mActionDigitizeWithSegment"],
+            "digitize_point.svg",
+            "Digitize point features.",
+            [Qgis.GeometryType.Point],
+        ),
+        DigitizeTechniqueAction(
             "Digitize Straight Segments",
             ["mActionAddFeature", "mActionDigitizeWithSegment"],
             "digitize_segment.svg",
