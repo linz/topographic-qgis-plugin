@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from qgis.PyQt.QtCore import Qt, QCoreApplication, QObject, QDir
+from qgis.PyQt.QtCore import Qt, QCoreApplication, QObject, QDir, QVariant
 from qgis.PyQt.QtWidgets import QMenu, QAction, QMessageBox
 
 from qgis.core import (
@@ -9,6 +9,9 @@ from qgis.core import (
     QgsApplication,
     QgsVectorLayerUtils,
     QgsFeatureSink,
+    QgsFeatureRequest,
+    QgsGeometry,
+    QgsExpression,
 )
 from qgis.gui import QgisInterface
 
@@ -24,9 +27,11 @@ from topographic_mapping.gui import (
     DIGITIZING_GROUP,
     LABELING_GROUP,
     CHANGE_FEATURE_CLASS_ACTION,
+    PASTRY_DELETE_ACTION,
     LabelingGuiManager,
     StyleManager,
     ChangeFeatureClassDialog,
+    SelectFeatureClassDialog,
 )
 from .core import (
     StateManager,
@@ -178,6 +183,9 @@ class TopographicMappingPlugin:
         )
         change_feature_class_action.triggered.connect(self._change_feature_class)
 
+        pastry_delete_action = self._tool_registry.custom_action(PASTRY_DELETE_ACTION)
+        pastry_delete_action.triggered.connect(self._pastry_delete)
+
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""
         self._label_gui_manager.unregister()
@@ -322,3 +330,57 @@ class TopographicMappingPlugin:
 
             current_layer.deleteFeatures(current_selection)
             target_layer.addFeatures(compatible_features)
+
+    def _pastry_delete(self):
+        current_layer = self._state_manager.target_layer()
+        if current_layer is None:
+            self.iface.messageBar().pushWarning(
+                "", "Pastry delete requires an active layer"
+            )
+            return
+
+        current_selection = current_layer.selectedFeatures()
+        if not current_selection:
+            self.iface.messageBar().pushWarning(
+                "", "Pastry delete requires a selection"
+            )
+            return
+
+        pastry_geom = QgsGeometry.unaryUnion([f.geometry() for f in current_selection])
+
+        dlg = SelectFeatureClassDialog(self._project_controller.feature_types)
+        dlg.setWindowTitle("Pastry Delete")
+        dlg.label.setText(
+            "Select target classes to pastry delete using the current selection"
+        )
+        if dlg.exec():
+            target_types = dlg.new_feature_type()
+
+            target_layer = self._project_controller.layer_for_feature_type(
+                target_types[0]
+            )
+            if not target_layer.isEditable():
+                target_layer.startEditing()
+
+            req = QgsFeatureRequest()
+            req.setFilterExpression(
+                QgsExpression.createFieldEqualityExpression(
+                    "type", target_types[1], QVariant.String
+                )
+            )
+            req.setFilterRect(pastry_geom.boundingBox())
+            cut_features = [f for f in target_layer.getFeatures(req)]
+
+            geom_engine = QgsGeometry.createGeometryEngine(pastry_geom.constGet())
+            geom_engine.prepareGeometry()
+
+            target_layer.beginEditCommand("Pastry Delete")
+            for f in cut_features:
+                geom = f.geometry()
+                if not geom_engine.intersects(geom.constGet()):
+                    continue
+
+                new_geom = geom.difference(pastry_geom)
+                target_layer.changeGeometry(f.id(), new_geom)
+
+            target_layer.endEditCommand()

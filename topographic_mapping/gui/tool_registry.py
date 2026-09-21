@@ -71,6 +71,7 @@ DIGITIZING_GROUP = "Digitize feature"
 LABELING_GROUP = "Labeling"
 
 CHANGE_FEATURE_CLASS_ACTION = "CHANGE_FEATURE_CLASS_ACTION"
+PASTRY_DELETE_ACTION = "PASTRY_DELETE_ACTION"
 SELECT_LABELS_ACTION = "SELECT_LABELS_ACTION"
 CREATE_LABEL_ACTION = "CREATE_LABEL_ACTION"
 RESET_LABEL_ACTION = "RESET_LABEL_ACTION"
@@ -168,6 +169,13 @@ TOOLS = {
             "mActionReverseLine",
             "reverse_line.svg",
             "Change direction of line feature.",
+        ),
+        CustomAction(
+            PASTRY_DELETE_ACTION,
+            "Pastry Delete",
+            "change_class.svg",
+            "Remove parts of an object which intersect a related feature.",
+            requires_selection=True,
         ),
     ],
     DIGITIZING_GROUP: [
