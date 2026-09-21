@@ -242,6 +242,11 @@ class ProjectController(QObject):
 
             layer.setEditorWidgetSetup(field_index, edit_widget_setup)
 
+        # hide special columns
+        field_index = fields.lookupField("product_geom")
+        if field_index >= 0:
+            layer.setEditorWidgetSetup(field_index, QgsEditorWidgetSetup("Hidden", {}))
+
         layer.setEditFormConfig(edit_form_config)
 
     @staticmethod
