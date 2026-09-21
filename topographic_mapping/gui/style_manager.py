@@ -37,6 +37,7 @@ class StyleManager:
     STYLE_URL_BASE = "https://raw.githubusercontent.com/linz/topographic-qgis/refs/heads/master/map-series/nztopo50/style-layer/"
     SVG_GRAPHICS_PATH = f"https://api.github.com/repos/linz/topographic-qgis/contents/map-series/nztopo50/symbol"
     PRODUCT_VIEW_STYLE_NAME = "Product View"
+    TEMPORARY_STYLE_NAME = "__temporary_style__"
 
     def __init__(
         self, project_controller: ProjectController, message_bar: QgsMessageBar
@@ -116,11 +117,24 @@ class StyleManager:
             res, error_msg, _, __ = doc.setContent(style_raw)
             if res:
                 layer_style_manager = layer.styleManager()
+
+                # we can't remove or replace the current style, so we'll add a temporary one
+                # to set as current
+                layer_style_manager.addStyle(
+                    self.TEMPORARY_STYLE_NAME, QgsMapLayerStyle("<>")
+                )
+                layer_style_manager.setCurrentStyle(self.TEMPORARY_STYLE_NAME)
+
                 layer_style_manager.removeStyle(self.PRODUCT_VIEW_STYLE_NAME)
-                style_count = len(layer_style_manager.styles())
+
+                style_count = len(layer_style_manager.styles()) - 1
                 layer_style_manager.addStyle(
                     self.PRODUCT_VIEW_STYLE_NAME, QgsMapLayerStyle(style_raw)
                 )
+                layer_style_manager.setCurrentStyle(self.PRODUCT_VIEW_STYLE_NAME)
+
+                layer_style_manager.removeStyle(self.TEMPORARY_STYLE_NAME)
+
                 if style_count == 1 and layer_style_manager.styles() != [
                     self.PRODUCT_VIEW_STYLE_NAME
                 ]:
