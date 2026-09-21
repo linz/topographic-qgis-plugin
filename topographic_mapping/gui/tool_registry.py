@@ -75,6 +75,12 @@ REWRAP_LABEL_ACTION = "REWRAP_LABEL_ACTION"
 TOOLS = {
     EDITING_GROUP: [
         Action(
+            "Edit Attributes",
+            "mActionMultiEditAttributes",
+            "edit_attributes.svg",
+            "Populate or modify feature attributes.",
+        ),
+        Action(
             "Filter Out Points",
             "mActionSimplifyFeature",
             "simplify.svg",
