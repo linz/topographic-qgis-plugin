@@ -174,14 +174,14 @@ TOOLS = {
         CustomAction(
             PASTRY_DELETE_ACTION,
             "Pastry Delete",
-            "change_class.svg",
+            "pastry_delete.svg",
             "Remove parts of an object which intersect a related feature.",
             requires_selection=True,
         ),
         CustomAction(
             PASTRY_CUT_ACTION,
             "Pastry Cut",
-            "change_class.svg",
+            "pastry_cut.svg",
             "Split features using other features as cutting lines.",
             requires_selection=True,
         ),
