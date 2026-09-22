@@ -136,7 +136,7 @@ class TopographicMappingPlugin:
         self._validation_dock.close()
 
         self._tool_registry.populate_tool_dock(
-            self._tool_dock, [ToolGroup.Editing, ToolGroup.Digitizing]
+            self._tool_dock, [ToolGroup.Editing, ToolGroup.Digitizing, ToolGroup.Markup]
         )
         self._tool_registry.populate_tool_dock(self._label_dock, [ToolGroup.Labeling])
         self._label_gui_manager.register_tools(self._tool_registry)

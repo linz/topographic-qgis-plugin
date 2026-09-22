@@ -15,6 +15,8 @@ from qgis.PyQt.QtWidgets import (
     QScrollArea,
     QFrame,
     QTreeWidget,
+    QWidgetItem,
+    QLayoutItem,
 )
 from qgis.core import Qgis, QgsVectorLayer, QgsMapLayer
 from qgis.gui import (
@@ -61,6 +63,7 @@ class ToolDock(QgsDockWidget):
         self._vlayout.addWidget(QLabel("Current edit target"))
 
         hl = QHBoxLayout()
+        hl.setObjectName("edit_target")
         self._target_layer_combo = QgsMapLayerComboBox()
         self._target_layer_combo.setFilters(
             Qgis.LayerFilter.WritableLayer | Qgis.LayerFilter.HasGeometry
@@ -93,7 +96,7 @@ class ToolDock(QgsDockWidget):
 
         self._favorites = []
         self._favorites_group = self._create_tool_group(
-            "Favorites", collapsible=False, is_favorites_group=True
+            "Favorites", collapsible=False, group=ToolGroup.Favorites
         )
         self._favorites_group.parent().hide()
 
@@ -132,11 +135,7 @@ class ToolDock(QgsDockWidget):
         return label
 
     def _create_tool_group(
-        self,
-        group_title: str,
-        collapsible: bool = True,
-        is_favorites_group: bool = False,
-        is_digitizing_group: bool = False,
+        self, group_title: str, group: ToolGroup, collapsible: bool = True
     ) -> ResponsiveTableWidget:
         if collapsible:
             group_box = QgsCollapsibleGroupBox(group_title)
@@ -148,14 +147,40 @@ class ToolDock(QgsDockWidget):
         group_box_layout.setContentsMargins(0, 0, 0, 0)
         group_box.setLayout(group_box_layout)
 
-        if is_favorites_group:
-            insert_index = self._vlayout.count() - 2
-        elif is_digitizing_group:
-            insert_index = self._vlayout.count() - 1 - self._vertical_layout_offset
-        else:
-            insert_index = (
-                self._vlayout.count() - 2 - (2 if self._vertical_layout_offset else 0)
-            )
+        insert_index = self._vlayout.count()
+        backup_insert_index = None
+        for c in range(self._vlayout.count()):
+            item = self._vlayout.itemAt(c)
+            if (
+                group == ToolGroup.Favorites
+                and item.layout()
+                and item.layout().objectName() == "edit_target"
+            ):
+                insert_index = c + 1
+                break
+            elif group not in (ToolGroup.Digitizing, ToolGroup.Favorites):
+                if item.layout() and item.layout().objectName() == "edit_target":
+                    backup_insert_index = c + 2
+                elif item.widget() and isinstance(item.widget(), QGroupBox):
+                    insert_index = c + 1
+                    backup_insert_index = None
+                elif (
+                    insert_index < self._vlayout.count()
+                    and backup_insert_index is None
+                    and not isinstance(item.widget(), QGroupBox)
+                ):
+                    break
+            elif (
+                group == ToolGroup.Digitizing
+                and item.widget()
+                and item.widget().objectName() == "feature_type"
+            ):
+                insert_index = c + 1
+                break
+
+        if backup_insert_index is not None:
+            insert_index = backup_insert_index
+
         self._vlayout.insertWidget(insert_index, group_box)
         group_widget = ResponsiveTableWidget()
         group_box_layout.addWidget(group_widget)
@@ -264,9 +289,7 @@ class ToolDock(QgsDockWidget):
         self._actions.append(action)
         tool_group_widget = self._tool_groups.get(group_title)
         if not tool_group_widget:
-            tool_group_widget = self._create_tool_group(
-                group_title, is_digitizing_group=group == ToolGroup.Digitizing
-            )
+            tool_group_widget = self._create_tool_group(group_title, group)
 
         btn = self._create_button_for_action(
             action,
