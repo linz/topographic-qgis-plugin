@@ -205,7 +205,7 @@ TOOLS = {
             requires_selection=True,
         ),
         CustomAction(
-            PluginTool.ChangeFeatureClass,
+            PluginTool.ClearProductEdits,
             "Clear Product Data Edits",
             "delete_product_view.svg",
             "Clears the product view specific edits for the selected features.",

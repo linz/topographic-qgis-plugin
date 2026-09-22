@@ -17,8 +17,8 @@ from qgis.core import (
 )
 from qgis.gui import QgisInterface
 
-from gui import PluginTool
 from topographic_mapping.gui import (
+    PluginTool,
     EditToolDock,
     ToolRegistry,
     SetTargetTool,
