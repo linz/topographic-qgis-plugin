@@ -253,7 +253,7 @@ TOOLS = {
         CustomAction(
             PluginTool.MarkupSelected,
             "Markup Selected Features",
-            "duplicate.svg",
+            "markup_selected.svg",
             "Creates markups for all selected features.",
             requires_selection=True,
             requires_editable_target=False,
