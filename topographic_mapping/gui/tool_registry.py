@@ -14,6 +14,7 @@ from topographic_mapping.core import StateManager
 from .gui_utils import GuiUtils
 from .proxy_action import ProxyAction, CompoundProxyAction, DigitizeTechniqueProxyAction
 from .tool_dock import ToolDock
+from .enums import ToolGroup, PluginTool
 
 
 @dataclass
@@ -52,50 +53,6 @@ class DigitizeTechniqueAction:
     icon: str
     description: str
     geometry_types: list[Qgis.GeometryType]
-
-
-class ToolGroup(Enum):
-    """
-    Enum representing tool groups
-    """
-
-    Private = auto()
-    Editing = auto()
-    Digitizing = auto()
-    Labeling = auto()
-    Markup = auto()
-
-    def to_string(self) -> str:
-        return {
-            ToolGroup.Editing: "Topographic editing",
-            ToolGroup.Digitizing: "Digitize feature",
-            ToolGroup.Labeling: "Labeling",
-            ToolGroup.Markup: "Markup",
-        }[self]
-
-
-class PluginTool(Enum):
-    """
-    Enum representing inbuilt (plugin specific) tools
-    """
-
-    MarkupSelected = auto()
-    GoToNextMarkup = auto()
-    GoToPreviousMarkup = auto()
-    ToggleSelectedMarkup = auto()
-    DeleteCheckedMarkup = auto()
-    ClearMarkup = auto()
-    ReconsiderMarkup = auto()
-
-    ChangeFeatureClass = auto()
-    PastryDelete = auto()
-    PastryCut = auto()
-    ClearProductEdits = auto()
-
-    SelectLabels = auto()
-    CreateLabel = auto()
-    ResetLabel = auto()
-    RewrapLabel = auto()
 
 
 @dataclass
@@ -481,8 +438,8 @@ class ToolRegistry(QObject):
                 dock.add_tool_action(
                     action,
                     group.to_string(),
+                    group,
                     action.property("description"),
-                    is_digitizing_action=group == ToolGroup.Digitizing,
                 )
 
     def register_shortcuts(self):

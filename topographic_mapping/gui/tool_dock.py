@@ -25,6 +25,7 @@ from qgis.gui import (
     QgsMessageBar,
 )
 
+from .enums import ToolGroup
 from .responsive_table_widget import ResponsiveTableWidget
 from ..core import ProjectController, StateManager
 from topographic_mapping.settings import FAVORITES
@@ -253,8 +254,8 @@ class ToolDock(QgsDockWidget):
         self,
         action: QAction,
         group_title: str,
+        group: ToolGroup,
         descriptive_string: Optional[str] = None,
-        is_digitizing_action: bool = False,
     ):
         """
         Adds a tool action to the toolbox
@@ -264,11 +265,13 @@ class ToolDock(QgsDockWidget):
         tool_group_widget = self._tool_groups.get(group_title)
         if not tool_group_widget:
             tool_group_widget = self._create_tool_group(
-                group_title, is_digitizing_group=is_digitizing_action
+                group_title, is_digitizing_group=group == ToolGroup.Digitizing
             )
 
         btn = self._create_button_for_action(
-            action, descriptive_string, is_digitizing_action=is_digitizing_action
+            action,
+            descriptive_string,
+            is_digitizing_action=group == ToolGroup.Digitizing,
         )
         tool_group_widget.push_widget(btn)
 

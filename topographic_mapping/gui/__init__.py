@@ -1,10 +1,7 @@
+from .enums import PluginTool, ToolGroup  # NOQA
 from .gui_utils import GuiUtils  # NOQA
 from .proxy_action import ProxyAction  # NOQA
-from .tool_registry import (
-    PluginTool,
-    ToolGroup,
-    ToolRegistry,
-)  # NOQA
+from .tool_registry import ToolRegistry  # NOQA
 from .set_target_tool import SetTargetTool, SetTargetToolHandler  # NOQA
 from .feature_type_model import FeatureTypeTreeModel  # NOQA
 from .validation_dock import ValidationDock  # NOQA
