@@ -54,6 +54,26 @@ class DigitizeTechniqueAction:
     geometry_types: list[Qgis.GeometryType]
 
 
+class ToolGroup(Enum):
+    """
+    Enum representing tool groups
+    """
+
+    Private = auto()
+    Editing = auto()
+    Digitizing = auto()
+    Labeling = auto()
+    Markup = auto()
+
+    def to_string(self) -> str:
+        return {
+            ToolGroup.Editing: "Topographic editing",
+            ToolGroup.Digitizing: "Digitize feature",
+            ToolGroup.Labeling: "Labeling",
+            ToolGroup.Markup: "Markup",
+        }[self]
+
+
 class PluginTool(Enum):
     """
     Enum representing inbuilt (plugin specific) tools
@@ -91,14 +111,8 @@ class CustomAction:
     requires_selection: bool = False
 
 
-EDITING_GROUP = "Topographic editing"
-DIGITIZING_GROUP = "Digitize feature"
-LABELING_GROUP = "Labeling"
-MARKUP_GROUP = "Markup"
-
-
 TOOLS = {
-    EDITING_GROUP: [
+    ToolGroup.Editing: [
         Action(
             "Edit Attributes",
             "mActionMultiEditAttributes",
@@ -212,7 +226,7 @@ TOOLS = {
             requires_selection=True,
         ),
     ],
-    DIGITIZING_GROUP: [
+    ToolGroup.Digitizing: [
         DigitizeTechniqueAction(
             "Point Digitize",
             ["mActionAddFeature", "mActionDigitizeWithSegment"],
@@ -249,7 +263,7 @@ TOOLS = {
             [Qgis.GeometryType.Line, Qgis.GeometryType.Polygon],
         ),
     ],
-    LABELING_GROUP: [
+    ToolGroup.Labeling: [
         CustomAction(
             PluginTool.SelectLabels,
             "Select Labels",
@@ -275,7 +289,7 @@ TOOLS = {
             "Rewraps label text.",
         ),
     ],
-    MARKUP_GROUP: [
+    ToolGroup.Markup: [
         CustomAction(
             PluginTool.MarkupSelected,
             "Markup Selected Features",
@@ -301,7 +315,7 @@ TOOLS = {
 class ToolRegistry(QObject):
     def __init__(self, parent: QObject, state_manager: StateManager):
         super().__init__(parent)
-        self._actions = defaultdict(list)
+        self._actions: Dict[ToolGroup, list] = defaultdict(list)
         self._state_manager = state_manager
 
         # built in actions
@@ -318,7 +332,7 @@ class ToolRegistry(QObject):
             "description",
             "Sets the current edit target by selecting features on the map",
         )
-        self._actions["_private"].append(self.set_target_tool_action)
+        self._actions[ToolGroup.Private].append(self.set_target_tool_action)
         self._custom_actions: Dict[PluginTool, QAction] = {}
 
     @staticmethod
@@ -341,7 +355,7 @@ class ToolRegistry(QObject):
                         "Unhandled action type {}".format(type(action))
                     )
 
-    def _process_action(self, action: Action, group: str, iface: QgisInterface):
+    def _process_action(self, action: Action, group: ToolGroup, iface: QgisInterface):
         source_action: QAction = iface.mainWindow().findChild(
             QAction, action.qgis_action_name
         )
@@ -364,7 +378,7 @@ class ToolRegistry(QObject):
         self._actions[group].append(proxy_action)
 
     def _process_compound_action(
-        self, action: CompoundAction, group: str, iface: QgisInterface
+        self, action: CompoundAction, group: ToolGroup, iface: QgisInterface
     ):
         source_actions: list[QAction] = [
             iface.mainWindow().findChild(QAction, qgis_action_name)
@@ -390,7 +404,7 @@ class ToolRegistry(QObject):
         self._actions[group].append(proxy_action)
 
     def _process_digitize_technique_action(
-        self, action: DigitizeTechniqueAction, group: str, iface: QgisInterface
+        self, action: DigitizeTechniqueAction, group: ToolGroup, iface: QgisInterface
     ):
         source_actions: list[QAction] = [
             iface.mainWindow().findChild(QAction, qgis_action_name)
@@ -418,7 +432,7 @@ class ToolRegistry(QObject):
         self._actions[group].append(proxy_action)
 
     def _process_custom_action(
-        self, action: CustomAction, group: str, iface: QgisInterface
+        self, action: CustomAction, group: ToolGroup, iface: QgisInterface
     ):
         new_action = QAction()
         new_action.setText(action.title)
@@ -455,20 +469,20 @@ class ToolRegistry(QObject):
         """
         return self._custom_actions[action_id]
 
-    def populate_tool_dock(self, dock: ToolDock, groups: List[str]):
+    def populate_tool_dock(self, dock: ToolDock, groups: List[ToolGroup]):
         for group, actions in self._actions.items():
             if group not in groups:
                 continue
 
-            if group[0] == "_":
+            if group == ToolGroup.Private:
                 continue
 
             for action in actions:
                 dock.add_tool_action(
                     action,
-                    group,
+                    group.to_string(),
                     action.property("description"),
-                    is_digitizing_action=group == DIGITIZING_GROUP,
+                    is_digitizing_action=group == ToolGroup.Digitizing,
                 )
 
     def register_shortcuts(self):

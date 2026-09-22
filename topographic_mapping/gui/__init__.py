@@ -2,10 +2,8 @@ from .gui_utils import GuiUtils  # NOQA
 from .proxy_action import ProxyAction  # NOQA
 from .tool_registry import (
     PluginTool,
+    ToolGroup,
     ToolRegistry,
-    EDITING_GROUP,
-    DIGITIZING_GROUP,
-    LABELING_GROUP,
 )  # NOQA
 from .set_target_tool import SetTargetTool, SetTargetToolHandler  # NOQA
 from .feature_type_model import FeatureTypeTreeModel  # NOQA

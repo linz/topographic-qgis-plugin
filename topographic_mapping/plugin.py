@@ -26,9 +26,7 @@ from topographic_mapping.gui import (
     ValidationDock,
     PluginsOptionsFactory,
     LabelDock,
-    EDITING_GROUP,
-    DIGITIZING_GROUP,
-    LABELING_GROUP,
+    ToolGroup,
     LabelingGuiManager,
     StyleManager,
     ChangeFeatureClassDialog,
@@ -138,9 +136,9 @@ class TopographicMappingPlugin:
         self._validation_dock.close()
 
         self._tool_registry.populate_tool_dock(
-            self._tool_dock, [EDITING_GROUP, DIGITIZING_GROUP]
+            self._tool_dock, [ToolGroup.Editing, ToolGroup.Digitizing]
         )
-        self._tool_registry.populate_tool_dock(self._label_dock, [LABELING_GROUP])
+        self._tool_registry.populate_tool_dock(self._label_dock, [ToolGroup.Labeling])
         self._label_gui_manager.register_tools(self._tool_registry)
 
         self._set_target_tool = SetTargetTool(self.iface.mapCanvas())
