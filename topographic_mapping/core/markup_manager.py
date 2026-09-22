@@ -109,9 +109,9 @@ class MarkupManager(QObject):
         if res.result() != Qgis.VectorExportResult.Success:
             raise AssertionError("Could not create markup database")
 
-    def project_has_point_markup_layer(self, project: QgsProject) -> bool:
+    def project_point_markup_layer(self, project: QgsProject) -> QgsVectorLayer | None:
         """
-        Returns True if the project contains the point markup layer
+        Returns the project point markup layer, if it exists
         """
         db_path = MarkupManager.markup_db_path().as_posix()
         for _, layer in project.mapLayers().items():
@@ -122,13 +122,13 @@ class MarkupManager(QObject):
                 continue
 
             elif parts.get("layerName") == "point_markup":
-                return True
+                return layer
 
-        return False
+        return None
 
-    def project_has_line_markup_layer(self, project: QgsProject) -> bool:
+    def project_line_markup_layer(self, project: QgsProject) -> QgsVectorLayer | None:
         """
-        Returns True if the project contains the line markup layer
+        Returns the project line markup layer, if it exists
         """
         db_path = MarkupManager.markup_db_path().as_posix()
         for _, layer in project.mapLayers().items():
@@ -139,13 +139,15 @@ class MarkupManager(QObject):
                 continue
 
             elif parts.get("layerName") == "line_markup":
-                return True
+                return layer
 
-        return False
+        return None
 
-    def project_has_polygon_markup_layer(self, project: QgsProject) -> bool:
+    def project_polygon_markup_layer(
+        self, project: QgsProject
+    ) -> QgsVectorLayer | None:
         """
-        Returns True if the project contains the polygon markup layer
+        Returns the project polygon markup layer, if it exists
         """
         db_path = MarkupManager.markup_db_path().as_posix()
         for _, layer in project.mapLayers().items():
@@ -156,18 +158,18 @@ class MarkupManager(QObject):
                 continue
 
             elif parts.get("layerName") == "polygon_markup":
-                return True
+                return layer
 
-        return False
+        return None
 
     def project_has_all_markup_layers(self, project: QgsProject) -> bool:
         """
         Returns True if the project contains the markup layers
         """
-        return (
-            self.project_has_line_markup_layer(project)
-            and self.project_has_point_markup_layer(project)
-            and self.project_has_polygon_markup_layer(project)
+        return bool(
+            self.project_line_markup_layer(project)
+            and self.project_point_markup_layer(project)
+            and self.project_polygon_markup_layer(project)
         )
 
     def load_polygon_markup_layer(self) -> QgsVectorLayer:
@@ -217,11 +219,11 @@ class MarkupManager(QObject):
             return
 
         added_layers = []
-        if not self.project_has_point_markup_layer(project):
+        if not self.project_point_markup_layer(project):
             added_layers.append(self.load_point_markup_layer())
-        if not self.project_has_polygon_markup_layer(project):
+        if not self.project_polygon_markup_layer(project):
             added_layers.append(self.load_polygon_markup_layer())
-        if not self.project_has_line_markup_layer(project):
+        if not self.project_line_markup_layer(project):
             added_layers.append(self.load_line_markup_layer())
 
         layer_tree = project.layerTreeRoot()
