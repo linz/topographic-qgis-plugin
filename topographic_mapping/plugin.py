@@ -18,6 +18,7 @@ from qgis.core import (
 from qgis.gui import QgisInterface
 
 from topographic_mapping.gui import (
+    PluginTool,
     EditToolDock,
     ToolRegistry,
     SetTargetTool,
@@ -25,13 +26,7 @@ from topographic_mapping.gui import (
     ValidationDock,
     PluginsOptionsFactory,
     LabelDock,
-    EDITING_GROUP,
-    DIGITIZING_GROUP,
-    LABELING_GROUP,
-    CHANGE_FEATURE_CLASS_ACTION,
-    PASTRY_DELETE_ACTION,
-    PASTRY_CUT_ACTION,
-    CLEAR_PRODUCT_EDITS,
+    ToolGroup,
     LabelingGuiManager,
     StyleManager,
     ChangeFeatureClassDialog,
@@ -42,6 +37,7 @@ from .core import (
     ProjectController,
     DbUtils,
     LabelManager,
+    MarkupManager,
     STORED_OBJECT_MANAGER,
 )
 from .core.symbol_layers import RockOutcropMarkerMetadata
@@ -62,6 +58,7 @@ class TopographicMappingPlugin:
         self._project_controller: ProjectController | None = None
         self._style_manager: StyleManager | None = None
         self._label_manager: LabelManager | None = None
+        self._markup_manager: MarkupManager | None = None
         self._label_gui_manager: LabelingGuiManager | None = None
         self._menu: QMenu | None = None
         self._options_factory: PluginsOptionsFactory | None = None
@@ -139,9 +136,9 @@ class TopographicMappingPlugin:
         self._validation_dock.close()
 
         self._tool_registry.populate_tool_dock(
-            self._tool_dock, [EDITING_GROUP, DIGITIZING_GROUP]
+            self._tool_dock, [ToolGroup.Editing, ToolGroup.Digitizing, ToolGroup.Markup]
         )
-        self._tool_registry.populate_tool_dock(self._label_dock, [LABELING_GROUP])
+        self._tool_registry.populate_tool_dock(self._label_dock, [ToolGroup.Labeling])
         self._label_gui_manager.register_tools(self._tool_registry)
 
         self._set_target_tool = SetTargetTool(self.iface.mapCanvas())
@@ -178,23 +175,31 @@ class TopographicMappingPlugin:
         run_validation_action.triggered.connect(self.show_validation_dock)
         validation_menu.addAction(run_validation_action)
 
+        self._markup_manager = MarkupManager(self._gui_owner)
+
         self.options_factory = PluginsOptionsFactory()
         self.options_factory.setTitle("TopoMapping")
         self.iface.registerOptionsWidgetFactory(self.options_factory)
 
         change_feature_class_action = self._tool_registry.custom_action(
-            CHANGE_FEATURE_CLASS_ACTION
+            PluginTool.ChangeFeatureClass
         )
         change_feature_class_action.triggered.connect(self._change_feature_class)
 
-        pastry_delete_action = self._tool_registry.custom_action(PASTRY_DELETE_ACTION)
+        pastry_delete_action = self._tool_registry.custom_action(
+            PluginTool.PastryDelete
+        )
         pastry_delete_action.triggered.connect(self._pastry_delete)
 
-        pastry_cut_action = self._tool_registry.custom_action(PASTRY_CUT_ACTION)
+        pastry_cut_action = self._tool_registry.custom_action(PluginTool.PastryCut)
         pastry_cut_action.triggered.connect(self._pastry_cut)
 
-        self._tool_registry.custom_action(CLEAR_PRODUCT_EDITS).triggered.connect(
-            self._clear_product_edits
+        self._tool_registry.custom_action(
+            PluginTool.ClearProductEdits
+        ).triggered.connect(self._clear_product_edits)
+
+        self._tool_registry.custom_action(PluginTool.MarkupSelected).triggered.connect(
+            self._markup_selected
         )
 
     def unload(self) -> None:
@@ -230,6 +235,10 @@ class TopographicMappingPlugin:
         if self._state_manager:
             self._state_manager.deleteLater()
             self._state_manager = None
+
+        if self._markup_manager:
+            self._markup_manager.deleteLater()
+            self._markup_manager = None
 
         QgsSettingsTree.unregisterPluginTreeNode("topographic_mapping")
 
@@ -496,3 +505,10 @@ class TopographicMappingPlugin:
         for layer in self._project_controller.editable_vector_layers_in_gpkg(gpkg_path):
             if layer.isEditable():
                 layer.commitChanges(False)
+
+    def _markup_selected(self):
+        self._markup_manager.add_markup_layers_if_not_present(QgsProject.instance())
+
+        self._markup_manager.markup_selected_features(
+            QgsProject.instance(), self._state_manager.current_layer()
+        )

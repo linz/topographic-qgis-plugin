@@ -1,0 +1,286 @@
+from pathlib import Path
+
+from qgis.PyQt.QtCore import QObject, QVariant
+
+from qgis.core import (
+    QgsProviderRegistry,
+    QgsFields,
+    Qgis,
+    QgsCoordinateReferenceSystem,
+    QgsField,
+    QgsProject,
+    QgsVectorLayer,
+    QgsLayerTreeGroup,
+    QgsFeature,
+    QgsCoordinateTransform,
+    QgsCsException,
+)
+
+from .stored_object_manager import STORED_OBJECT_MANAGER
+
+
+RESOURCES_DIR = Path(__file__) / ".." / ".." / "resources"
+
+
+class MarkupManager(QObject):
+    """
+    Manages markup functionality
+    """
+
+    MARKUP_DB_FILE = "markup.gpkg"
+
+    def __init__(self, parent: QObject | None = None):
+        super().__init__(parent)
+
+        if not self.markup_db_path().exists():
+            MarkupManager.create_markup_database()
+
+    @staticmethod
+    def markup_db_path() -> Path:
+        """
+        Returns the path to the markup database
+        """
+        return STORED_OBJECT_MANAGER.get_plugin_data_path(MarkupManager.MARKUP_DB_FILE)
+
+    @staticmethod
+    def markup_qml_path() -> Path:
+        """
+        Returns the path to markup QML files
+        :return:
+        """
+        return RESOURCES_DIR.resolve()
+
+    @staticmethod
+    def markup_layer_fields() -> QgsFields:
+        """
+        Returns the markup layer field definitions
+        """
+        fields = QgsFields()
+        fields.append(QgsField("id", QVariant.LongLong))
+        fields.append(QgsField("notes", QVariant.String))
+        fields.append(QgsField("open", QVariant.Bool))
+        return fields
+
+    @staticmethod
+    def create_markup_database():
+        """
+        Creates a new empty markup database
+        """
+        markup_layer_crs = QgsCoordinateReferenceSystem("EPSG:4326")
+        polygon_markup_layer_uri = {
+            "path": MarkupManager.markup_db_path().as_posix(),
+            "layerName": "polygon_markup",
+        }
+        res = QgsProviderRegistry.instance().createEmptyLayer(
+            "ogr",
+            QgsProviderRegistry.instance().encodeUri("ogr", polygon_markup_layer_uri),
+            MarkupManager.markup_layer_fields(),
+            Qgis.WkbType.MultiPolygon,
+            markup_layer_crs,
+            Qgis.CreateLayerActionOnExisting.CreateOrOverwriteFile,
+        )
+        if res.result() != Qgis.VectorExportResult.Success:
+            raise AssertionError("Could not create markup database")
+
+        point_markup_layer_uri = {
+            "path": MarkupManager.markup_db_path().as_posix(),
+            "layerName": "point_markup",
+        }
+        res = QgsProviderRegistry.instance().createEmptyLayer(
+            "ogr",
+            QgsProviderRegistry.instance().encodeUri("ogr", point_markup_layer_uri),
+            MarkupManager.markup_layer_fields(),
+            Qgis.WkbType.MultiPoint,
+            markup_layer_crs,
+            Qgis.CreateLayerActionOnExisting.CreateOrOverwriteLayer,
+        )
+        if res.result() != Qgis.VectorExportResult.Success:
+            raise AssertionError("Could not create markup database")
+
+        line_markup_layer_uri = {
+            "path": MarkupManager.markup_db_path().as_posix(),
+            "layerName": "line_markup",
+        }
+        res = QgsProviderRegistry.instance().createEmptyLayer(
+            "ogr",
+            QgsProviderRegistry.instance().encodeUri("ogr", line_markup_layer_uri),
+            MarkupManager.markup_layer_fields(),
+            Qgis.WkbType.MultiLineString,
+            markup_layer_crs,
+            Qgis.CreateLayerActionOnExisting.CreateOrOverwriteLayer,
+        )
+        if res.result() != Qgis.VectorExportResult.Success:
+            raise AssertionError("Could not create markup database")
+
+    def project_point_markup_layer(self, project: QgsProject) -> QgsVectorLayer | None:
+        """
+        Returns the project point markup layer, if it exists
+        """
+        db_path = MarkupManager.markup_db_path().as_posix()
+        for _, layer in project.mapLayers().items():
+            parts = QgsProviderRegistry.instance().decodeUri(
+                layer.providerType(), layer.source()
+            )
+            if parts.get("path") != db_path:
+                continue
+
+            elif parts.get("layerName") == "point_markup":
+                return layer
+
+        return None
+
+    def project_line_markup_layer(self, project: QgsProject) -> QgsVectorLayer | None:
+        """
+        Returns the project line markup layer, if it exists
+        """
+        db_path = MarkupManager.markup_db_path().as_posix()
+        for _, layer in project.mapLayers().items():
+            parts = QgsProviderRegistry.instance().decodeUri(
+                layer.providerType(), layer.source()
+            )
+            if parts.get("path") != db_path:
+                continue
+
+            elif parts.get("layerName") == "line_markup":
+                return layer
+
+        return None
+
+    def project_polygon_markup_layer(
+        self, project: QgsProject
+    ) -> QgsVectorLayer | None:
+        """
+        Returns the project polygon markup layer, if it exists
+        """
+        db_path = MarkupManager.markup_db_path().as_posix()
+        for _, layer in project.mapLayers().items():
+            parts = QgsProviderRegistry.instance().decodeUri(
+                layer.providerType(), layer.source()
+            )
+            if parts.get("path") != db_path:
+                continue
+
+            elif parts.get("layerName") == "polygon_markup":
+                return layer
+
+        return None
+
+    def project_has_all_markup_layers(self, project: QgsProject) -> bool:
+        """
+        Returns True if the project contains the markup layers
+        """
+        return bool(
+            self.project_line_markup_layer(project)
+            and self.project_point_markup_layer(project)
+            and self.project_polygon_markup_layer(project)
+        )
+
+    def load_polygon_markup_layer(self) -> QgsVectorLayer:
+        """
+        Loads the polygon markup layer
+        """
+        res = QgsVectorLayer(
+            self.markup_db_path().as_posix() + "|layername=polygon_markup",
+            "Polygon Markup",
+            "ogr",
+        )
+        qml_path = self.markup_qml_path() / "polygon_markup.qml"
+        res.loadNamedStyle(qml_path.as_posix())
+        return res
+
+    def load_line_markup_layer(self) -> QgsVectorLayer:
+        """
+        Loads the line markup layer
+        """
+        res = QgsVectorLayer(
+            self.markup_db_path().as_posix() + "|layername=line_markup",
+            "Line Markup",
+            "ogr",
+        )
+        qml_path = self.markup_qml_path() / "line_markup.qml"
+        res.loadNamedStyle(qml_path.as_posix())
+        return res
+
+    def load_point_markup_layer(self) -> QgsVectorLayer:
+        """
+        Loads the point markup layer
+        """
+        res = QgsVectorLayer(
+            self.markup_db_path().as_posix() + "|layername=point_markup",
+            "Point Markup",
+            "ogr",
+        )
+        qml_path = self.markup_qml_path() / "point_markup.qml"
+        res.loadNamedStyle(qml_path.as_posix())
+        return res
+
+    def add_markup_layers_if_not_present(self, project: QgsProject):
+        """
+        Adds the markup layers to the project if not already present
+        """
+        if self.project_has_all_markup_layers(project):
+            return
+
+        added_layers = []
+        if not self.project_point_markup_layer(project):
+            added_layers.append(self.load_point_markup_layer())
+        if not self.project_polygon_markup_layer(project):
+            added_layers.append(self.load_polygon_markup_layer())
+        if not self.project_line_markup_layer(project):
+            added_layers.append(self.load_line_markup_layer())
+
+        layer_tree = project.layerTreeRoot()
+        markup_group = None
+        for child in layer_tree.children():
+            if isinstance(child, QgsLayerTreeGroup) and child.customProperty(
+                "_is_markup_group"
+            ):
+                markup_group = child
+                break
+
+        if markup_group is None:
+            markup_group = QgsLayerTreeGroup("Markup", True)
+            markup_group.setCustomProperty("_is_markup_group", True)
+            layer_tree.insertChildNode(0, markup_group)
+
+        project.addMapLayers(added_layers, False)
+        for layer in added_layers:
+            markup_group.addLayer(layer)
+
+        project.addMapLayers(added_layers)
+
+    def markup_selected_features(
+        self, project: QgsProject, source_layer: QgsVectorLayer
+    ):
+        """
+        Creates markup for selected features in a layer
+        """
+        selected_features = source_layer.selectedFeatures()
+        if source_layer.geometryType() == Qgis.GeometryType.Polygon:
+            dest_layer = self.project_polygon_markup_layer(project)
+        elif source_layer.geometryType() == Qgis.GeometryType.Point:
+            dest_layer = self.project_point_markup_layer(project)
+        elif source_layer.geometryType() == Qgis.GeometryType.Line:
+            dest_layer = self.project_line_markup_layer(project)
+        else:
+            return
+
+        if not dest_layer.isEditable():
+            dest_layer.startEditing()
+
+        ct = QgsCoordinateTransform(
+            source_layer.crs(), dest_layer.crs(), project.transformContext()
+        )
+        new_features = []
+        for feature in selected_features:
+            new_feature = QgsFeature(dest_layer.fields())
+            new_geom = feature.geometry()
+            try:
+                new_geom.transform(ct)
+            except QgsCsException:
+                continue
+            new_feature.setGeometry(new_geom)
+            new_features.append(new_feature)
+
+        dest_layer.addFeatures(new_features)
+        dest_layer.commitChanges()

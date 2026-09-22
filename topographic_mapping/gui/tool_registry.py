@@ -2,6 +2,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import List, Dict
 from functools import partial
+from enum import Enum, auto
 
 from qgis.PyQt.QtCore import QObject
 from qgis.PyQt.QtWidgets import QAction
@@ -13,6 +14,7 @@ from topographic_mapping.core import StateManager
 from .gui_utils import GuiUtils
 from .proxy_action import ProxyAction, CompoundProxyAction, DigitizeTechniqueProxyAction
 from .tool_dock import ToolDock
+from .enums import ToolGroup, PluginTool
 
 
 @dataclass
@@ -59,28 +61,16 @@ class CustomAction:
     Encapsulates a custom (plugin specific) action (currently single-shot actions only)
     """
 
-    id: str
+    id: PluginTool
     title: str
     icon: str
     description: str
     requires_selection: bool = False
+    requires_editable_target: bool = True
 
-
-EDITING_GROUP = "Topographic editing"
-DIGITIZING_GROUP = "Digitize feature"
-LABELING_GROUP = "Labeling"
-
-CHANGE_FEATURE_CLASS_ACTION = "CHANGE_FEATURE_CLASS_ACTION"
-PASTRY_DELETE_ACTION = "PASTRY_DELETE_ACTION"
-PASTRY_CUT_ACTION = "PASTRY_CUT_ACTION"
-CLEAR_PRODUCT_EDITS = "CLEAR_PRODUCT_EDITS"
-SELECT_LABELS_ACTION = "SELECT_LABELS_ACTION"
-CREATE_LABEL_ACTION = "CREATE_LABEL_ACTION"
-RESET_LABEL_ACTION = "RESET_LABEL_ACTION"
-REWRAP_LABEL_ACTION = "REWRAP_LABEL_ACTION"
 
 TOOLS = {
-    EDITING_GROUP: [
+    ToolGroup.Editing: [
         Action(
             "Edit Attributes",
             "mActionMultiEditAttributes",
@@ -88,7 +78,7 @@ TOOLS = {
             "Populate or modify feature attributes.",
         ),
         CustomAction(
-            CHANGE_FEATURE_CLASS_ACTION,
+            PluginTool.ChangeFeatureClass,
             "Change Class of Feature",
             "change_class.svg",
             "Change class of selected features.",
@@ -173,28 +163,28 @@ TOOLS = {
             "Change direction of line feature.",
         ),
         CustomAction(
-            PASTRY_DELETE_ACTION,
+            PluginTool.PastryDelete,
             "Pastry Delete",
             "pastry_delete.svg",
             "Remove parts of an object which intersect a related feature.",
             requires_selection=True,
         ),
         CustomAction(
-            PASTRY_CUT_ACTION,
+            PluginTool.PastryCut,
             "Pastry Cut",
             "pastry_cut.svg",
             "Split features using other features as cutting lines.",
             requires_selection=True,
         ),
         CustomAction(
-            CLEAR_PRODUCT_EDITS,
+            PluginTool.ClearProductEdits,
             "Clear Product Data Edits",
             "delete_product_view.svg",
             "Clears the product view specific edits for the selected features.",
             requires_selection=True,
         ),
     ],
-    DIGITIZING_GROUP: [
+    ToolGroup.Digitizing: [
         DigitizeTechniqueAction(
             "Point Digitize",
             ["mActionAddFeature", "mActionDigitizeWithSegment"],
@@ -231,30 +221,54 @@ TOOLS = {
             [Qgis.GeometryType.Line, Qgis.GeometryType.Polygon],
         ),
     ],
-    LABELING_GROUP: [
+    ToolGroup.Labeling: [
         CustomAction(
-            SELECT_LABELS_ACTION,
+            PluginTool.SelectLabels,
             "Select Labels",
             "select_label.svg",
             "Selects labels.",
         ),
         CustomAction(
-            CREATE_LABEL_ACTION,
+            PluginTool.CreateLabel,
             "Create Label",
             "create_label.svg",
             "Creates labels for the selected features.",
+            requires_selection=True,
+            requires_editable_target=False,
         ),
         CustomAction(
-            RESET_LABEL_ACTION,
+            PluginTool.ResetLabel,
             "Reset Label",
             "reset_label.svg",
             "Resets selected labels to their default appearance.",
         ),
         CustomAction(
-            REWRAP_LABEL_ACTION,
+            PluginTool.RewrapLabel,
             "Rewrap Label",
             "reset_label.svg",
             "Rewraps label text.",
+        ),
+    ],
+    ToolGroup.Markup: [
+        CustomAction(
+            PluginTool.MarkupSelected,
+            "Markup Selected Features",
+            "markup_selected.svg",
+            "Creates markups for all selected features.",
+            requires_selection=True,
+            requires_editable_target=False,
+        ),
+        CustomAction(
+            PluginTool.GoToNextMarkup,
+            "Goto Next Markup",
+            "duplicate.svg",
+            "Navigate to the next markup.",
+        ),
+        CustomAction(
+            PluginTool.GoToPreviousMarkup,
+            "Goto Previous Markup",
+            "duplicate.svg",
+            "Navigate to the previous markup.",
         ),
     ],
 }
@@ -263,7 +277,7 @@ TOOLS = {
 class ToolRegistry(QObject):
     def __init__(self, parent: QObject, state_manager: StateManager):
         super().__init__(parent)
-        self._actions = defaultdict(list)
+        self._actions: Dict[ToolGroup, list] = defaultdict(list)
         self._state_manager = state_manager
 
         # built in actions
@@ -280,8 +294,8 @@ class ToolRegistry(QObject):
             "description",
             "Sets the current edit target by selecting features on the map",
         )
-        self._actions["_private"].append(self.set_target_tool_action)
-        self._custom_actions: Dict[str, QAction] = {}
+        self._actions[ToolGroup.Private].append(self.set_target_tool_action)
+        self._custom_actions: Dict[PluginTool, QAction] = {}
 
     @staticmethod
     def title_to_object_name(title: str) -> str:
@@ -299,9 +313,11 @@ class ToolRegistry(QObject):
                 elif isinstance(action, CustomAction):
                     self._process_custom_action(action, group, iface)
                 else:
-                    assert False
+                    raise AssertionError(
+                        "Unhandled action type {}".format(type(action))
+                    )
 
-    def _process_action(self, action: Action, group: str, iface: QgisInterface):
+    def _process_action(self, action: Action, group: ToolGroup, iface: QgisInterface):
         source_action: QAction = iface.mainWindow().findChild(
             QAction, action.qgis_action_name
         )
@@ -316,13 +332,15 @@ class ToolRegistry(QObject):
         proxy_action.setCheckable(source_action.isCheckable())
         proxy_action.setIcon(GuiUtils.get_colorized_icon(action.icon))
 
-        assert action.description[-1] == "."
-        assert action.description[0].isupper()
+        if action.description[-1] != ".":
+            raise AssertionError("Action description must end with '.'")
+        if not action.description[0].isupper():
+            raise AssertionError("Action description must start with uppercase")
         proxy_action.setProperty("description", action.description)
         self._actions[group].append(proxy_action)
 
     def _process_compound_action(
-        self, action: CompoundAction, group: str, iface: QgisInterface
+        self, action: CompoundAction, group: ToolGroup, iface: QgisInterface
     ):
         source_actions: list[QAction] = [
             iface.mainWindow().findChild(QAction, qgis_action_name)
@@ -340,13 +358,15 @@ class ToolRegistry(QObject):
         proxy_action.setCheckable(True)
         proxy_action.setIcon(GuiUtils.get_colorized_icon(action.icon))
 
-        assert action.description[-1] == "."
-        assert action.description[0].isupper()
+        if action.description[-1] != ".":
+            raise AssertionError("Action description must end with '.'")
+        if not action.description[0].isupper():
+            raise AssertionError("Action description must start with uppercase")
         proxy_action.setProperty("description", action.description)
         self._actions[group].append(proxy_action)
 
     def _process_digitize_technique_action(
-        self, action: DigitizeTechniqueAction, group: str, iface: QgisInterface
+        self, action: DigitizeTechniqueAction, group: ToolGroup, iface: QgisInterface
     ):
         source_actions: list[QAction] = [
             iface.mainWindow().findChild(QAction, qgis_action_name)
@@ -365,60 +385,93 @@ class ToolRegistry(QObject):
         proxy_action.setCheckable(True)
         proxy_action.setIcon(GuiUtils.get_colorized_icon(action.icon))
 
-        assert action.description[-1] == "."
-        assert action.description[0].isupper()
+        if action.description[-1] != ".":
+            raise AssertionError("Action description must end with '.'")
+        if not action.description[0].isupper():
+            raise AssertionError("Action description must start with uppercase")
+
         proxy_action.setProperty("description", action.description)
         self._actions[group].append(proxy_action)
 
     def _process_custom_action(
-        self, action: CustomAction, group: str, iface: QgisInterface
+        self, action: CustomAction, group: ToolGroup, iface: QgisInterface
     ):
         new_action = QAction()
         new_action.setText(action.title)
         new_action.setObjectName(ToolRegistry.title_to_object_name(action.title))
         new_action.setIcon(GuiUtils.get_colorized_icon(action.icon))
 
-        assert action.description[-1] == "."
-        assert action.description[0].isupper()
+        if action.description[-1] != ".":
+            raise AssertionError("Action description must end with '.'")
+        if not action.description[0].isupper():
+            raise AssertionError("Action description must start with uppercase")
+
         new_action.setProperty("description", action.description)
         self._actions[group].append(new_action)
         self._custom_actions[action.id] = new_action
 
         if action.requires_selection:
             self._state_manager.target_layer_changed.connect(
-                partial(self._custom_action_update_state, new_action)
+                partial(
+                    self._custom_action_update_state,
+                    new_action,
+                    action.requires_editable_target,
+                )
             )
-            self._state_manager.current_layer_selection_changed.connect(
-                partial(self._custom_action_update_state, new_action)
+            if action.requires_editable_target:
+                self._state_manager.target_layer_selection_changed.connect(
+                    partial(
+                        self._custom_action_update_state,
+                        new_action,
+                        action.requires_editable_target,
+                    )
+                )
+            else:
+                self._state_manager.current_layer_selection_changed.connect(
+                    partial(
+                        self._custom_action_update_state,
+                        new_action,
+                        action.requires_editable_target,
+                    )
+                )
+            self._custom_action_update_state(
+                new_action, action.requires_editable_target
             )
-            self._custom_action_update_state(new_action)
 
-    def _custom_action_update_state(self, action: QAction):
-        action.setEnabled(
-            self._state_manager.target_layer() is not None
-            and self._state_manager.target_layer().selectedFeatureCount() > 0
-        )
+    def _custom_action_update_state(
+        self, action: QAction, requires_editable_target: bool
+    ):
+        if requires_editable_target:
+            action.setEnabled(
+                self._state_manager.target_layer() is not None
+                and self._state_manager.target_layer().selectedFeatureCount() > 0
+            )
+        else:
+            action.setEnabled(
+                self._state_manager.current_layer() is not None
+                and self._state_manager.current_layer().selectedFeatureCount() > 0
+            )
 
-    def custom_action(self, action_id: str) -> QAction:
+    def custom_action(self, action_id: PluginTool) -> QAction:
         """
         Returns the custom action with specified ID
         """
         return self._custom_actions[action_id]
 
-    def populate_tool_dock(self, dock: ToolDock, groups: List[str]):
+    def populate_tool_dock(self, dock: ToolDock, groups: List[ToolGroup]):
         for group, actions in self._actions.items():
             if group not in groups:
                 continue
 
-            if group[0] == "_":
+            if group == ToolGroup.Private:
                 continue
 
             for action in actions:
                 dock.add_tool_action(
                     action,
+                    group.to_string(),
                     group,
                     action.property("description"),
-                    is_digitizing_action=group == DIGITIZING_GROUP,
                 )
 
     def register_shortcuts(self):
