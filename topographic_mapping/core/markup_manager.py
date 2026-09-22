@@ -250,7 +250,7 @@ class MarkupManager(QObject):
         project.addMapLayers(added_layers)
 
     def markup_selected_features(
-        self, project: QgsProject, source_layer: QgsVectorLayer
+        self, project: QgsProject, source_layer: QgsVectorLayer, notes: str | None
     ):
         """
         Creates markup for selected features in a layer
@@ -274,6 +274,8 @@ class MarkupManager(QObject):
         new_features = []
         for feature in selected_features:
             new_feature = QgsFeature(dest_layer.fields())
+            if notes:
+                new_feature["notes"] = notes
             new_geom = feature.geometry()
             try:
                 new_geom.transform(ct)

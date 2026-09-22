@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from qgis.PyQt.QtCore import Qt, QCoreApplication, QObject, QDir, QVariant
-from qgis.PyQt.QtWidgets import QMenu, QAction, QMessageBox
+from qgis.PyQt.QtWidgets import QMenu, QAction, QMessageBox, QInputDialog, QLineEdit
 
 from qgis.core import (
     Qgis,
@@ -63,6 +63,7 @@ class TopographicMappingPlugin:
         self._menu: QMenu | None = None
         self._options_factory: PluginsOptionsFactory | None = None
         self._symbol_layer_metadata = []
+        self._last_markup_notes: str | None = None
 
         QgsApplication.localizedDataPathRegistry().registerPath(
             STORED_OBJECT_MANAGER.get_base_plugin_data_dir().as_posix()
@@ -507,8 +508,17 @@ class TopographicMappingPlugin:
                 layer.commitChanges(False)
 
     def _markup_selected(self):
+        notes, ok = QInputDialog.getText(
+            self.iface.mainWindow(),
+            "Markup Selection",
+            "Notes for markup:",
+            text=self._last_markup_notes,
+        )
+        if not ok:
+            return
+        self._last_markup_notes = notes
         self._markup_manager.add_markup_layers_if_not_present(QgsProject.instance())
 
         self._markup_manager.markup_selected_features(
-            QgsProject.instance(), self._state_manager.current_layer()
+            QgsProject.instance(), self._state_manager.current_layer(), notes
         )
