@@ -198,6 +198,10 @@ class TopographicMappingPlugin:
             PluginTool.ClearProductEdits
         ).triggered.connect(self._clear_product_edits)
 
+        self._tool_registry.custom_action(PluginTool.MarkupSelected).triggered.connect(
+            self._markup_selected
+        )
+
     def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""
         self._label_gui_manager.unregister()
@@ -501,3 +505,6 @@ class TopographicMappingPlugin:
         for layer in self._project_controller.editable_vector_layers_in_gpkg(gpkg_path):
             if layer.isEditable():
                 layer.commitChanges(False)
+
+    def _markup_selected(self):
+        self._markup_manager.add_markup_layers_if_not_present(QgsProject.instance())

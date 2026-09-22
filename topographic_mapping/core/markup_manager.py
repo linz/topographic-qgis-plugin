@@ -107,10 +107,10 @@ class MarkupManager(QObject):
             parts = QgsProviderRegistry.instance().decodeUri(
                 layer.providerType(), layer.source()
             )
-            if parts["path"] != db_path:
+            if parts.get("path") != db_path:
                 continue
 
-            elif parts["layerName"] == "point_markup":
+            elif parts.get("layerName") == "point_markup":
                 return True
 
         return False
@@ -124,10 +124,10 @@ class MarkupManager(QObject):
             parts = QgsProviderRegistry.instance().decodeUri(
                 layer.providerType(), layer.source()
             )
-            if parts["path"] != db_path:
+            if parts.get("path") != db_path:
                 continue
 
-            elif parts["layerName"] == "line_markup":
+            elif parts.get("layerName") == "line_markup":
                 return True
 
         return False
@@ -141,10 +141,10 @@ class MarkupManager(QObject):
             parts = QgsProviderRegistry.instance().decodeUri(
                 layer.providerType(), layer.source()
             )
-            if parts["path"] != db_path:
+            if parts.get("path") != db_path:
                 continue
 
-            elif parts["layerName"] == "polygon_markup":
+            elif parts.get("layerName") == "polygon_markup":
                 return True
 
         return False
