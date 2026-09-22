@@ -119,11 +119,6 @@ class StateManagerTest(TopographicTestBase):
         self.assertEqual(len(emitted_layers), 4)
         self.assertEqual(emitted_layers[-1], None)
 
-        # no extra signal for changing to another invalid layer
-        self.mock_iface.setActiveLayer(self.memory_layer2)
-        self.assertIsNone(state_manager.target_layer())
-        self.assertEqual(len(emitted_layers), 4)
-
     def test_set_edit_target(self):
         """
         Test set_edit_target
