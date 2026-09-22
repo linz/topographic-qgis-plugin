@@ -66,6 +66,7 @@ class CustomAction:
     icon: str
     description: str
     requires_selection: bool = False
+    requires_editable_target: bool = True
 
 
 TOOLS = {
@@ -232,6 +233,8 @@ TOOLS = {
             "Create Label",
             "create_label.svg",
             "Creates labels for the selected features.",
+            requires_selection=True,
+            requires_editable_target=False,
         ),
         CustomAction(
             PluginTool.ResetLabel,
@@ -252,6 +255,8 @@ TOOLS = {
             "Markup Selected Features",
             "duplicate.svg",
             "Creates markups for all selected features.",
+            requires_selection=True,
+            requires_editable_target=False,
         ),
         CustomAction(
             PluginTool.GoToNextMarkup,
@@ -407,18 +412,45 @@ class ToolRegistry(QObject):
 
         if action.requires_selection:
             self._state_manager.target_layer_changed.connect(
-                partial(self._custom_action_update_state, new_action)
+                partial(
+                    self._custom_action_update_state,
+                    new_action,
+                    action.requires_editable_target,
+                )
             )
-            self._state_manager.current_layer_selection_changed.connect(
-                partial(self._custom_action_update_state, new_action)
+            if action.requires_editable_target:
+                self._state_manager.target_layer_selection_changed.connect(
+                    partial(
+                        self._custom_action_update_state,
+                        new_action,
+                        action.requires_editable_target,
+                    )
+                )
+            else:
+                self._state_manager.current_layer_selection_changed.connect(
+                    partial(
+                        self._custom_action_update_state,
+                        new_action,
+                        action.requires_editable_target,
+                    )
+                )
+            self._custom_action_update_state(
+                new_action, action.requires_editable_target
             )
-            self._custom_action_update_state(new_action)
 
-    def _custom_action_update_state(self, action: QAction):
-        action.setEnabled(
-            self._state_manager.target_layer() is not None
-            and self._state_manager.target_layer().selectedFeatureCount() > 0
-        )
+    def _custom_action_update_state(
+        self, action: QAction, requires_editable_target: bool
+    ):
+        if requires_editable_target:
+            action.setEnabled(
+                self._state_manager.target_layer() is not None
+                and self._state_manager.target_layer().selectedFeatureCount() > 0
+            )
+        else:
+            action.setEnabled(
+                self._state_manager.current_layer() is not None
+                and self._state_manager.current_layer().selectedFeatureCount() > 0
+            )
 
     def custom_action(self, action_id: PluginTool) -> QAction:
         """
