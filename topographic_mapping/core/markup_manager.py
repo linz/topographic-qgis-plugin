@@ -16,6 +16,9 @@ from qgis.core import (
 from .stored_object_manager import STORED_OBJECT_MANAGER
 
 
+RESOURCES_DIR = Path(__file__) / ".." / ".." / "resources"
+
+
 class MarkupManager(QObject):
     """
     Manages markup functionality
@@ -35,6 +38,14 @@ class MarkupManager(QObject):
         Returns the path to the markup database
         """
         return STORED_OBJECT_MANAGER.get_plugin_data_path(MarkupManager.MARKUP_DB_FILE)
+
+    @staticmethod
+    def markup_qml_path() -> Path:
+        """
+        Returns the path to markup QML files
+        :return:
+        """
+        return RESOURCES_DIR.resolve()
 
     @staticmethod
     def markup_layer_fields() -> QgsFields:
@@ -163,31 +174,40 @@ class MarkupManager(QObject):
         """
         Loads the polygon markup layer
         """
-        return QgsVectorLayer(
+        res = QgsVectorLayer(
             self.markup_db_path().as_posix() + "|layername=polygon_markup",
             "Polygon Markup",
             "ogr",
         )
+        qml_path = self.markup_qml_path() / "polygon_markup.qml"
+        res.loadNamedStyle(qml_path.as_posix())
+        return res
 
     def load_line_markup_layer(self) -> QgsVectorLayer:
         """
         Loads the line markup layer
         """
-        return QgsVectorLayer(
+        res = QgsVectorLayer(
             self.markup_db_path().as_posix() + "|layername=line_markup",
             "Line Markup",
             "ogr",
         )
+        qml_path = self.markup_qml_path() / "line_markup.qml"
+        res.loadNamedStyle(qml_path.as_posix())
+        return res
 
     def load_point_markup_layer(self) -> QgsVectorLayer:
         """
         Loads the point markup layer
         """
-        return QgsVectorLayer(
+        res = QgsVectorLayer(
             self.markup_db_path().as_posix() + "|layername=point_markup",
             "Point Markup",
             "ogr",
         )
+        qml_path = self.markup_qml_path() / "point_markup.qml"
+        res.loadNamedStyle(qml_path.as_posix())
+        return res
 
     def add_markup_layers_if_not_present(self, project: QgsProject):
         """
