@@ -337,7 +337,9 @@ class ToolRegistry(QObject):
                 elif isinstance(action, CustomAction):
                     self._process_custom_action(action, group, iface)
                 else:
-                    assert False
+                    raise AssertionError(
+                        "Unhandled action type {}".format(type(action))
+                    )
 
     def _process_action(self, action: Action, group: str, iface: QgisInterface):
         source_action: QAction = iface.mainWindow().findChild(
@@ -354,8 +356,10 @@ class ToolRegistry(QObject):
         proxy_action.setCheckable(source_action.isCheckable())
         proxy_action.setIcon(GuiUtils.get_colorized_icon(action.icon))
 
-        assert action.description[-1] == "."
-        assert action.description[0].isupper()
+        if action.description[-1] != ".":
+            raise AssertionError("Action description must end with '.'")
+        if not action.description[0].isupper():
+            raise AssertionError("Action description must start with uppercase")
         proxy_action.setProperty("description", action.description)
         self._actions[group].append(proxy_action)
 
@@ -378,8 +382,10 @@ class ToolRegistry(QObject):
         proxy_action.setCheckable(True)
         proxy_action.setIcon(GuiUtils.get_colorized_icon(action.icon))
 
-        assert action.description[-1] == "."
-        assert action.description[0].isupper()
+        if action.description[-1] != ".":
+            raise AssertionError("Action description must end with '.'")
+        if not action.description[0].isupper():
+            raise AssertionError("Action description must start with uppercase")
         proxy_action.setProperty("description", action.description)
         self._actions[group].append(proxy_action)
 
@@ -403,8 +409,11 @@ class ToolRegistry(QObject):
         proxy_action.setCheckable(True)
         proxy_action.setIcon(GuiUtils.get_colorized_icon(action.icon))
 
-        assert action.description[-1] == "."
-        assert action.description[0].isupper()
+        if action.description[-1] != ".":
+            raise AssertionError("Action description must end with '.'")
+        if not action.description[0].isupper():
+            raise AssertionError("Action description must start with uppercase")
+
         proxy_action.setProperty("description", action.description)
         self._actions[group].append(proxy_action)
 
@@ -416,8 +425,11 @@ class ToolRegistry(QObject):
         new_action.setObjectName(ToolRegistry.title_to_object_name(action.title))
         new_action.setIcon(GuiUtils.get_colorized_icon(action.icon))
 
-        assert action.description[-1] == "."
-        assert action.description[0].isupper()
+        if action.description[-1] != ".":
+            raise AssertionError("Action description must end with '.'")
+        if not action.description[0].isupper():
+            raise AssertionError("Action description must start with uppercase")
+
         new_action.setProperty("description", action.description)
         self._actions[group].append(new_action)
         self._custom_actions[action.id] = new_action

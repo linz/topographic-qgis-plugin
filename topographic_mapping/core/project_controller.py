@@ -191,7 +191,8 @@ class ProjectController(QObject):
                         ref_options.append(_type["$ref"])
 
                 if string_options:
-                    assert not ref_options
+                    if ref_options:
+                        raise AssertionError("Unexpected ref_options")
                     config = edit_widget_setup.config()
                     config["map"] = [{opt: opt} for opt in string_options]
                     if is_nullable:
@@ -200,7 +201,10 @@ class ProjectController(QObject):
                         )
                     edit_widget_setup = QgsEditorWidgetSetup("ValueMap", config)
                 elif ref_options:
-                    assert len(ref_options) == 1
+                    if len(ref_options) != 1:
+                        raise AssertionError(
+                            "Unexpected ref_options length {}".format(len(ref_options))
+                        )
                     ref = ref_options[0][len("#/$defs/") :]
                     definition = schema["$defs"][ref]
                     if "enum" in definition:

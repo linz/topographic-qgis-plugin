@@ -43,7 +43,8 @@ class LayerLoaderWorker(QThread):
             return
 
         ogr_provider_metadata = QgsProviderRegistry.instance().providerMetadata("ogr")
-        assert ogr_provider_metadata
+        if ogr_provider_metadata is None:
+            raise AssertionError("Could not retrieve OGR provider driver")
 
         for db_file in self.folder_path.glob("*.gpkg"):
             if self.isInterruptionRequested():

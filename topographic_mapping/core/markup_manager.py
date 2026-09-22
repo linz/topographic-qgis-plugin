@@ -62,7 +62,8 @@ class MarkupManager(QObject):
             markup_layer_crs,
             Qgis.CreateLayerActionOnExisting.CreateOrOverwriteFile,
         )
-        assert res.result() == Qgis.VectorExportResult.Success
+        if res.result() != Qgis.VectorExportResult.Success:
+            raise AssertionError("Could not create markup database")
 
         point_markup_layer_uri = {
             "path": MarkupManager.markup_db_path().as_posix(),
@@ -76,7 +77,8 @@ class MarkupManager(QObject):
             markup_layer_crs,
             Qgis.CreateLayerActionOnExisting.CreateOrOverwriteLayer,
         )
-        assert res.result() == Qgis.VectorExportResult.Success
+        if res.result() != Qgis.VectorExportResult.Success:
+            raise AssertionError("Could not create markup database")
 
         line_markup_layer_uri = {
             "path": MarkupManager.markup_db_path().as_posix(),
@@ -90,4 +92,5 @@ class MarkupManager(QObject):
             markup_layer_crs,
             Qgis.CreateLayerActionOnExisting.CreateOrOverwriteLayer,
         )
-        assert res.result() == Qgis.VectorExportResult.Success
+        if res.result() != Qgis.VectorExportResult.Success:
+            raise AssertionError("Could not create markup database")
