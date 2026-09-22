@@ -147,6 +147,26 @@ class TestMarkupManager(TopographicTestBase):
         self.assertEqual(len(project.mapLayers()), 3)
         self.assertTrue(manager.project_has_all_markup_layers(project))
 
+    def test_markup_group(self):
+        manager = MarkupManager()
+        project = QgsProject()
+        manager.add_markup_layers_if_not_present(project)
+
+        root = project.layerTreeRoot()
+        markup_group = root.findGroup("Markup")
+        self.assertIsNotNone(markup_group)
+        self.assertTrue(markup_group.customProperty("_is_markup_group"))
+
+        self.assertEqual(len(markup_group.children()), 3)
+
+        # using existing group
+        polygon_layer = project.mapLayersByName("Polygon Markup")[0]
+        project.removeMapLayer(polygon_layer)
+        self.assertEqual(len(markup_group.children()), 2)
+
+        manager.add_markup_layers_if_not_present(project)
+        self.assertEqual(len(markup_group.children()), 3)
+
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(TestMarkupManager)

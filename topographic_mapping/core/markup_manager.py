@@ -10,6 +10,7 @@ from qgis.core import (
     QgsField,
     QgsProject,
     QgsVectorLayer,
+    QgsLayerTreeGroup,
 )
 
 from .stored_object_manager import STORED_OBJECT_MANAGER
@@ -202,5 +203,23 @@ class MarkupManager(QObject):
             added_layers.append(self.load_polygon_markup_layer())
         if not self.project_has_line_markup_layer(project):
             added_layers.append(self.load_line_markup_layer())
+
+        layer_tree = project.layerTreeRoot()
+        markup_group = None
+        for child in layer_tree.children():
+            if isinstance(child, QgsLayerTreeGroup) and child.customProperty(
+                "_is_markup_group"
+            ):
+                markup_group = child
+                break
+
+        if markup_group is None:
+            markup_group = QgsLayerTreeGroup("Markup", True)
+            markup_group.setCustomProperty("_is_markup_group", True)
+            layer_tree.insertChildNode(0, markup_group)
+
+        project.addMapLayers(added_layers, False)
+        for layer in added_layers:
+            markup_group.addLayer(layer)
 
         project.addMapLayers(added_layers)
