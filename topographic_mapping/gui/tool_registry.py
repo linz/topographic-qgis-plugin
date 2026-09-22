@@ -191,6 +191,7 @@ TOOLS = {
             "Clear Product Data Edits",
             "delete_product_view.svg",
             "Clears the product view specific edits for the selected features.",
+            requires_selection=True,
         ),
     ],
     DIGITIZING_GROUP: [
