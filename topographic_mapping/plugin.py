@@ -508,3 +508,7 @@ class TopographicMappingPlugin:
 
     def _markup_selected(self):
         self._markup_manager.add_markup_layers_if_not_present(QgsProject.instance())
+
+        self._markup_manager.markup_selected_features(
+            QgsProject.instance(), self._state_manager.current_layer()
+        )

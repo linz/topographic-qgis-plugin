@@ -11,6 +11,9 @@ from qgis.core import (
     QgsProject,
     QgsVectorLayer,
     QgsLayerTreeGroup,
+    QgsFeature,
+    QgsCoordinateTransform,
+    QgsCsException,
 )
 
 from .stored_object_manager import STORED_OBJECT_MANAGER
@@ -245,3 +248,39 @@ class MarkupManager(QObject):
             markup_group.addLayer(layer)
 
         project.addMapLayers(added_layers)
+
+    def markup_selected_features(
+        self, project: QgsProject, source_layer: QgsVectorLayer
+    ):
+        """
+        Creates markup for selected features in a layer
+        """
+        selected_features = source_layer.selectedFeatures()
+        if source_layer.geometryType() == Qgis.GeometryType.Polygon:
+            dest_layer = self.project_polygon_markup_layer(project)
+        elif source_layer.geometryType() == Qgis.GeometryType.Point:
+            dest_layer = self.project_point_markup_layer(project)
+        elif source_layer.geometryType() == Qgis.GeometryType.Line:
+            dest_layer = self.project_line_markup_layer(project)
+        else:
+            return
+
+        if not dest_layer.isEditable():
+            dest_layer.startEditing()
+
+        ct = QgsCoordinateTransform(
+            source_layer.crs(), dest_layer.crs(), project.transformContext()
+        )
+        new_features = []
+        for feature in selected_features:
+            new_feature = QgsFeature(dest_layer.fields())
+            new_geom = feature.geometry()
+            try:
+                new_geom.transform(ct)
+            except QgsCsException:
+                continue
+            new_feature.setGeometry(new_geom)
+            new_features.append(new_feature)
+
+        dest_layer.addFeatures(new_features)
+        dest_layer.commitChanges()
