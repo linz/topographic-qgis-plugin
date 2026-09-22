@@ -80,6 +80,73 @@ class TestMarkupManager(TopographicTestBase):
         self.assertTrue(vl.isValid())
         self.assertEqual(vl.wkbType(), Qgis.WkbType.MultiLineString)
 
+    def test_layers(self):
+        manager = MarkupManager()
+        poly = manager.load_polygon_markup_layer()
+        self.assertTrue(poly.isValid())
+        self.assertEqual(poly.wkbType(), Qgis.WkbType.MultiPolygon)
+
+        line = manager.load_line_markup_layer()
+        self.assertTrue(line.isValid())
+        self.assertEqual(line.wkbType(), Qgis.WkbType.MultiLineString)
+
+        point = manager.load_point_markup_layer()
+        self.assertTrue(point.isValid())
+        self.assertEqual(point.wkbType(), Qgis.WkbType.MultiPoint)
+
+    def test_markup_layers_in_project(self):
+        manager = MarkupManager()
+        project = QgsProject()
+        self.assertFalse(manager.project_has_all_markup_layers(project))
+        self.assertFalse(manager.project_has_point_markup_layer(project))
+        self.assertFalse(manager.project_has_line_markup_layer(project))
+        self.assertFalse(manager.project_has_polygon_markup_layer(project))
+
+        poly = manager.load_polygon_markup_layer()
+        project.addMapLayer(poly)
+        self.assertFalse(manager.project_has_all_markup_layers(project))
+        self.assertFalse(manager.project_has_point_markup_layer(project))
+        self.assertFalse(manager.project_has_line_markup_layer(project))
+        self.assertTrue(manager.project_has_polygon_markup_layer(project))
+
+        line = manager.load_line_markup_layer()
+        project.addMapLayer(line)
+        self.assertFalse(manager.project_has_all_markup_layers(project))
+        self.assertFalse(manager.project_has_point_markup_layer(project))
+        self.assertTrue(manager.project_has_line_markup_layer(project))
+        self.assertTrue(manager.project_has_polygon_markup_layer(project))
+
+        point = manager.load_point_markup_layer()
+        project.addMapLayer(point)
+        self.assertTrue(manager.project_has_all_markup_layers(project))
+        self.assertTrue(manager.project_has_point_markup_layer(project))
+        self.assertTrue(manager.project_has_line_markup_layer(project))
+        self.assertTrue(manager.project_has_polygon_markup_layer(project))
+
+    def test_add_markup_layers(self):
+        manager = MarkupManager()
+        project = QgsProject()
+        manager.add_markup_layers_if_not_present(project)
+        self.assertTrue(manager.project_has_all_markup_layers(project))
+
+        project = QgsProject()
+        project.addMapLayer(manager.load_point_markup_layer())
+        manager.add_markup_layers_if_not_present(project)
+        self.assertEqual(len(project.mapLayers()), 3)
+        self.assertTrue(manager.project_has_all_markup_layers(project))
+
+        project = QgsProject()
+        project.addMapLayer(manager.load_line_markup_layer())
+        manager.add_markup_layers_if_not_present(project)
+        self.assertEqual(len(project.mapLayers()), 3)
+        self.assertTrue(manager.project_has_all_markup_layers(project))
+
+        project = QgsProject()
+        project.addMapLayer(manager.load_point_markup_layer())
+        manager.add_markup_layers_if_not_present(project)
+        self.assertEqual(len(project.mapLayers()), 3)
+        self.assertTrue(manager.project_has_all_markup_layers(project))
+
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(TestMarkupManager)

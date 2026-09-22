@@ -8,6 +8,8 @@ from qgis.core import (
     Qgis,
     QgsCoordinateReferenceSystem,
     QgsField,
+    QgsProject,
+    QgsVectorLayer,
 )
 
 from .stored_object_manager import STORED_OBJECT_MANAGER
@@ -94,3 +96,111 @@ class MarkupManager(QObject):
         )
         if res.result() != Qgis.VectorExportResult.Success:
             raise AssertionError("Could not create markup database")
+
+    def project_has_point_markup_layer(self, project: QgsProject) -> bool:
+        """
+        Returns True if the project contains the point markup layer
+        """
+        db_path = MarkupManager.markup_db_path().as_posix()
+        for _, layer in project.mapLayers().items():
+            parts = QgsProviderRegistry.instance().decodeUri(
+                layer.providerType(), layer.source()
+            )
+            if parts["path"] != db_path:
+                continue
+
+            elif parts["layerName"] == "point_markup":
+                return True
+
+        return False
+
+    def project_has_line_markup_layer(self, project: QgsProject) -> bool:
+        """
+        Returns True if the project contains the line markup layer
+        """
+        db_path = MarkupManager.markup_db_path().as_posix()
+        for _, layer in project.mapLayers().items():
+            parts = QgsProviderRegistry.instance().decodeUri(
+                layer.providerType(), layer.source()
+            )
+            if parts["path"] != db_path:
+                continue
+
+            elif parts["layerName"] == "line_markup":
+                return True
+
+        return False
+
+    def project_has_polygon_markup_layer(self, project: QgsProject) -> bool:
+        """
+        Returns True if the project contains the polygon markup layer
+        """
+        db_path = MarkupManager.markup_db_path().as_posix()
+        for _, layer in project.mapLayers().items():
+            parts = QgsProviderRegistry.instance().decodeUri(
+                layer.providerType(), layer.source()
+            )
+            if parts["path"] != db_path:
+                continue
+
+            elif parts["layerName"] == "polygon_markup":
+                return True
+
+        return False
+
+    def project_has_all_markup_layers(self, project: QgsProject) -> bool:
+        """
+        Returns True if the project contains the markup layers
+        """
+        return (
+            self.project_has_line_markup_layer(project)
+            and self.project_has_point_markup_layer(project)
+            and self.project_has_polygon_markup_layer(project)
+        )
+
+    def load_polygon_markup_layer(self) -> QgsVectorLayer:
+        """
+        Loads the polygon markup layer
+        """
+        return QgsVectorLayer(
+            self.markup_db_path().as_posix() + "|layername=polygon_markup",
+            "Polygon Markup",
+            "ogr",
+        )
+
+    def load_line_markup_layer(self) -> QgsVectorLayer:
+        """
+        Loads the line markup layer
+        """
+        return QgsVectorLayer(
+            self.markup_db_path().as_posix() + "|layername=line_markup",
+            "Line Markup",
+            "ogr",
+        )
+
+    def load_point_markup_layer(self) -> QgsVectorLayer:
+        """
+        Loads the point markup layer
+        """
+        return QgsVectorLayer(
+            self.markup_db_path().as_posix() + "|layername=point_markup",
+            "Point Markup",
+            "ogr",
+        )
+
+    def add_markup_layers_if_not_present(self, project: QgsProject):
+        """
+        Adds the markup layers to the project if not already present
+        """
+        if self.project_has_all_markup_layers(project):
+            return
+
+        added_layers = []
+        if not self.project_has_point_markup_layer(project):
+            added_layers.append(self.load_point_markup_layer())
+        if not self.project_has_polygon_markup_layer(project):
+            added_layers.append(self.load_polygon_markup_layer())
+        if not self.project_has_line_markup_layer(project):
+            added_layers.append(self.load_line_markup_layer())
+
+        project.addMapLayers(added_layers)
