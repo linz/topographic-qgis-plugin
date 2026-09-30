@@ -258,18 +258,6 @@ TOOLS = {
             requires_selection=True,
             requires_editable_target=False,
         ),
-        CustomAction(
-            PluginTool.GoToNextMarkup,
-            "Goto Next Markup",
-            "duplicate.svg",
-            "Navigate to the next markup.",
-        ),
-        CustomAction(
-            PluginTool.GoToPreviousMarkup,
-            "Goto Previous Markup",
-            "duplicate.svg",
-            "Navigate to the previous markup.",
-        ),
     ],
 }
 
