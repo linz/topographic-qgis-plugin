@@ -187,6 +187,11 @@ class TopographicMappingPlugin:
         )
         change_feature_class_action.triggered.connect(self._change_feature_class)
 
+        copy_to_feature_class_action = self._tool_registry.custom_action(
+            PluginTool.CopyToFeatureClass
+        )
+        copy_to_feature_class_action.triggered.connect(self._copy_to_feature_class)
+
         pastry_delete_action = self._tool_registry.custom_action(
             PluginTool.PastryDelete
         )
@@ -305,30 +310,52 @@ class TopographicMappingPlugin:
             self._style_manager.download_styles()
 
     def _change_feature_class(self):
+        self._handle_feature_class_action(is_copy_action=False)
+
+    def _copy_to_feature_class(self):
+        self._handle_feature_class_action(is_copy_action=True)
+
+    def _handle_feature_class_action(self, is_copy_action: bool):
         current_layer = self._state_manager.target_layer()
         if current_layer is None:
-            self.iface.messageBar().pushWarning(
-                "", "Changing feature classes requires an active layer"
+            message = (
+                "Copying to a feature class requires an active layer"
+                if is_copy_action
+                else "Changing feature classes requires a selected layer"
             )
+            self.iface.messageBar().pushWarning("", message)
             return
 
         current_selection = current_layer.selectedFeatureIds()
         if not current_selection:
-            self.iface.messageBar().pushWarning(
-                "", "Changing feature classes requires a selection"
+            message = (
+                "Copying to a feature class requires a selection"
+                if is_copy_action
+                else "Changing feature classes requires a selection"
             )
+            self.iface.messageBar().pushWarning("", message)
             return
 
         dlg = ChangeFeatureClassDialog(self._project_controller.feature_types)
+        if is_copy_action:
+            dlg.setWindowTitle("Copy to Feature Class")
         if dlg.exec():
             new_types = dlg.new_feature_type()
-            message = "The selected features will be changed to the {} class. Attributes or geometry properties may be lost as a result. Are you sure you want to proceed?".format(
-                new_types[-1]
-            )
+
+            if is_copy_action:
+                message = "The selected features will be copied to the {} class. Are you sure you want to proceed?".format(
+                    new_types[-1]
+                )
+                title = "Copy to Feature Class"
+            else:
+                message = "The selected features will be changed to the {} class. Attributes or geometry properties may be lost as a result. Are you sure you want to proceed?".format(
+                    new_types[-1]
+                )
+                title = "Change Feature Class"
             if (
                 QMessageBox.question(
                     self.iface.mainWindow(),
-                    "Change Feature Class",
+                    title,
                     message,
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                     QMessageBox.StandardButton.No,
@@ -349,7 +376,8 @@ class TopographicMappingPlugin:
             for f in compatible_features:
                 f["type"] = new_types[1]
 
-            current_layer.deleteFeatures(current_selection)
+            if not is_copy_action:
+                current_layer.deleteFeatures(current_selection)
             target_layer.addFeatures(compatible_features)
 
     def _pastry_delete(self):

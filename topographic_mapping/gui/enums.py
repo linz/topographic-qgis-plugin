@@ -40,6 +40,7 @@ class PluginTool(Enum):
     ReconsiderMarkup = auto()
 
     ChangeFeatureClass = auto()
+    CopyToFeatureClass = auto()
     PastryDelete = auto()
     PastryCut = auto()
     ClearProductEdits = auto()

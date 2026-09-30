@@ -84,6 +84,13 @@ TOOLS = {
             "Change class of selected features.",
             requires_selection=True,
         ),
+        CustomAction(
+            PluginTool.CopyToFeatureClass,
+            "Copy to Another Class",
+            "copy_class.svg",
+            "Copy features to a different class.",
+            requires_selection=True,
+        ),
         Action(
             "Filter Out Points",
             "mActionSimplifyFeature",
