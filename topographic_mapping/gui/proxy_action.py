@@ -57,7 +57,10 @@ class CompoundProxyAction(QAction):
         self._fallback_action = fallback_action
 
         for source_action in self._source_actions:
-            assert source_action.isCheckable()
+            if not source_action.isCheckable():
+                raise AssertionError(
+                    "Source action is not checkable for {}".format(title)
+                )
             source_action.toggled.connect(self._source_action_triggered)
             source_action.enabledChanged.connect(self._source_action_enable_changed)
         self.toggled.connect(self._proxy_action_toggled)
@@ -99,7 +102,10 @@ class DigitizeTechniqueProxyAction(QAction):
         self._fallback_action = fallback_action
 
         for source_action in self._source_actions:
-            assert source_action.isCheckable()
+            if not source_action.isCheckable():
+                raise AssertionError(
+                    "Source action is not checkable for {}".format(title)
+                )
             source_action.toggled.connect(self._source_action_triggered)
             source_action.enabledChanged.connect(self._source_action_enable_changed)
         self.toggled.connect(self._proxy_action_toggled)

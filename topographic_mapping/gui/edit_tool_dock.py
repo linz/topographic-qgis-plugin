@@ -64,6 +64,7 @@ class EditToolDock(ToolDock):
 
         self._digitize_widget = QWidget()
         digitize_vl = QVBoxLayout()
+        self._digitize_widget.setObjectName("feature_type")
         digitize_vl.setContentsMargins(0, 0, 0, 0)
         digitize_vl.addWidget(QLabel("New feature type"))
         self._filter_types_widget = QgsFilterLineEdit()

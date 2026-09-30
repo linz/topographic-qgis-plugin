@@ -12,10 +12,7 @@ from topographic_mapping.core import LabelManager, StateManager, ProjectControll
 
 from .tool_registry import (
     ToolRegistry,
-    CREATE_LABEL_ACTION,
-    RESET_LABEL_ACTION,
-    SELECT_LABELS_ACTION,
-    REWRAP_LABEL_ACTION,
+    PluginTool,
 )
 
 from .digitize_label_tool import DigitizeLabelTool
@@ -70,20 +67,22 @@ class LabelingGuiManager(QObject):
         self._project_controller = controller
 
     def register_tools(self, tool_registry: ToolRegistry):
-        self._select_labels_action = tool_registry.custom_action(SELECT_LABELS_ACTION)
+        self._select_labels_action = tool_registry.custom_action(
+            PluginTool.SelectLabels
+        )
         self._select_labels_action.triggered.connect(self._select_labels)
 
-        self._create_label_action = tool_registry.custom_action(CREATE_LABEL_ACTION)
+        self._create_label_action = tool_registry.custom_action(PluginTool.CreateLabel)
         self._create_label_action.triggered.connect(self._create_labels)
 
-        self._reset_label_action = tool_registry.custom_action(RESET_LABEL_ACTION)
+        self._reset_label_action = tool_registry.custom_action(PluginTool.ResetLabel)
         self._reset_label_action.triggered.connect(self._reset_labels)
 
         self._rewrap_label_tool = RewrapLabelTool(
             self._canvas, self._cad_dock, self._label_manager, self._project_controller
         )
 
-        self._rewrap_label_action = tool_registry.custom_action(REWRAP_LABEL_ACTION)
+        self._rewrap_label_action = tool_registry.custom_action(PluginTool.RewrapLabel)
         self._rewrap_label_action.triggered.connect(self._rewrap_labels)
 
     def _select_labels(self):

@@ -20,6 +20,7 @@ class StateManager(QObject):
     # Emitted when the target editable layer is changed
     target_layer_changed = pyqtSignal(QgsMapLayer)
     current_layer_selection_changed = pyqtSignal(QgsVectorLayer, object)
+    target_layer_selection_changed = pyqtSignal(QgsVectorLayer, object)
 
     def __init__(
         self, iface: QgisInterface, project: QgsProject, parent: QObject | None = None
@@ -29,15 +30,22 @@ class StateManager(QObject):
         self._iface = iface
         self._project: QgsProject = project
         self._current_target_layer: QgsVectorLayer | None = None
+        self._current_active_layer: QgsVectorLayer | None = None
 
         self._iface.currentLayerChanged.connect(self._on_current_layer_changed)
         self._on_current_layer_changed(iface.activeLayer())
 
     def target_layer(self) -> QgsVectorLayer | None:
         """
-        Returns the current target layer, if set
+        Returns the current target layer, if set. This is the current, EDITABLE layer
         """
         return self._current_target_layer
+
+    def current_layer(self) -> QgsVectorLayer | None:
+        """
+        Returns the current layer, if set. This is the current, possible NOT editable layer
+        """
+        return self._current_active_layer
 
     def set_target_layer(self, layer: QgsVectorLayer | None) -> bool:
         """
@@ -67,26 +75,39 @@ class StateManager(QObject):
         """
         Triggered when the user changes the current project layer
         """
-        if self._current_target_layer is not None and not sip.isdeleted(
-            self._current_target_layer
+        if (
+            self._current_target_layer is not None
+            and not sip.isdeleted(self._current_target_layer)
+            and self._current_active_layer != self._current_target_layer
         ):
             self._current_target_layer.selectionChanged.disconnect(
                 self._current_layer_selection_changed
             )
+        if self._current_active_layer is not None and not sip.isdeleted(
+            self._current_active_layer
+        ):
+            self._current_active_layer.selectionChanged.disconnect(
+                self._current_layer_selection_changed
+            )
 
         target_layer = None
-        if not isinstance(layer, QgsVectorLayer):
-            return
-
-        if LayerUtils.can_edit(layer) and layer.isEditable():
-            target_layer = layer
-
-        if target_layer == self._current_target_layer:
-            return
+        active_layer = None
+        if isinstance(layer, QgsVectorLayer):
+            if LayerUtils.can_edit(layer) and layer.isEditable():
+                target_layer = layer
+            active_layer = layer
 
         self._current_target_layer = target_layer
+        self._current_active_layer = active_layer
         self.target_layer_changed.emit(self._current_target_layer)
-        if self._current_target_layer is not None:
+        if self._current_active_layer is not None:
+            self._current_active_layer.selectionChanged.connect(
+                self._current_layer_selection_changed
+            )
+        if (
+            self._current_target_layer is not None
+            and self._current_target_layer != self._current_active_layer
+        ):
             self._current_target_layer.selectionChanged.connect(
                 self._current_layer_selection_changed
             )
@@ -103,4 +124,8 @@ class StateManager(QObject):
         """
         Triggered when the selection for the current layer is changed
         """
-        self.current_layer_selection_changed.emit(self._current_target_layer, selected)
+        layer = self.sender()
+        if layer == self._current_active_layer:
+            self.current_layer_selection_changed.emit(layer, selected)
+        if layer == self._current_target_layer:
+            self.target_layer_selection_changed.emit(layer, selected)
