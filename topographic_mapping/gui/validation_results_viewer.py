@@ -157,6 +157,8 @@ class ValidationResultsViewer(QWidget):
 
         self._list_view = QgsTableView()
         self._list_view.setModel(self._filter_model)
+        self._list_view.setSortingEnabled(True)
+
         self.layout().addWidget(self._list_view)
         self._list_view.setVerticalScrollMode(
             QAbstractItemView.ScrollMode.ScrollPerPixel
