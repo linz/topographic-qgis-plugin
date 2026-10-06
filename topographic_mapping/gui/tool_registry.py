@@ -254,7 +254,7 @@ TOOLS = {
         CustomAction(
             PluginTool.RewrapLabel,
             "Rewrap Label",
-            "reset_label.svg",
+            "reflow_label.svg",
             "Rewraps label text.",
             checkable=True,
         ),
