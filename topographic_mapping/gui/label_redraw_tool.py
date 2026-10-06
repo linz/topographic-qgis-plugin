@@ -2,11 +2,7 @@
 Map tool for interactively re-digitizing line geometry for labeled features.
 """
 
-from qgis.core import (
-    Qgis,
-    QgsFeature,
-    QgsGeometry,
-)
+from qgis.core import Qgis, QgsFeature, QgsGeometry, QgsApplication
 from qgis.gui import (
     QgsAdvancedDigitizingDockWidget,
     QgsMapCanvas,
@@ -31,6 +27,9 @@ class RedrawLabelTool(QgsMapToolDigitizeFeature):
         project_controller: ProjectController,
     ):
         super().__init__(canvas, cad_dock, QgsMapToolCapture.CaptureMode.CaptureLine)
+        self.setCursor(
+            QgsApplication.getThemeCursor(QgsApplication.Cursor.CapturePoint)
+        )
 
         self._canvas: QgsMapCanvas = canvas
         self._label_manager: LabelManager = label_manager
