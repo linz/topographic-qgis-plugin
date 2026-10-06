@@ -58,7 +58,7 @@ class DigitizeTechniqueAction:
 @dataclass
 class CustomAction:
     """
-    Encapsulates a custom (plugin specific) action (currently single-shot actions only)
+    Encapsulates a custom (plugin specific) action
     """
 
     id: PluginTool
@@ -67,6 +67,7 @@ class CustomAction:
     description: str
     requires_selection: bool = False
     requires_editable_target: bool = True
+    checkable: bool = False
 
 
 TOOLS = {
@@ -235,6 +236,7 @@ TOOLS = {
             "Select Labels",
             "select_label.svg",
             "Selects labels.",
+            checkable=True,
         ),
         CustomAction(
             PluginTool.CreateLabel,
@@ -253,8 +255,16 @@ TOOLS = {
         CustomAction(
             PluginTool.RewrapLabel,
             "Rewrap Label",
-            "reset_label.svg",
+            "reflow_label.svg",
             "Rewraps label text.",
+            checkable=True,
+        ),
+        CustomAction(
+            PluginTool.RedrawLabel,
+            "Redraw Label Shape",
+            "redraw_label.svg",
+            "Redraws the label shape.",
+            checkable=True,
         ),
     ],
     ToolGroup.Markup: [
@@ -396,6 +406,7 @@ class ToolRegistry(QObject):
         new_action.setText(action.title)
         new_action.setObjectName(ToolRegistry.title_to_object_name(action.title))
         new_action.setIcon(GuiUtils.get_colorized_icon(action.icon))
+        new_action.setCheckable(action.checkable)
 
         if action.description[-1] != ".":
             raise AssertionError("Action description must end with '.'")
