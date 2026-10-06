@@ -94,12 +94,26 @@ class LabelingGuiManager(QObject):
         self._redraw_label_action.triggered.connect(self._redraw_labels)
 
     def _select_labels(self):
-        self._select_by_label_tool.set_label_layer(
-            self._project_controller.label_target_layer()
-        )
+        label_layer = self._project_controller.label_target_layer()
+        label_layer = self._project_controller.label_target_layer()
+        if not label_layer:
+            self._message_bar.clearWidgets()
+            self._message_bar.pushWarning("", "No carto text layer found in project")
+            return
+
+        self._select_by_label_tool.set_label_layer(label_layer)
         self._canvas.setMapTool(self._select_by_label_tool)
 
     def _rewrap_labels(self):
+        label_layer = self._project_controller.label_target_layer()
+        if not label_layer:
+            self._message_bar.clearWidgets()
+            self._message_bar.pushWarning("", "No carto text layer found in project")
+            return
+
+        if not label_layer.isEditable():
+            label_layer.startEditing()
+
         self._canvas.setMapTool(self._rewrap_label_tool)
 
     def _redraw_labels(self):
@@ -121,6 +135,9 @@ class LabelingGuiManager(QObject):
                 "", "The redraw labels tool works with a single selected label only"
             )
             return
+
+        if not label_layer.isEditable():
+            label_layer.startEditing()
 
         self._canvas.setMapTool(self._redraw_label_tool)
         self._redraw_label_tool.set_target_feature(selected_label_fids[0])
@@ -156,6 +173,9 @@ class LabelingGuiManager(QObject):
             return
 
         label_layer = self._project_controller.label_target_layer()
+        if not label_layer.isEditable():
+            label_layer.startEditing()
+
         new_feature = QgsFeature(label_properties.label_feature)
         label_layer.addFeature(new_feature)
 
