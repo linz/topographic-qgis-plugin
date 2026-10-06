@@ -261,7 +261,7 @@ TOOLS = {
         CustomAction(
             PluginTool.RedrawLabel,
             "Redraw Label Shape",
-            "reset_label.svg",
+            "redraw_label.svg",
             "Redraws the label shape.",
             checkable=True,
         ),
