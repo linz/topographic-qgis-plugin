@@ -255,6 +255,12 @@ TOOLS = {
             "reset_label.svg",
             "Rewraps label text.",
         ),
+        CustomAction(
+            PluginTool.RedrawLabel,
+            "Redraw Label Shape",
+            "reset_label.svg",
+            "Redraws the label shape.",
+        ),
     ],
     ToolGroup.Markup: [
         CustomAction(

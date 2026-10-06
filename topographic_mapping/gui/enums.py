@@ -49,3 +49,4 @@ class PluginTool(Enum):
     CreateLabel = auto()
     ResetLabel = auto()
     RewrapLabel = auto()
+    RedrawLabel = auto()

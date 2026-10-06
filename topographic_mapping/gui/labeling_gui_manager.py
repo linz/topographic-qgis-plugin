@@ -18,6 +18,7 @@ from .tool_registry import (
 from .digitize_label_tool import DigitizeLabelTool
 from .select_by_label_tool import SelectByLabelRectangleTool
 from .label_wrap_tool import RewrapLabelTool
+from .label_redraw_tool import RedrawLabelTool
 
 
 class LabelingGuiManager(QObject):
@@ -51,6 +52,7 @@ class LabelingGuiManager(QObject):
         self._digitize_label_tool = DigitizeLabelTool(self._canvas, self._cad_dock)
 
         self._rewrap_label_tool: RewrapLabelTool | None = None
+        self._redraw_label_tool: RedrawLabelTool | None = None
 
     def unregister(self):
         if self._digitize_label_tool:
@@ -81,9 +83,15 @@ class LabelingGuiManager(QObject):
         self._rewrap_label_tool = RewrapLabelTool(
             self._canvas, self._cad_dock, self._label_manager, self._project_controller
         )
+        self._redraw_label_tool = RedrawLabelTool(
+            self._canvas, self._cad_dock, self._label_manager, self._project_controller
+        )
 
         self._rewrap_label_action = tool_registry.custom_action(PluginTool.RewrapLabel)
         self._rewrap_label_action.triggered.connect(self._rewrap_labels)
+
+        self._redraw_label_action = tool_registry.custom_action(PluginTool.RedrawLabel)
+        self._redraw_label_action.triggered.connect(self._redraw_labels)
 
     def _select_labels(self):
         self._select_by_label_tool.set_label_layer(
@@ -93,6 +101,29 @@ class LabelingGuiManager(QObject):
 
     def _rewrap_labels(self):
         self._canvas.setMapTool(self._rewrap_label_tool)
+
+    def _redraw_labels(self):
+        label_layer = self._project_controller.label_target_layer()
+        if not label_layer:
+            self._message_bar.clearWidgets()
+            self._message_bar.pushWarning("", "No carto text layer found in project")
+            return
+
+        selected_label_fids = label_layer.selectedFeatureIds()
+        if not selected_label_fids:
+            self._message_bar.clearWidgets()
+            self._message_bar.pushWarning("", "No labels are selected")
+            return
+
+        if len(selected_label_fids) > 1:
+            self._message_bar.clearWidgets()
+            self._message_bar.pushWarning(
+                "", "The redraw labels tool works with a single selected label only"
+            )
+            return
+
+        self._canvas.setMapTool(self._redraw_label_tool)
+        self._redraw_label_tool.set_target_feature(selected_label_fids[0])
 
     def _create_labels(self):
         target_layer = self._state_manager.target_layer()
