@@ -2,6 +2,8 @@
 Labeling GUI manager
 """
 
+from functools import partial
+
 from qgis.PyQt.QtCore import QObject
 from qgis.PyQt.QtGui import QAction
 
@@ -73,6 +75,9 @@ class LabelingGuiManager(QObject):
             PluginTool.SelectLabels
         )
         self._select_labels_action.triggered.connect(self._select_labels)
+        self._select_by_label_tool.deactivated.connect(
+            partial(self._uncheck_action, self._select_labels_action)
+        )
 
         self._create_label_action = tool_registry.custom_action(PluginTool.CreateLabel)
         self._create_label_action.triggered.connect(self._create_labels)
@@ -90,8 +95,19 @@ class LabelingGuiManager(QObject):
         self._rewrap_label_action = tool_registry.custom_action(PluginTool.RewrapLabel)
         self._rewrap_label_action.triggered.connect(self._rewrap_labels)
 
+        self._rewrap_label_tool.deactivated.connect(
+            partial(self._uncheck_action, self._rewrap_label_action)
+        )
+
         self._redraw_label_action = tool_registry.custom_action(PluginTool.RedrawLabel)
         self._redraw_label_action.triggered.connect(self._redraw_labels)
+
+        self._redraw_label_tool.deactivated.connect(
+            partial(self._uncheck_action, self._redraw_label_action)
+        )
+
+    def _uncheck_action(self, action):
+        action.setChecked(False)
 
     def _select_labels(self):
         label_layer = self._project_controller.label_target_layer()
@@ -109,6 +125,7 @@ class LabelingGuiManager(QObject):
         if not label_layer:
             self._message_bar.clearWidgets()
             self._message_bar.pushWarning("", "No carto text layer found in project")
+            self._rewrap_label_action.setChecked(False)
             return
 
         if not label_layer.isEditable():
@@ -121,12 +138,14 @@ class LabelingGuiManager(QObject):
         if not label_layer:
             self._message_bar.clearWidgets()
             self._message_bar.pushWarning("", "No carto text layer found in project")
+            self._redraw_label_action.setChecked(False)
             return
 
         selected_label_fids = label_layer.selectedFeatureIds()
         if not selected_label_fids:
             self._message_bar.clearWidgets()
             self._message_bar.pushWarning("", "No labels are selected")
+            self._redraw_label_action.setChecked(False)
             return
 
         if len(selected_label_fids) > 1:
@@ -134,6 +153,7 @@ class LabelingGuiManager(QObject):
             self._message_bar.pushWarning(
                 "", "The redraw labels tool works with a single selected label only"
             )
+            self._redraw_label_action.setChecked(False)
             return
 
         if not label_layer.isEditable():
