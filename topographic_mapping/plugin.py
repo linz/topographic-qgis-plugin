@@ -14,6 +14,7 @@ from qgis.core import (
     QgsGeometry,
     QgsExpression,
     QgsFeature,
+    QgsVectorLayer,
 )
 from qgis.gui import QgisInterface
 
@@ -310,14 +311,25 @@ class TopographicMappingPlugin:
             self._style_manager.download_styles()
 
     def _change_feature_class(self):
-        self._handle_feature_class_action(is_copy_action=False)
+        self._handle_feature_class_action(
+            is_copy_action=False, source_layer=self._state_manager.target_layer()
+        )
 
     def _copy_to_feature_class(self):
-        self._handle_feature_class_action(is_copy_action=True)
+        source_layer = self.iface.activeLayer()
+        if not isinstance(source_layer, QgsVectorLayer):
+            self.iface.messageBar().pushWarning(
+                "", "Copying to a feature class requires an active layer"
+            )
+            return
+        self._handle_feature_class_action(
+            is_copy_action=True, source_layer=source_layer
+        )
 
-    def _handle_feature_class_action(self, is_copy_action: bool):
-        current_layer = self._state_manager.target_layer()
-        if current_layer is None:
+    def _handle_feature_class_action(
+        self, is_copy_action: bool, source_layer: QgsVectorLayer
+    ):
+        if source_layer is None:
             message = (
                 "Copying to a feature class requires an active layer"
                 if is_copy_action
@@ -326,7 +338,7 @@ class TopographicMappingPlugin:
             self.iface.messageBar().pushWarning("", message)
             return
 
-        current_selection = current_layer.selectedFeatureIds()
+        current_selection = source_layer.selectedFeatureIds()
         if not current_selection:
             message = (
                 "Copying to a feature class requires a selection"
@@ -364,7 +376,7 @@ class TopographicMappingPlugin:
             ):
                 return
 
-            features = self._state_manager.target_layer().selectedFeatures()
+            features = source_layer.selectedFeatures()
 
             target_layer = self._project_controller.layer_for_feature_type(new_types[0])
             if not target_layer.isEditable():
@@ -376,9 +388,21 @@ class TopographicMappingPlugin:
             for f in compatible_features:
                 f["type"] = new_types[1]
 
+            before_added_features = set(
+                target_layer.editBuffer().addedFeatures().keys()
+            )
             if not is_copy_action:
-                current_layer.deleteFeatures(current_selection)
+                source_layer.deleteFeatures(current_selection)
+            else:
+                source_layer.removeSelection()
+
             target_layer.addFeatures(compatible_features)
+
+            after_added_features = set(target_layer.editBuffer().addedFeatures().keys())
+
+            new_feature_ids = after_added_features - before_added_features
+
+            target_layer.selectByIds(list(new_feature_ids))
 
     def _pastry_delete(self):
         current_layer = self._state_manager.target_layer()

@@ -90,6 +90,7 @@ TOOLS = {
             "copy_class.svg",
             "Copy features to a different class.",
             requires_selection=True,
+            requires_editable_target=False,
         ),
         Action(
             "Filter Out Points",
