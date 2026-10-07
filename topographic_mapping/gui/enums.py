@@ -15,6 +15,7 @@ class ToolGroup(Enum):
     Editing = auto()
     Digitizing = auto()
     Labeling = auto()
+    LabelingReference = auto()
     Markup = auto()
 
     def to_string(self) -> str:
@@ -22,6 +23,7 @@ class ToolGroup(Enum):
             ToolGroup.Editing: "Topographic editing",
             ToolGroup.Digitizing: "Digitize feature",
             ToolGroup.Labeling: "Labeling",
+            ToolGroup.LabelingReference: "Label Reference Tools",
             ToolGroup.Markup: "Markup",
         }[self]
 
@@ -50,3 +52,7 @@ class PluginTool(Enum):
     ResetLabel = auto()
     RewrapLabel = auto()
     RedrawLabel = auto()
+
+    CreateBufferInAnnotation1 = auto()
+    CreateBufferInAnnotation2 = auto()
+    ClearAnnotations = auto()
