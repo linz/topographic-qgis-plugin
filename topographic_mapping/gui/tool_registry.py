@@ -271,7 +271,7 @@ TOOLS = {
         CustomAction(
             PluginTool.CreateBufferInAnnotation1,
             "Create Temporary 15m Buffer",
-            "redraw_label.svg",
+            "buffer_label.svg",
             "Creates a temporary 15m buffer object in the annotation layer.",
             requires_selection=True,
             requires_editable_target=False,
@@ -279,7 +279,7 @@ TOOLS = {
         CustomAction(
             PluginTool.CreateBufferInAnnotation2,
             "Create Temporary 30m Buffer",
-            "redraw_label.svg",
+            "buffer_label.svg",
             "Creates a temporary 30m buffer object in the annotation layer.",
             requires_selection=True,
             requires_editable_target=False,
@@ -287,7 +287,7 @@ TOOLS = {
         CustomAction(
             PluginTool.ClearAnnotations,
             "Create Temporary Objects",
-            "redraw_label.svg",
+            "delete_buffer.svg",
             "Clears all temporary objects from the annotation layer.",
             requires_editable_target=False,
         ),
