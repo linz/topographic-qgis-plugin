@@ -6,11 +6,27 @@ from functools import partial
 
 from qgis.PyQt.QtCore import QObject
 from qgis.PyQt.QtGui import QAction
+from qgis.PyQt.QtWidgets import QMessageBox
 
 from qgis.gui import QgsMapCanvas, QgsAdvancedDigitizingDockWidget, QgsMessageBar
-from qgis.core import QgsFeature, QgsPoint, QgsGeometry, QgsLineString
+from qgis.core import (
+    QgsFeature,
+    QgsPoint,
+    QgsGeometry,
+    QgsLineString,
+    QgsCoordinateTransform,
+    QgsProject,
+    QgsCoordinateReferenceSystem,
+    QgsCsException,
+    QgsAnnotationPolygonItem,
+)
 
-from topographic_mapping.core import LabelManager, StateManager, ProjectController
+from topographic_mapping.core import (
+    LabelManager,
+    StateManager,
+    ProjectController,
+    MarkupManager,
+)
 
 from .tool_registry import (
     ToolRegistry,
@@ -106,6 +122,16 @@ class LabelingGuiManager(QObject):
             partial(self._uncheck_action, self._redraw_label_action)
         )
 
+        tool_registry.custom_action(
+            PluginTool.CreateBufferInAnnotation1
+        ).triggered.connect(self._create_buffer_1)
+        tool_registry.custom_action(
+            PluginTool.CreateBufferInAnnotation2
+        ).triggered.connect(self._create_buffer_2)
+        tool_registry.custom_action(PluginTool.ClearAnnotations).triggered.connect(
+            self._clear_annotations
+        )
+
     def _uncheck_action(self, action):
         action.setChecked(False)
 
@@ -163,10 +189,10 @@ class LabelingGuiManager(QObject):
         self._redraw_label_tool.set_target_feature(selected_label_fids[0])
 
     def _create_labels(self):
-        target_layer = self._state_manager.target_layer()
+        target_layer = self._state_manager.current_layer()
         if not target_layer:
-            # todo - warning
-            print(" no target layer")
+            self._message_bar.clearWidgets()
+            self._message_bar.pushWarning("", "No active layer")
             return
 
         target_fids = target_layer.selectedFeatureIds()
@@ -238,3 +264,70 @@ class LabelingGuiManager(QObject):
 
             label_layer.changeGeometry(label_feature.id(), line_geom)
         label_layer.endEditCommand()
+
+    def _create_buffer_1(self):
+        self._create_buffer(15)
+
+    def _create_buffer_2(self):
+        self._create_buffer(30)
+
+    def _create_buffer(self, distance: float):
+        target_layer = self._state_manager.current_layer()
+        if not target_layer:
+            self._message_bar.clearWidgets()
+            self._message_bar.pushWarning("", "No active layer")
+            return
+
+        target_fids = target_layer.selectedFeatureIds()
+        if not target_fids:
+            self._message_bar.clearWidgets()
+            self._message_bar.pushWarning(
+                "", "Select features to create the buffer for first"
+            )
+            return
+
+        ct = QgsCoordinateTransform(
+            target_layer.crs(),
+            QgsCoordinateReferenceSystem("EPSG:2193"),
+            QgsProject.instance().transformContext(),
+        )
+        source_features = target_layer.selectedFeatures()
+
+        fill_symbol = MarkupManager.annotation_fill_symbol()
+
+        annotation_layer = QgsProject.instance().mainAnnotationLayer()
+        for f in source_features:
+            geometry = f.geometry()
+            try:
+                geometry.transform(ct)
+            except QgsCsException:
+                self._message_bar.clearWidgets()
+                self._message_bar.pushWarning(
+                    "", "Could not transform geometry to EPSG:2193"
+                )
+                return
+
+            buffered = geometry.buffer(distance, 8)
+            if buffered.isEmpty():
+                self._message_bar.clearWidgets()
+                self._message_bar.pushWarning("", "Buffered geometry is empty")
+                return
+
+            item = QgsAnnotationPolygonItem(buffered.constGet().clone())
+            item.setSymbol(fill_symbol.clone())
+            annotation_layer.addItem(item)
+
+        target_layer.removeSelection()
+
+    def _clear_annotations(self):
+        if (
+            QMessageBox.question(
+                self._canvas.window(),
+                "Clear Annotations",
+                "Are you sure you want to clear all annotation objects?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            == QMessageBox.StandardButton.Yes
+        ):
+            QgsProject.instance().mainAnnotationLayer().clear()

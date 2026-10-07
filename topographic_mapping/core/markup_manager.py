@@ -14,6 +14,7 @@ from qgis.core import (
     QgsFeature,
     QgsCoordinateTransform,
     QgsCsException,
+    QgsFillSymbol,
 )
 
 from .stored_object_manager import STORED_OBJECT_MANAGER
@@ -286,3 +287,14 @@ class MarkupManager(QObject):
 
         dest_layer.addFeatures(new_features)
         dest_layer.commitChanges()
+
+    @staticmethod
+    def annotation_fill_symbol() -> QgsFillSymbol:
+        """
+        Returns the fill symbol to use for polygon annotations
+        """
+        qml_path = MarkupManager.markup_qml_path() / "annotation_polygon_style.qml"
+        temp_layer = QgsVectorLayer("Polygon?crs=EPSG:4326", "temp_layer", "memory")
+        temp_layer.loadNamedStyle(qml_path.as_posix())
+
+        return temp_layer.renderer().symbol().clone()

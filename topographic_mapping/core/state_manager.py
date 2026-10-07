@@ -43,7 +43,7 @@ class StateManager(QObject):
 
     def current_layer(self) -> QgsVectorLayer | None:
         """
-        Returns the current layer, if set. This is the current, possible NOT editable layer
+        Returns the current layer, if set. This is the current, possibly NOT editable layer
         """
         return self._current_active_layer
 
