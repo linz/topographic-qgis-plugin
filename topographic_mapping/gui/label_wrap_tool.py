@@ -21,9 +21,15 @@ from qgis.gui import (
     QgsMapCanvas,
     QgsMapMouseEvent,
     QgsAdvancedDigitizingDockWidget,
+    QgsAlignmentComboBox,
+    QgsDoubleSpinBox,
 )
-from qgis.PyQt.QtCore import QPointF, QRectF, QSizeF, Qt
+from qgis.utils import iface
+
+from qgis.PyQt import sip
+from qgis.PyQt.QtCore import QPointF, QRectF, QSizeF, Qt, pyqtSignal
 from qgis.PyQt.QtGui import QBrush, QColor, QCursor, QKeyEvent, QPen, QPainter
+from qgis.PyQt.QtWidgets import QWidget, QGridLayout, QLabel
 
 from topographic_mapping.core import LabelManager, ProjectController
 from .label_tool_base import MapToolLabel
@@ -48,6 +54,10 @@ class LabelSelectionCanvasItem(QgsMapCanvasItem):
         self._map_pos = QgsPointXY(0, 0)
         self._map_unit_size: QSizeF = QSizeF()
         self._wrapped_text = ""
+        self._horizontal_align: Qgis.TextHorizontalAlignment = (
+            Qgis.TextHorizontalAlignment.Left
+        )
+        self._line_height = 1.0
         self._text_format: QgsTextFormat | None = None
         self._layer: QgsVectorLayer | None = None
         self._is_active = False
@@ -62,6 +72,8 @@ class LabelSelectionCanvasItem(QgsMapCanvasItem):
         map_unit_size: QSizeF,
         text_format: QgsTextFormat,
         layer: QgsVectorLayer,
+        alignment: Qgis.TextHorizontalAlignment,
+        line_height: float,
     ):
         """
         Sets the current label state and associated properties
@@ -72,6 +84,20 @@ class LabelSelectionCanvasItem(QgsMapCanvasItem):
         self._text_format = text_format
         self._layer = layer
         self._is_active = True
+        self._horizontal_align = alignment
+        self._line_height = line_height
+        self._update_position()
+
+    def set_alignment(self, alignment: Qgis.TextHorizontalAlignment):
+        self._horizontal_align = alignment
+        self.update()
+
+    def set_line_height(self, line_height: float):
+        self._line_height = line_height
+        self.update()
+
+    def set_size(self, map_unit_size: QSizeF):
+        self._map_unit_size = map_unit_size
         self._update_position()
 
     def hide_selection(self):
@@ -146,19 +172,20 @@ class LabelSelectionCanvasItem(QgsMapCanvasItem):
             if self._layer.renderer():
                 rc.setSymbologyReferenceScale(self._layer.renderer().referenceScale())
 
+            text_format = QgsTextFormat(self._text_format)
+            text_format.setLineHeight(text_format.lineHeight() * self._line_height)
+
             lines = self._wrapped_text.split("\n")
-            document = QgsTextDocument.fromTextAndFormat(lines, self._text_format)
-            metrics = QgsTextDocumentMetrics.calculateMetrics(
-                document, self._text_format, rc
-            )
+            document = QgsTextDocument.fromTextAndFormat(lines, text_format)
+            metrics = QgsTextDocumentMetrics.calculateMetrics(document, text_format, rc)
 
             QgsTextRenderer.drawDocument(
                 self._rect,
-                self._text_format,
+                text_format,
                 document,
                 metrics,
                 rc,
-                Qgis.TextHorizontalAlignment.Left,
+                self._horizontal_align,
                 Qgis.TextVerticalAlignment.Top,
             )
 
@@ -169,6 +196,47 @@ class LabelSelectionCanvasItem(QgsMapCanvasItem):
         painter.setBrush(handle_brush)
 
         painter.drawRect(self._right_handle_rect())
+
+
+class ReflowTextWidget(QWidget):
+    alignment_changed = pyqtSignal(Qgis.TextHorizontalAlignment)
+    line_height_changed = pyqtSignal(float)
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+
+        layout = QGridLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        layout.addWidget(QLabel("Alignment"), 0, 0)
+
+        self._alignment_combo = QgsAlignmentComboBox()
+        layout.addWidget(self._alignment_combo, 0, 1)
+
+        layout.addWidget(QLabel("Line height"), 1, 0)
+
+        self._line_height_spin = QgsDoubleSpinBox()
+        self._line_height_spin.setMinimum(0)
+        self._line_height_spin.setMaximum(3)
+        self._line_height_spin.setDecimals(2)
+        self._line_height_spin.setSingleStep(0.1)
+        self._line_height_spin.setClearValue(1)
+        self._line_height_spin.setValue(1)
+        layout.addWidget(self._line_height_spin, 1, 1)
+
+        self._alignment_combo.changed.connect(self._on_alignment_changed)
+        self._line_height_spin.valueChanged.connect(self.line_height_changed)
+
+        self.setLayout(layout)
+
+    def set_alignment(self, alignment: Qgis.TextHorizontalAlignment):
+        self._alignment_combo.setCurrentAlignment(alignment)
+
+    def _on_alignment_changed(self):
+        self.alignment_changed.emit(self._alignment_combo.horizontalAlignment())
+
+    def set_line_height(self, line_height: float):
+        self._line_height_spin.setValue(line_height)
 
 
 class RewrapLabelTool(MapToolLabel):
@@ -199,6 +267,31 @@ class RewrapLabelTool(MapToolLabel):
         self._drag_start_map: QgsPointXY = QgsPointXY()
         self._initial_width_map_units: float = 0.0
 
+        self._horizontal_align: Qgis.TextHorizontalAlignment = (
+            Qgis.TextHorizontalAlignment.Left
+        )
+        self._line_height: float = 1.0
+
+        self._reflow_widget: ReflowTextWidget | None = None
+
+    def create_widget(self):
+        if not self._canvas:
+            return
+
+        self.delete_widget()
+        self._reflow_widget = ReflowTextWidget()
+        self._reflow_widget.set_alignment(self._horizontal_align)
+        self._reflow_widget.set_line_height(self._line_height)
+        iface.addUserInputWidget(self._reflow_widget)
+        self._reflow_widget.setFocus(Qt.FocusReason.TabFocusReason)
+        self._reflow_widget.alignment_changed.connect(self._on_alignment_changed)
+        self._reflow_widget.line_height_changed.connect(self._on_line_height_changed)
+
+    def delete_widget(self):
+        if self._reflow_widget is not None and not sip.isdeleted(self._reflow_widget):
+            self._reflow_widget.deleteLater()
+            self._reflow_widget = None
+
     def canvasPressEvent(self, e: QgsMapMouseEvent) -> None:
         if e.button() != Qt.MouseButton.LeftButton:
             return
@@ -216,6 +309,8 @@ class RewrapLabelTool(MapToolLabel):
                 self.setCursor(QCursor(Qt.CursorShape.SizeHorCursor))
             elif self._mode == InteractionMode.MOVING:
                 self.setCursor(QCursor(Qt.CursorShape.SizeAllCursor))
+
+            self.create_widget()
             return
 
         # default to selecting labels at click location
@@ -254,7 +349,7 @@ class RewrapLabelTool(MapToolLabel):
             )
 
             text, size = self._label_manager.wrap_label_text(
-                self._selected_feature, text_format, new_width, rc
+                self._selected_feature, text_format, new_width, rc, self._line_height
             )
             self._selection_item.set_label_state(
                 self._drag_start_map,
@@ -262,6 +357,8 @@ class RewrapLabelTool(MapToolLabel):
                 size,
                 text_format,
                 self._project_controller.label_target_layer(),
+                self._horizontal_align,
+                self._line_height,
             )
 
         elif self._mode == InteractionMode.MOVING:
@@ -276,6 +373,7 @@ class RewrapLabelTool(MapToolLabel):
                 text_format,
                 self._selection_item.map_unit_width(),
                 rc,
+                self._line_height,
             )
             self._selection_item.set_label_state(
                 new_map_pos,
@@ -283,6 +381,8 @@ class RewrapLabelTool(MapToolLabel):
                 size,
                 text_format,
                 self._project_controller.label_target_layer(),
+                self._horizontal_align,
+                self._line_height,
             )
 
     def canvasReleaseEvent(self, e: QgsMapMouseEvent) -> None:
@@ -365,7 +465,7 @@ class RewrapLabelTool(MapToolLabel):
         # start off with the horizontal, single-line version of the label
         text_format = self._label_manager.get_text_format(feat, rc)
         unwrapped_text, size_map_units = self._label_manager.wrap_label_text(
-            feat, text_format, None, rc
+            feat, text_format, None, rc, self._line_height
         )
 
         self._selection_item.set_label_state(
@@ -374,7 +474,11 @@ class RewrapLabelTool(MapToolLabel):
             size_map_units,
             text_format,
             label_layer,
+            self._horizontal_align,
+            self._line_height,
         )
+
+        self.create_widget()
 
     def _commit_label_changes(self) -> None:
         """
@@ -396,6 +500,8 @@ class RewrapLabelTool(MapToolLabel):
         wrapped_text = self._selection_item._wrapped_text
         lines = [line for line in wrapped_text.split("\n")] if wrapped_text else [""]
 
+        text_format.setLineHeight(text_format.lineHeight() * self._line_height)
+
         doc = QgsTextDocument.fromTextAndFormat(lines, text_format)
         metrics = QgsTextDocumentMetrics.calculateMetrics(doc, text_format, rc)
         doc_size_px = metrics.documentSize(
@@ -403,6 +509,9 @@ class RewrapLabelTool(MapToolLabel):
         )
         total_height_map = rc.convertToMapUnits(
             doc_size_px.height(), Qgis.RenderUnit.Pixels
+        )
+        max_width_map = rc.convertToMapUnits(
+            doc_size_px.width(), Qgis.RenderUnit.Pixels
         )
         num_lines = len(lines)
         line_height_map = total_height_map / num_lines if num_lines > 0 else 0.0
@@ -418,7 +527,13 @@ class RewrapLabelTool(MapToolLabel):
             ).width()
             line_width_map = rc.convertToMapUnits(line_width_px, Qgis.RenderUnit.Pixels)
 
-            line_x = current_map_pos.x()
+            if self._horizontal_align == Qgis.TextHorizontalAlignment.Center:
+                line_x = current_map_pos.x() + (max_width_map - line_width_map) / 2
+            elif self._horizontal_align == Qgis.TextHorizontalAlignment.Right:
+                line_x = current_map_pos.x() + (max_width_map - line_width_map)
+            else:
+                line_x = current_map_pos.x()
+
             line_y = current_map_pos.y() - ((i + 1) * line_height_map)
 
             pt_start = QgsPointXY(line_x, line_y)
@@ -446,6 +561,7 @@ class RewrapLabelTool(MapToolLabel):
         self._selected_feature = None
         self._mode = InteractionMode.NONE
         self._selection_item.hide_selection()
+        self.delete_widget()
 
     def keyPressEvent(self, e: QKeyEvent) -> None:
         if e.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
@@ -461,3 +577,26 @@ class RewrapLabelTool(MapToolLabel):
     def deactivate(self) -> None:
         self._clear_selection()
         super().deactivate()
+
+    def _on_alignment_changed(self, alignment: Qgis.TextHorizontalAlignment):
+        self._horizontal_align = alignment
+        self._selection_item.set_alignment(alignment)
+
+    def _on_line_height_changed(self, line_height: float):
+        self._line_height = line_height
+        self._selection_item.set_line_height(line_height)
+
+        if self._selected_feature is not None:
+            rc = self._label_manager.create_render_context()
+            text_format = self._label_manager.get_text_format(
+                self._selected_feature, rc
+            )
+
+            text, size = self._label_manager.wrap_label_text(
+                self._selected_feature,
+                text_format,
+                self._selection_item.map_unit_width(),
+                rc,
+                self._line_height,
+            )
+            self._selection_item.set_size(size)

@@ -270,6 +270,7 @@ class LabelManager:
         text_format: QgsTextFormat,
         target_map_unit_width: float | None,
         render_context: QgsRenderContext,
+        line_height_multiplier: float,
     ) -> tuple[str, QSizeF]:
         """
         Calculates line breaks on whitespace/punctuation to fit label text within the target map unit width.
@@ -299,6 +300,9 @@ class LabelManager:
             if target_map_unit_width is not None
             else None
         )
+
+        text_format = QgsTextFormat(text_format)
+        text_format.setLineHeight(text_format.lineHeight() * line_height_multiplier)
 
         for token in tokens:
             candidate = current_line + token
