@@ -53,6 +53,9 @@ class PluginTool(Enum):
     RewrapLabel = auto()
     RedrawLabel = auto()
 
-    CreateBufferInAnnotation1 = auto()
-    CreateBufferInAnnotation2 = auto()
+    CreateBufferInAnnotation75 = auto()
+    CreateBufferInAnnotation80 = auto()
+    CreateBufferInAnnotation85 = auto()
+    CreateBufferInAnnotation90 = auto()
+
     ClearAnnotations = auto()

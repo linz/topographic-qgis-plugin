@@ -123,11 +123,18 @@ class LabelingGuiManager(QObject):
         )
 
         tool_registry.custom_action(
-            PluginTool.CreateBufferInAnnotation1
-        ).triggered.connect(self._create_buffer_1)
+            PluginTool.CreateBufferInAnnotation75
+        ).triggered.connect(self._create_buffer_75)
         tool_registry.custom_action(
-            PluginTool.CreateBufferInAnnotation2
-        ).triggered.connect(self._create_buffer_2)
+            PluginTool.CreateBufferInAnnotation80
+        ).triggered.connect(self._create_buffer_80)
+        tool_registry.custom_action(
+            PluginTool.CreateBufferInAnnotation85
+        ).triggered.connect(self._create_buffer_85)
+        tool_registry.custom_action(
+            PluginTool.CreateBufferInAnnotation90
+        ).triggered.connect(self._create_buffer_90)
+
         tool_registry.custom_action(PluginTool.ClearAnnotations).triggered.connect(
             self._clear_annotations
         )
@@ -265,11 +272,17 @@ class LabelingGuiManager(QObject):
             label_layer.changeGeometry(label_feature.id(), line_geom)
         label_layer.endEditCommand()
 
-    def _create_buffer_1(self):
-        self._create_buffer(15)
+    def _create_buffer_75(self):
+        self._create_buffer(75)
 
-    def _create_buffer_2(self):
-        self._create_buffer(30)
+    def _create_buffer_80(self):
+        self._create_buffer(80)
+
+    def _create_buffer_85(self):
+        self._create_buffer(85)
+
+    def _create_buffer_90(self):
+        self._create_buffer(90)
 
     def _create_buffer(self, distance: float):
         target_layer = self._state_manager.current_layer()
