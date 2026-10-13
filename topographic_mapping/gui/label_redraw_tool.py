@@ -42,12 +42,9 @@ class RedrawLabelTool(QgsMapToolDigitizeFeature):
 
         self.transientGeometryChanged.connect(self._on_transient_geometry_changed)
 
-    def set_target_feature(self, feature_id: int) -> None:
-        """
-        Explicitly sets the target feature ID to re-digitize.
-        """
-        self._target_feature_id = feature_id
-        if not self._preview_rubber_band and self._target_feature_id is not None:
+    def _recreate_preview_band(self):
+        self._preview_rubber_band = None
+        if self._target_feature_id is not None:
             self._preview_rubber_band = self.createRubberBandForLayer(
                 self.layer(), {self._target_feature_id}
             )
@@ -55,16 +52,17 @@ class RedrawLabelTool(QgsMapToolDigitizeFeature):
                 Qgis.RubberBandComponent.PreviewItems
             )
 
+    def set_target_feature(self, feature_id: int) -> None:
+        """
+        Explicitly sets the target feature ID to re-digitize.
+        """
+        self._target_feature_id = feature_id
+        self._recreate_preview_band()
+
     def activate(self) -> None:
         if self._project_controller.label_target_layer():
             self.setLayer(self._project_controller.label_target_layer())
-        if not self._preview_rubber_band and self._target_feature_id is not None:
-            self._preview_rubber_band = self.createRubberBandForLayer(
-                self.layer(), {self._target_feature_id}
-            )
-            self._preview_rubber_band.setRenderedComponents(
-                Qgis.RubberBandComponent.PreviewItems
-            )
+        self._recreate_preview_band()
 
         super().activate()
 
