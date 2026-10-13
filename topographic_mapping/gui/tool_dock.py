@@ -105,6 +105,9 @@ class ToolDock(QgsDockWidget):
 
         self._target_layer_combo.layerChanged.connect(self._on_target_layer_changed)
 
+    def main_layout(self) -> QVBoxLayout:
+        return self._vlayout
+
     def set_message_bar(self, message_bar: QgsMessageBar):
         """
         Sets the message bar to use for user feedback

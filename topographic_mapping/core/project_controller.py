@@ -30,6 +30,7 @@ class ProjectController(QObject):
     feature_types_removed = pyqtSignal(object)
     map_sheet_layer_loaded = pyqtSignal()
     map_sheet_layer_unloaded = pyqtSignal()
+    label_target_layer_changed = pyqtSignal()
 
     MAP_SHEET_LAYER_NAME_SUFFIX = "_map_sheet"
     LABEL_TARGET_NAME_SUFFIX = "_carto_text"
@@ -66,6 +67,8 @@ class ProjectController(QObject):
         return names
 
     def _update_project_layers(self, layers: list[QgsMapLayer]):
+        label_layer = self.label_target_layer()
+
         for layer in layers:
             self._initialize_layer(layer)
 
@@ -73,14 +76,24 @@ class ProjectController(QObject):
             if layer and layer == self.label_target_layer():
                 # auto set labeling layer as editable
                 layer.startEditing()
+                self.label_target_layer_changed.emit()
 
     def _project_layers_removed(self, layers: list[str]):
+        previous_label_layer = self.label_target_layer()
+
+        label_layer_changed = False
         for layer_id in layers:
+            label_layer_changed |= bool(
+                previous_label_layer and previous_label_layer.id() == layer_id
+            )
             map_layer = self._project.mapLayer(layer_id)
             if map_layer is None:
                 continue
 
             self._remove_layer(map_layer)
+
+        if label_layer_changed:
+            self.label_target_layer_changed.emit()
 
     @staticmethod
     def clean_layer_name(name: str) -> str:
