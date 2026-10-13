@@ -317,6 +317,13 @@ TOOLS = {
             requires_selection=True,
             requires_editable_target=False,
         ),
+        CustomAction(
+            PluginTool.ShowMarkup,
+            "Show Marked Up Features",
+            "markup_selected.svg",
+            "Shows a list of all marked up features.",
+            requires_editable_target=False,
+        ),
     ],
 }
 

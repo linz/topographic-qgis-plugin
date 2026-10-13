@@ -18,8 +18,9 @@ from qgis.gui import (
 from qgis.utils import OverrideCursor
 
 from .feature_type_model import FeatureTypeTreeModel, FeatureTypeFilterProxyModel
-from ..core import ProjectController, EditMode
+from ..core import ProjectController, EditMode, MarkupManager
 from .tool_dock import ToolDock
+from .markup_viewer import MarkupViewer
 
 
 class EditToolDock(ToolDock):
@@ -33,6 +34,9 @@ class EditToolDock(ToolDock):
         super().__init__(
             edit_target_tool_action, vertical_layout_offset=1, parent=parent
         )
+
+        self.markup_viewer: MarkupViewer | None = None
+        self._markup_manager: MarkupManager | None = None
 
         edit_mode_layout = QHBoxLayout()
         self._button_edit_real_data = QToolButton()
@@ -94,6 +98,9 @@ class EditToolDock(ToolDock):
         self._controller.feature_types_removed.connect(
             self._feature_type_model.remove_types
         )
+
+    def set_markup_manager(self, manager: MarkupManager):
+        self._markup_manager = manager
 
     def _set_feature_types(self, feature_types):
         self._feature_type_model = FeatureTypeTreeModel(feature_types, self)
@@ -163,6 +170,15 @@ class EditToolDock(ToolDock):
 
         with OverrideCursor(Qt.CursorShape.WaitCursor):
             self._controller.set_edit_mode(gpkg_path, EditMode.ProductData)
+
+    def show_markup(self):
+        self.markup_viewer = MarkupViewer(self._markup_manager)
+        self.stack.showPanel(self.markup_viewer)
+        self.markup_viewer.panelAccepted.connect(self._markup_viewer_accepted)
+
+    def _markup_viewer_accepted(self):
+        self.markup_viewer.deleteLater()
+        self.markup_viewer = None
 
 
 # locator

@@ -34,6 +34,7 @@ class PluginTool(Enum):
     """
 
     MarkupSelected = auto()
+    ShowMarkup = auto()
     GoToNextMarkup = auto()
     GoToPreviousMarkup = auto()
     ToggleSelectedMarkup = auto()
