@@ -185,6 +185,7 @@ class MarkupManager(QObject):
             "Polygon Markup",
             "ogr",
         )
+        res.startEditing()
         qml_path = self.markup_qml_path() / "polygon_markup.qml"
         res.loadNamedStyle(qml_path.as_posix())
         return res
@@ -198,6 +199,7 @@ class MarkupManager(QObject):
             "Line Markup",
             "ogr",
         )
+        res.startEditing()
         qml_path = self.markup_qml_path() / "line_markup.qml"
         res.loadNamedStyle(qml_path.as_posix())
         return res
@@ -211,6 +213,7 @@ class MarkupManager(QObject):
             "Point Markup",
             "ogr",
         )
+        res.startEditing()
         qml_path = self.markup_qml_path() / "point_markup.qml"
         res.loadNamedStyle(qml_path.as_posix())
         return res

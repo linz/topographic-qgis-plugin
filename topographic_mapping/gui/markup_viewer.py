@@ -1,6 +1,7 @@
 from typing import List
 
 from qgis.PyQt.QtCore import Qt, QObject, QModelIndex, QSortFilterProxyModel
+from qgis.PyQt.QtGui import QBrush, QColor
 from qgis.PyQt.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -89,6 +90,22 @@ class MarkupModel(QSortFilterProxyModel):
             return left_val < right_val
         except TypeError:
             return str(left_val).casefold() < str(right_val).casefold()
+
+    def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
+        if not index.isValid():
+            return None
+
+        if role == Qt.ItemDataRole.BackgroundRole:
+            source_index = self.mapToSource(index)
+            open = self._combined_model.data(
+                self._combined_model.index(source_index.row(), 3)
+            )
+            if open == "false":
+                return QBrush(QColor("#f0fff0"))
+            else:
+                return QBrush(QColor("#fff0f0"))
+
+        return super().data(index, role)
 
     def setData(
         self, index: QModelIndex, value, role: int = Qt.ItemDataRole.EditRole
