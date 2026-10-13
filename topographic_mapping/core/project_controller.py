@@ -83,7 +83,7 @@ class ProjectController(QObject):
 
         label_layer_changed = False
         for layer_id in layers:
-            label_layer_changed |= (
+            label_layer_changed |= bool(
                 previous_label_layer and previous_label_layer.id() == layer_id
             )
             map_layer = self._project.mapLayer(layer_id)
