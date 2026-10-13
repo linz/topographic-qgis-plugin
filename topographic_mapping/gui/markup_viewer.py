@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 from qgis.PyQt.QtCore import Qt, QObject, QModelIndex, QSortFilterProxyModel
 from qgis.PyQt.QtGui import QBrush, QColor
@@ -43,6 +43,29 @@ class MarkupModel(QSortFilterProxyModel):
             return False
 
         return True
+
+    def get_source_layer_and_feature_id(
+        self, index: QModelIndex
+    ) -> Tuple[QgsVectorLayer | None, int | None]:
+        source_index = self.mapToSource(index)
+        if not source_index.isValid():
+            return None, None
+
+        combined_model = self.sourceModel()
+        orig_source_index = combined_model.mapToSource(source_index)
+        if not orig_source_index.isValid():
+            return None, None
+
+        attr_model: QgsAttributeTableModel = orig_source_index.model()
+        if not attr_model:
+            return None, None
+
+        layer: QgsVectorLayer = attr_model.layerCache().layer()
+        if not layer:
+            return None, None
+
+        fid = attr_model.rowToId(orig_source_index.row())
+        return layer, fid
 
     def headerData(
         self,
@@ -197,3 +220,21 @@ class MarkupViewer(QgsPanelWidget):
         vl.setContentsMargins(0, 0, 6, 6)
         vl.addWidget(self.table_view, 1)
         self.setLayout(vl)
+
+        self.table_view.selectionModel().selectionChanged.connect(
+            self.on_selection_changed
+        )
+
+    def on_selection_changed(self, selected, deselected):
+        """
+        Triggered whenever the user clicks an item in the table view.
+        """
+        if not selected.indexes():
+            return
+
+        index = selected.indexes()[0]
+        layer, fid = self._table_model.get_source_layer_and_feature_id(index)
+        if layer is None:
+            return
+
+        layer.selectByIds([fid])

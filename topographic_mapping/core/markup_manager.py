@@ -290,7 +290,7 @@ class MarkupManager(QObject):
             new_features.append(new_feature)
 
         dest_layer.addFeatures(new_features)
-        dest_layer.commitChanges()
+        dest_layer.commitChanges(False)
 
     @staticmethod
     def annotation_fill_symbol() -> QgsFillSymbol:
