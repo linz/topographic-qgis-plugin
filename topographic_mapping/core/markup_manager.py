@@ -277,6 +277,7 @@ class MarkupManager(QObject):
             new_feature = QgsFeature(dest_layer.fields())
             if notes:
                 new_feature["notes"] = notes
+            new_feature["open"] = True
             new_geom = feature.geometry()
             try:
                 new_geom.transform(ct)

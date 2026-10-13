@@ -10,7 +10,7 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from qgis.core import QgsProject, QgsVectorLayer, QgsVariantUtils
-from qgis.gui import QgsPanelWidget
+from qgis.gui import QgsPanelWidget, QgsAttributeTableModel
 
 from topographic_mapping.core import MarkupManager
 from .combined_layer_model import CombinedVectorLayerModel
@@ -89,6 +89,41 @@ class MarkupModel(QSortFilterProxyModel):
             return left_val < right_val
         except TypeError:
             return str(left_val).casefold() < str(right_val).casefold()
+
+    def setData(
+        self, index: QModelIndex, value, role: int = Qt.ItemDataRole.EditRole
+    ) -> bool:
+        if not index.isValid() or role != Qt.ItemDataRole.EditRole:
+            return False
+
+        source_index = self.mapToSource(index)
+        if not source_index.isValid():
+            return False
+
+        combined_model = self.sourceModel()
+        orig_source_index = combined_model.mapToSource(source_index)
+        if not orig_source_index.isValid():
+            return False
+
+        attr_model: QgsAttributeTableModel = orig_source_index.model()
+        if not attr_model:
+            return False
+
+        layer: QgsVectorLayer = attr_model.layerCache().layer()
+        if not layer or not layer.isEditable():
+            return False
+
+        fid = attr_model.rowToId(orig_source_index.row())
+        field_idx: int = orig_source_index.column()
+
+        success = layer.changeAttributeValue(fid, field_idx, value)
+        if success:
+            self.dataChanged.emit(
+                index, index, [Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole]
+            )
+            return True
+
+        return False
 
 
 class MarkupViewer(QgsPanelWidget):
