@@ -46,6 +46,10 @@ class LabelManager:
 
     _DEFINITIONS = {}
 
+    TEXT_SOURCE = "text_string"
+    CHARACTER_SPACING = "chardistance"
+    WORD_SPACING = "text_word_spacing_distance"
+
     def __init__(
         self, project_controller: ProjectController, state_manager: StateManager
     ):
@@ -176,7 +180,7 @@ class LabelManager:
         )
 
         new_feature = QgsFeature(label_target_layer.fields())
-        new_feature["text_string"] = source_feature["name"]
+        new_feature[LabelManager.TEXT_SOURCE] = source_feature["name"]
         for p, v in style_defaults.items():
             new_feature[p] = v
 
@@ -189,7 +193,7 @@ class LabelManager:
         Returns the required map unit width for a feature's label
         """
         document_metrics = self.label_metrics(
-            render_context, label_feature["text_string"], label_feature
+            render_context, label_feature[LabelManager.TEXT_SOURCE], label_feature
         )
         if document_metrics is None:
             return 0
@@ -235,7 +239,9 @@ class LabelManager:
             text_width_map_units = self.get_width_for_label(label_feature, rc)
 
             return LabelProperties(
-                label_feature["text_string"], label_feature, text_width_map_units
+                label_feature[LabelManager.TEXT_SOURCE],
+                label_feature,
+                text_width_map_units,
             )
 
         return LabelProperties()
@@ -279,7 +285,7 @@ class LabelManager:
           1. The wrapped text string with newline characters inserted.
           2. The total size (width, height in pixels) occupied by the wrapped text document.
         """
-        text_val = label_feature.attribute("text_string")
+        text_val = label_feature.attribute(LabelManager.TEXT_SOURCE)
         if text_val is None or not str(text_val):
             return "", QSizeF(0.0, 0.0)
 
