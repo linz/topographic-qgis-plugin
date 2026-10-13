@@ -8,6 +8,7 @@ from qgis.PyQt.QtCore import QObject, pyqtSignal
 
 from qgis.core import (
     Qgis,
+    QgsGeometry,
     QgsProject,
     QgsMapLayer,
     QgsProviderRegistry,
@@ -68,6 +69,11 @@ class ProjectController(QObject):
         for layer in layers:
             self._initialize_layer(layer)
 
+        for layer in layers:
+            if layer and layer == self.label_target_layer():
+                # auto set labeling layer as editable
+                layer.startEditing()
+
     def _project_layers_removed(self, layers: list[str]):
         for layer_id in layers:
             map_layer = self._project.mapLayer(layer_id)
@@ -115,6 +121,9 @@ class ProjectController(QObject):
             self._set_layer_schema(layer, contents)
 
         layer_types = self._collect_feature_types_from_layer(layer)
+        if layer_types is not None:
+            layer.startEditing()
+
         if layer_types is not None and not layer_types in self.feature_types:
             self.feature_types.append(layer_types)
             self.feature_types_found.emit(layer_types)
