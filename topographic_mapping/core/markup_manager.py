@@ -29,6 +29,7 @@ class MarkupManager(QObject):
     """
 
     MARKUP_DB_FILE = "markup.gpkg"
+    OPEN_FIELD = "open"
 
     def __init__(self, parent: QObject | None = None):
         super().__init__(parent)
