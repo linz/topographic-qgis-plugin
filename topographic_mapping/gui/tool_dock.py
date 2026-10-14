@@ -25,6 +25,8 @@ from qgis.gui import (
     QgsConfigureShortcutsDialog,
     QgsMapLayerComboBox,
     QgsMessageBar,
+    QgsPanelWidget,
+    QgsPanelWidgetStack,
 )
 
 from .enums import ToolGroup
@@ -88,7 +90,19 @@ class ToolDock(QgsDockWidget):
         _widget = QWidget()
         _widget.setLayout(self._vlayout)
         scroll_area.setWidget(_widget)
-        self.setWidget(scroll_area)
+
+        self.stack = QgsPanelWidgetStack()
+
+        self.setWidget(self.stack)
+
+        panel = QgsPanelWidget()
+        panel.setDockMode(True)
+        vl = QVBoxLayout()
+        vl.setContentsMargins(0, 0, 0, 0)
+        vl.addWidget(scroll_area)
+        panel.setLayout(vl)
+
+        self.stack.setMainPanel(panel)
 
         self._tool_groups = {}
 

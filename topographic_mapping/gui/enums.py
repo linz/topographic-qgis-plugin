@@ -34,12 +34,7 @@ class PluginTool(Enum):
     """
 
     MarkupSelected = auto()
-    GoToNextMarkup = auto()
-    GoToPreviousMarkup = auto()
-    ToggleSelectedMarkup = auto()
-    DeleteCheckedMarkup = auto()
-    ClearMarkup = auto()
-    ReconsiderMarkup = auto()
+    ShowMarkup = auto()
 
     ChangeFeatureClass = auto()
     CopyToFeatureClass = auto()

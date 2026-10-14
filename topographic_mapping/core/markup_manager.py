@@ -29,6 +29,7 @@ class MarkupManager(QObject):
     """
 
     MARKUP_DB_FILE = "markup.gpkg"
+    OPEN_FIELD = "open"
 
     def __init__(self, parent: QObject | None = None):
         super().__init__(parent)
@@ -185,6 +186,7 @@ class MarkupManager(QObject):
             "Polygon Markup",
             "ogr",
         )
+        res.startEditing()
         qml_path = self.markup_qml_path() / "polygon_markup.qml"
         res.loadNamedStyle(qml_path.as_posix())
         return res
@@ -198,6 +200,7 @@ class MarkupManager(QObject):
             "Line Markup",
             "ogr",
         )
+        res.startEditing()
         qml_path = self.markup_qml_path() / "line_markup.qml"
         res.loadNamedStyle(qml_path.as_posix())
         return res
@@ -211,6 +214,7 @@ class MarkupManager(QObject):
             "Point Markup",
             "ogr",
         )
+        res.startEditing()
         qml_path = self.markup_qml_path() / "point_markup.qml"
         res.loadNamedStyle(qml_path.as_posix())
         return res
@@ -277,6 +281,7 @@ class MarkupManager(QObject):
             new_feature = QgsFeature(dest_layer.fields())
             if notes:
                 new_feature["notes"] = notes
+            new_feature["open"] = True
             new_geom = feature.geometry()
             try:
                 new_geom.transform(ct)
@@ -286,7 +291,7 @@ class MarkupManager(QObject):
             new_features.append(new_feature)
 
         dest_layer.addFeatures(new_features)
-        dest_layer.commitChanges()
+        dest_layer.commitChanges(False)
 
     @staticmethod
     def annotation_fill_symbol() -> QgsFillSymbol:

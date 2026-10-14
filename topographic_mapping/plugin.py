@@ -143,6 +143,9 @@ class TopographicMappingPlugin:
         self._tool_registry.populate_tool_dock(
             self._label_dock, [ToolGroup.Labeling, ToolGroup.LabelingReference]
         )
+        self._tool_registry.custom_action(PluginTool.ShowMarkup).triggered.connect(
+            self._tool_dock.show_markup
+        )
         self._label_gui_manager.register_tools(self._tool_registry)
 
         self._set_target_tool = SetTargetTool(self.iface.mapCanvas())
@@ -180,6 +183,7 @@ class TopographicMappingPlugin:
         validation_menu.addAction(run_validation_action)
 
         self._markup_manager = MarkupManager(self._gui_owner)
+        self._tool_dock.set_markup_manager(self._markup_manager)
 
         self.options_factory = PluginsOptionsFactory()
         self.options_factory.setTitle("TopoMapping")
