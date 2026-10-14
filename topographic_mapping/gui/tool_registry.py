@@ -320,7 +320,7 @@ TOOLS = {
         CustomAction(
             PluginTool.ShowMarkup,
             "Show Marked Up Features",
-            "markup_selected.svg",
+            "view_markup.svg",
             "Shows a list of all marked up features.",
             requires_editable_target=False,
         ),

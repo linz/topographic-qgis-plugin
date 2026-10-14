@@ -13,7 +13,6 @@ from qgis.PyQt.QtWidgets import (
     QSizePolicy,
     QMessageBox,
 )
-from qgis._core import QgsFeature
 
 from qgis.core import (
     Qgis,
@@ -31,6 +30,7 @@ from qgis.utils import iface
 from topographic_mapping.core import MarkupManager
 from .combined_layer_model import CombinedVectorLayerModel
 from .responsive_table_widget import ResponsiveTableWidget
+from .gui_utils import GuiUtils
 
 
 class MarkupModel(QSortFilterProxyModel):
@@ -217,18 +217,39 @@ class MarkupViewer(QgsPanelWidget):
         self.toolbar_widget = ResponsiveTableWidget()
 
         goto_next_markup_action = QAction("Go To Next Open Markup", self)
+        goto_next_markup_action.setIcon(GuiUtils.get_colorized_icon("next.svg"))
         goto_next_markup_action.triggered.connect(self._go_to_next_open_markup)
+
         goto_prev_markup_action = QAction("Go To Previous Open Markup", self)
+        goto_prev_markup_action.setIcon(GuiUtils.get_colorized_icon("prev.svg"))
         goto_prev_markup_action.triggered.connect(self._go_to_previous_open_markup)
+
         zoom_to_selected_markup_action = QAction("Zoom to Selected Markup", self)
+        zoom_to_selected_markup_action.setIcon(
+            GuiUtils.get_colorized_icon("zoom_to_selected.svg")
+        )
         zoom_to_selected_markup_action.triggered.connect(self._zoom_to_selected_markup)
+
         delete_selected_markup_action = QAction("Delete Selected Markup", self)
+        delete_selected_markup_action.setIcon(
+            GuiUtils.get_colorized_icon("delete_selected.svg")
+        )
         delete_selected_markup_action.triggered.connect(self._delete_selected_markup)
+
         delete_closed_markup_action = QAction("Delete All Closed Markup", self)
+        delete_closed_markup_action.setIcon(
+            GuiUtils.get_colorized_icon("delete_closed.svg")
+        )
         delete_closed_markup_action.triggered.connect(self._delete_closed_markup)
+
         reopen_closed_markup_action = QAction("Reopen All Closed Markup", self)
+        reopen_closed_markup_action.setIcon(
+            GuiUtils.get_colorized_icon("reopen_closed.svg")
+        )
         reopen_closed_markup_action.triggered.connect(self._reopen_closed_markup)
+
         clear_markup_action = QAction("Clear Markup", self)
+        clear_markup_action.setIcon(GuiUtils.get_colorized_icon("delete.svg"))
         clear_markup_action.triggered.connect(self._clear_markup)
 
         for action in (
