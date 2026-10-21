@@ -317,7 +317,7 @@ class MarkupViewer(QgsPanelWidget):
 
         index = selected.indexes()[0]
         layer, fid = self._table_model.get_source_layer_and_feature_id(index)
-        if layer is None:
+        if layer is None or fid is None:
             return
 
         for other_layer in self._table_model.layers:
@@ -327,6 +327,10 @@ class MarkupViewer(QgsPanelWidget):
             other_layer.removeSelection()
 
         layer.selectByIds([fid])
+
+        canvas = iface.mapCanvas()
+        canvas.zoomToFeatureIds(layer, [fid])
+        canvas.flashFeatureIds(layer, [fid])
 
     def _go_to_next_open_markup(self):
         """
