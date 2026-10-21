@@ -47,8 +47,14 @@ class LabelManager:
     _DEFINITIONS = {}
 
     TEXT_SOURCE = "text_string"
+    FONT_SIZE = "size"
+    CHARACTER_PLACEMENT = "charplace"
     CHARACTER_SPACING = "chardistance"
     WORD_SPACING = "text_word_spacing_distance"
+    LINE_PLACEMENT = "placement"
+    LINE_OFFSET = "offset"
+    TEXT_ANCHOR = "textanchor"
+    LABEL_ANCHOR = "labelanchor"
 
     def __init__(
         self, project_controller: ProjectController, state_manager: StateManager
@@ -64,6 +70,75 @@ class LabelManager:
                 LabelManager._DEFINITIONS = json.load(json_file)
 
         return LabelManager._DEFINITIONS
+
+    @staticmethod
+    def character_placement_from_string(string: str | None) -> Qgis.CurvedLabelMode:
+        """
+        Converts a text string to a character placement
+        """
+        return {
+            "default": Qgis.CurvedLabelMode.Default,
+            "charactersatvertices": Qgis.CurvedLabelMode.PlaceCharactersAtVertices,
+            "stretchcharacterspacingtofit": Qgis.CurvedLabelMode.StretchCharacterSpacingToFitLine,
+            "stretchwordspacingtofit": Qgis.CurvedLabelMode.StretchWordSpacingToFitLine,
+        }.get(string.lower() if string else None, Qgis.CurvedLabelMode.Default)
+
+    @staticmethod
+    def character_placement_to_string(placement: Qgis.CurvedLabelMode) -> str:
+        """
+        Converts a character placement to a text string
+        """
+        return {
+            Qgis.CurvedLabelMode.Default: "Default",
+            Qgis.CurvedLabelMode.PlaceCharactersAtVertices: "CharactersAtVertices",
+            Qgis.CurvedLabelMode.StretchCharacterSpacingToFitLine: "StretchCharacterSpacingToFit",
+            Qgis.CurvedLabelMode.StretchWordSpacingToFitLine: "StretchWordSpacingToFit",
+        }[placement]
+
+    @staticmethod
+    def line_placement_from_string(string: str | None) -> Qgis.LabelLinePlacementFlag:
+        """
+        Converts a text string to a line placement
+        """
+        return {
+            "al": Qgis.LabelLinePlacementFlag.AboveLine,
+            "bl": Qgis.LabelLinePlacementFlag.BelowLine,
+            "ol": Qgis.LabelLinePlacementFlag.OnLine,
+        }.get(string.lower() if string else None, Qgis.LabelLinePlacementFlag.OnLine)
+
+    @staticmethod
+    def line_placement_to_string(placement: Qgis.LabelLinePlacementFlag) -> str:
+        """
+        Converts a line placement to a text string
+        """
+        return {
+            Qgis.LabelLinePlacementFlag.AboveLine: "AL",
+            Qgis.LabelLinePlacementFlag.BelowLine: "BL",
+            Qgis.LabelLinePlacementFlag.OnLine: "OL",
+        }[placement]
+
+    @staticmethod
+    def text_anchor_from_string(string: str | None) -> Qgis.TextAnchorPoint:
+        """
+        Converts a text string to a text anchor
+        """
+        return {
+            "centre": Qgis.TextAnchorPoint.CenterOfText,
+            "left": Qgis.TextAnchorPoint.StartOfText,
+            "right": Qgis.TextAnchorPoint.EndOfText,
+        }.get(string.lower() if string else None, Qgis.TextAnchorPoint.StartOfText)
+
+    @staticmethod
+    def text_anchor_to_string(anchor: Qgis.TextAnchorPoint) -> str:
+        """
+        Converts a text anchor to a text string
+        """
+        return {
+            Qgis.TextAnchorPoint.StartOfText: "left",
+            Qgis.TextAnchorPoint.CenterOfText: "centre",
+            Qgis.TextAnchorPoint.EndOfText: "right",
+            Qgis.TextAnchorPoint.FollowPlacement: "follow",
+        }[anchor]
 
     @staticmethod
     def style_for_feature_type(feature_type: str, sub_type: str | None) -> str:
