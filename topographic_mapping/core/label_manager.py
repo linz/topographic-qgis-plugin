@@ -123,9 +123,9 @@ class LabelManager:
         Converts a text string to a text anchor
         """
         return {
-            "centre": Qgis.TextAnchorPoint.CenterOfText,
-            "left": Qgis.TextAnchorPoint.StartOfText,
-            "right": Qgis.TextAnchorPoint.EndOfText,
+            "center": Qgis.TextAnchorPoint.CenterOfText,
+            "start": Qgis.TextAnchorPoint.StartOfText,
+            "end": Qgis.TextAnchorPoint.EndOfText,
         }.get(string.lower() if string else None, Qgis.TextAnchorPoint.StartOfText)
 
     @staticmethod
@@ -134,9 +134,9 @@ class LabelManager:
         Converts a text anchor to a text string
         """
         return {
-            Qgis.TextAnchorPoint.StartOfText: "left",
-            Qgis.TextAnchorPoint.CenterOfText: "centre",
-            Qgis.TextAnchorPoint.EndOfText: "right",
+            Qgis.TextAnchorPoint.StartOfText: "start",
+            Qgis.TextAnchorPoint.CenterOfText: "center",
+            Qgis.TextAnchorPoint.EndOfText: "end",
             Qgis.TextAnchorPoint.FollowPlacement: "follow",
         }[anchor]
 
