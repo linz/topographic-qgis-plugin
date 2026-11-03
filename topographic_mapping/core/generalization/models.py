@@ -100,6 +100,7 @@ class CartographicIssueTableModel(QAbstractTableModel):
     ):
         super().__init__(parent)
         self._issues: List[CartographicIssue] = list(issues) if issues else []
+        self._checked_issues: List[bool] = [False] * len(self._issues)
 
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
         if parent.isValid():
@@ -110,6 +111,15 @@ class CartographicIssueTableModel(QAbstractTableModel):
         if parent.isValid():
             return 0
         return len(self.COLUMNS)
+
+    def flags(self, index: QModelIndex) -> Qt.ItemFlags:
+        if not index.isValid():
+            return Qt.ItemFlag.NoItemFlags
+
+        flags = super().flags(index)
+        if index.column() == 0:
+            flags |= Qt.ItemFlag.ItemIsUserCheckable
+        return flags
 
     def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
         if not index.isValid() or not (0 <= index.row() < len(self._issues)):
@@ -133,8 +143,38 @@ class CartographicIssueTableModel(QAbstractTableModel):
             if index.column() == 0:
                 return int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             return int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        elif role == Qt.ItemDataRole.CheckStateRole:
+            if index.column() == 0:
+                return (
+                    Qt.CheckState.Checked
+                    if self._checked_issues[index.row()]
+                    else Qt.CheckState.Unchecked
+                )
 
         return None
+
+    def setData(
+        self,
+        index: QModelIndex,
+        value,
+        role: int = Qt.ItemDataRole.EditRole,
+    ) -> bool:
+        if not index.isValid() or not (0 <= index.row() < len(self._issues)):
+            return False
+
+        if role == Qt.ItemDataRole.CheckStateRole and index.column() == 0:
+            checked = value in (
+                Qt.CheckState.Checked,
+                Qt.CheckState.Checked.value,
+                True,
+            )
+            if self._checked_issues[index.row()] != checked:
+                self._checked_issues[index.row()] = checked
+                self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
+                return True
+            return True
+
+        return False
 
     def headerData(
         self,
@@ -155,6 +195,7 @@ class CartographicIssueTableModel(QAbstractTableModel):
         """Replaces the dataset and resets the model."""
         self.beginResetModel()
         self._issues = list(issues)
+        self._checked_issues = [False] * len(self._issues)
         self.endResetModel()
 
     def add_issue(self, issue: CartographicIssue) -> None:
@@ -162,7 +203,25 @@ class CartographicIssueTableModel(QAbstractTableModel):
         row_idx = len(self._issues)
         self.beginInsertRows(QModelIndex(), row_idx, row_idx)
         self._issues.append(issue)
+        self._checked_issues.append(False)
         self.endInsertRows()
+
+    def checked_issues(self) -> List[CartographicIssue]:
+        """Returns the list of currently checked issues."""
+        return [
+            issue
+            for issue, checked in zip(self._issues, self._checked_issues)
+            if checked
+        ]
+
+    def set_all_checked(self, checked: bool = True) -> None:
+        """Convenience method to check or uncheck all issues at once."""
+        if not self._issues:
+            return
+        self._checked_issues = [checked] * len(self._issues)
+        top_left = self.index(0, 0)
+        bottom_right = self.index(len(self._issues) - 1, 0)
+        self.dataChanged.emit(top_left, bottom_right, [Qt.ItemDataRole.CheckStateRole])
 
 
 class CartographicIssueSortFilterProxyModel(QSortFilterProxyModel):

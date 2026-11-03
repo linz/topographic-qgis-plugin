@@ -1,4 +1,4 @@
-from qgis.PyQt.QtCore import QModelIndex, QTimer
+from qgis.PyQt.QtCore import QModelIndex, QTimer, Qt
 from qgis.PyQt.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -9,6 +9,7 @@ from qgis.PyQt.QtWidgets import (
     QProgressBar,
     QStackedWidget,
     QTableView,
+    QGridLayout,
 )
 from qgis.PyQt.QtGui import QFontMetrics
 
@@ -108,6 +109,10 @@ class CartographicRulesWidget(QgsPanelWidget):
         self.stacked_widget.addWidget(self._output_widget)
         self.stacked_widget.setCurrentIndex(0)
 
+        issues_container = QWidget()
+        issues_layout = QVBoxLayout(issues_container)
+        issues_layout.setContentsMargins(0, 0, 0, 0)
+
         self.issues_table = QTableView()
         self.issues_model = CartographicIssueTableModel(parent=self)
         self.issues_proxy_model = CartographicIssueSortFilterProxyModel(parent=self)
@@ -120,7 +125,7 @@ class CartographicRulesWidget(QgsPanelWidget):
         self.issues_table.horizontalHeader().setStretchLastSection(True)
 
         self.issues_table.setSelectionMode(
-            QAbstractItemView.SelectionMode.SingleSelection
+            QAbstractItemView.SelectionMode.ExtendedSelection
         )
         self.issues_table.setSelectionBehavior(
             QAbstractItemView.SelectionBehavior.SelectRows
@@ -133,7 +138,24 @@ class CartographicRulesWidget(QgsPanelWidget):
             QAbstractItemView.ScrollMode.ScrollPerPixel
         )
 
-        self.stacked_widget.addWidget(self.issues_table)
+        issues_layout.addWidget(self.issues_table, 1)
+
+        btn_layout = QGridLayout()
+        btn_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.check_all_button = QPushButton("Check All")
+        self.uncheck_all_button = QPushButton("Uncheck All")
+        self.check_selection_button = QPushButton("Check Selection")
+        self.uncheck_selection_button = QPushButton("Uncheck Selection")
+
+        btn_layout.addWidget(self.check_all_button, 0, 0)
+        btn_layout.addWidget(self.uncheck_all_button, 0, 1)
+        btn_layout.addWidget(self.check_selection_button, 1, 0)
+        btn_layout.addWidget(self.uncheck_selection_button, 1, 1)
+
+        issues_layout.addLayout(btn_layout)
+
+        self.stacked_widget.addWidget(issues_container)
 
         vl.addWidget(self.stacked_widget, 1)
 
@@ -149,6 +171,11 @@ class CartographicRulesWidget(QgsPanelWidget):
         self.issues_table.selectionModel().selectionChanged.connect(
             self.on_issue_selection_changed
         )
+
+        self.check_all_button.clicked.connect(self.check_all)
+        self.uncheck_all_button.clicked.connect(self.uncheck_all)
+        self.check_selection_button.clicked.connect(self.check_selection)
+        self.uncheck_selection_button.clicked.connect(self.uncheck_selection)
 
     def on_selection_changed(self, selected, deselected):
         """
@@ -243,3 +270,38 @@ class CartographicRulesWidget(QgsPanelWidget):
         self._canvas.zoomToFeatureIds(layer, [fid])
         self._canvas.refresh()
         self._canvas.flashFeatureIds(layer, [fid])
+
+    def check_all(self):
+        self._set_all_checked(Qt.CheckState.Checked)
+
+    def uncheck_all(self):
+        self._set_all_checked(Qt.CheckState.Unchecked)
+
+    def check_selection(self):
+        self._set_selection_checked(Qt.CheckState.Checked)
+
+    def uncheck_selection(self):
+        self._set_selection_checked(Qt.CheckState.Unchecked)
+
+    def _set_all_checked(self, state: Qt.CheckState):
+        checked_bool = state in (
+            Qt.CheckState.Checked,
+            Qt.CheckState.Checked.value,
+            True,
+        )
+
+        self.issues_model.set_all_checked(checked_bool)
+
+    def _set_selection_checked(self, state: Qt.CheckState):
+        selection_model = self.issues_table.selectionModel()
+        if not selection_model:
+            return
+
+        selected_rows = selection_model.selectedRows(0)
+        if not selected_rows:
+            return
+
+        for proxy_index in selected_rows:
+            self.issues_proxy_model.setData(
+                proxy_index, state, Qt.ItemDataRole.CheckStateRole
+            )
