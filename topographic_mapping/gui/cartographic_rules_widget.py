@@ -205,6 +205,10 @@ class CartographicRulesWidget(QgsPanelWidget):
             return
 
         self.run_button.setEnabled(True)
+        self._output_widget.clear()
+        self.stacked_widget.setCurrentIndex(0)
+        self.progress_bar.resetFormat()
+        self.progress_bar.setValue(0)
 
     def _update_fix_button_state(self, *args):
         """Enables the fix button only when at least one issue is checked."""
