@@ -16,6 +16,7 @@ from .generalization_rule import (
     CartographicGeneralizationRule,
     CartographicGeneralizationRuleContext,
     RuleFeedback,
+    CartographicIssue,
 )
 
 

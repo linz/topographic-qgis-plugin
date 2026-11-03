@@ -6,6 +6,11 @@ from .generalization_rule import CartographicGeneralizationRuleContext, RuleFeed
 from .registry import (
     CartographicRuleRegistry,
     RULE_REGISTRY,
+)  # NOQA
+
+from .models import (
     CartographicRuleModel,
     CartographicRuleSortProxyModel,
+    CartographicIssueTableModel,
+    CartographicIssueSortFilterProxyModel,
 )  # NOQA

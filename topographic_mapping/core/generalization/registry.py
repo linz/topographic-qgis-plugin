@@ -2,21 +2,13 @@
 Cartographic rule registry
 """
 
-from enum import IntEnum
-from typing import Dict, List, Optional, Tuple
-
-from qgis.PyQt.QtCore import (
-    Qt,
-    QObject,
-    QModelIndex,
-    QAbstractListModel,
-    QSortFilterProxyModel,
-)
+from typing import Dict, List
 
 from .generalization_rule import (
     CartographicGeneralizationRule,
     CartographicGeneralizationRuleContext,
     RuleFeedback,
+    CartographicIssue,
 )
 
 from .bridge_minimum_length import BridgeMinimumLengthRule
@@ -47,6 +39,25 @@ class CartographicRuleRegistry:
 
         return None
 
+    def validate(
+        self,
+        rule_id: str,
+        context: CartographicGeneralizationRuleContext,
+        parameters: Dict[str, object],
+        feedback: RuleFeedback,
+    ) -> List[CartographicIssue]:
+        """
+        Runs validation using a rule
+        """
+        rule = self.rule_by_id(rule_id)
+        if rule is None:
+            return []
+
+        results = rule.validate(context, parameters, feedback)
+        feedback.push_feedback("Complete")
+        feedback.setProgress(100)
+        return results
+
     def run_rule(
         self,
         rule_id: str,
@@ -63,64 +74,7 @@ class CartographicRuleRegistry:
 
         rule.run(context, parameters, feedback)
         feedback.push_feedback("Complete")
+        feedback.setProgress(100)
 
 
 RULE_REGISTRY = CartographicRuleRegistry()
-
-
-class CartographicRuleModel(QAbstractListModel):
-    """
-    Qt model exposing rules from a CartographicRuleRegistry.
-    """
-
-    class RuleRole(IntEnum):
-        """Custom model roles for cartographic rules."""
-
-        RuleIdRole = Qt.ItemDataRole.UserRole + 1
-
-    def __init__(
-        self,
-        registry: Optional[CartographicRuleRegistry] = None,
-        parent: Optional[QObject] = None,
-    ):
-        super().__init__(parent)
-        self._registry = registry or RULE_REGISTRY
-        self._rules: List[Tuple[str, str]] = []
-        self.reload()
-
-    def reload(self) -> None:
-        """Refreshes the internal cache from the registry."""
-        self.beginResetModel()
-        self._rules = list(self._registry.all_rules().items())
-        self.endResetModel()
-
-    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
-        if parent.isValid():
-            return 0
-        return len(self._rules)
-
-    def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
-        if not index.isValid() or not (0 <= index.row() < len(self._rules)):
-            return None
-
-        rule_id, rule_name = self._rules[index.row()]
-
-        if role == Qt.ItemDataRole.DisplayRole:
-            return rule_name
-        elif role == CartographicRuleModel.RuleRole.RuleIdRole:
-            return rule_id
-
-        return None
-
-
-class CartographicRuleSortProxyModel(QSortFilterProxyModel):
-    """
-    Proxy model for cartographic rules model
-    """
-
-    def __init__(self, parent: Optional[QObject] = None):
-        super().__init__(parent)
-        self.setSortRole(Qt.ItemDataRole.DisplayRole)
-        self.setSortCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-        self.setDynamicSortFilter(True)
-        self.sort(0, Qt.SortOrder.AscendingOrder)

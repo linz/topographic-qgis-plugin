@@ -2,7 +2,7 @@
 Cartographic generalization rules
 """
 
-from typing import Dict
+from typing import Dict, List
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -26,7 +26,6 @@ class CartographicGeneralizationRuleContext:
     project_controller: ProjectController
 
 
-@dataclass
 class RuleFeedback(QgsFeedback):
     """
     Feedback for running cartographic rules
@@ -39,6 +38,17 @@ class RuleFeedback(QgsFeedback):
 
     def push_feedback(self, feedback: str):
         self.feedback_received.emit(feedback)
+
+
+@dataclass
+class CartographicIssue:
+    """
+    Flagged issues from cartographic rule failures
+    """
+
+    fid: int
+    message: str
+    sort_value: object
 
 
 class CartographicGeneralizationRule(ABC):
@@ -58,6 +68,17 @@ class CartographicGeneralizationRule(ABC):
         Returns the name of the generalization rule
         """
         pass
+
+    @abstractmethod
+    def validate(
+        self,
+        context: CartographicGeneralizationRuleContext,
+        parameters: Dict[str, object],
+        feedback: RuleFeedback,
+    ) -> List[CartographicIssue]:
+        """
+        Validates features against the generalization rule
+        """
 
     @abstractmethod
     def run(
