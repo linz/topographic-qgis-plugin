@@ -100,6 +100,7 @@ class TopographicMappingPlugin:
 
         self._tool_dock = EditToolDock(
             edit_target_tool_action=self._tool_registry.set_target_tool_action,
+            canvas=self.iface.mapCanvas(),
             parent=None,
         )
         self._tool_dock.setObjectName("TopographicTools")
@@ -147,6 +148,9 @@ class TopographicMappingPlugin:
         self._tool_registry.custom_action(PluginTool.ShowMarkup).triggered.connect(
             self._tool_dock.show_markup
         )
+        self._tool_registry.custom_action(
+            PluginTool.CartographicRules
+        ).triggered.connect(self._tool_dock.show_cartographic_rules)
         self._label_gui_manager.register_tools(self._tool_registry)
 
         self._set_target_tool = SetTargetTool(self.iface.mapCanvas())

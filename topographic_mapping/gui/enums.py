@@ -56,3 +56,5 @@ class PluginTool(Enum):
     ClearAnnotations = auto()
 
     Deform = auto()
+
+    CartographicRules = auto()

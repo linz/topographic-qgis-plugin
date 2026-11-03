@@ -1,0 +1,154 @@
+from qgis.PyQt.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QListView,
+    QAbstractItemView,
+    QHBoxLayout,
+    QPushButton,
+    QProgressBar,
+)
+from qgis.PyQt.QtGui import QFontMetrics
+
+from qgis.core import QgsReferencedRectangle, QgsFeedback
+from qgis.gui import QgsPanelWidget, QgsMapCanvas, QgsCodeEditorPython, QgsCodeEditor
+
+from topographic_mapping.core import ProjectController
+from topographic_mapping.core.generalization import (
+    RULE_REGISTRY,
+    CartographicRuleModel,
+    CartographicRuleSortProxyModel,
+    CartographicGeneralizationRuleContext,
+    RuleFeedback,
+)
+
+
+class CartographicRulesWidget(QgsPanelWidget):
+    """
+    A widget for running and configuring cartographic rules
+    """
+
+    def __init__(
+        self,
+        canvas: QgsMapCanvas,
+        project_controller: ProjectController,
+        parent: QWidget | None = None,
+    ):
+        super().__init__(parent)
+        self.setDockMode(True)
+        self.setPanelTitle("Cartographic Rules")
+
+        self._canvas: QgsMapCanvas = canvas
+        self._project_controller: ProjectController = project_controller
+
+        self._current_rule_id: str | None = None
+
+        self._model = CartographicRuleModel(RULE_REGISTRY, self)
+        self._proxy_model = CartographicRuleSortProxyModel(self)
+        self._proxy_model.setSourceModel(self._model)
+
+        self.table_view = QListView()
+        self.table_view.setModel(self._proxy_model)
+        self.table_view.setAlternatingRowColors(True)
+
+        self.table_view.setSelectionMode(
+            QAbstractItemView.SelectionMode.SingleSelection
+        )
+        self.table_view.setSelectionBehavior(
+            QAbstractItemView.SelectionBehavior.SelectItems
+        )
+
+        self.table_view.setVerticalScrollMode(
+            QAbstractItemView.ScrollMode.ScrollPerPixel
+        )
+        self.table_view.setHorizontalScrollMode(
+            QAbstractItemView.ScrollMode.ScrollPerPixel
+        )
+
+        fm = QFontMetrics(self.font())
+        self.table_view.setFixedHeight(fm.height() * 5)
+
+        vl = QVBoxLayout()
+        vl.setContentsMargins(0, 0, 6, 6)
+        vl.addWidget(self.table_view)
+
+        self.config_container = QWidget()
+        vl.addWidget(self.config_container)
+
+        hl = QHBoxLayout()
+        hl.setContentsMargins(0, 0, 0, 0)
+
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setMinimum(0)
+        self.progress_bar.setMaximum(100)
+
+        hl.addWidget(self.progress_bar, 1)
+        self.run_button = QPushButton("Run")
+        hl.addWidget(self.run_button)
+
+        vl.addLayout(hl)
+
+        self._output_widget = QgsCodeEditorPython(
+            mode=QgsCodeEditor.Mode.OutputDisplay, flags=QgsCodeEditor.Flags()
+        )
+        self._output_widget.setReadOnly(True)
+        self._output_widget.setLineNumbersVisible(False)
+
+        vl.addWidget(self._output_widget, 1)
+
+        self.setLayout(vl)
+
+        self.table_view.selectionModel().selectionChanged.connect(
+            self.on_selection_changed
+        )
+        self.run_button.setEnabled(False)
+        self.run_button.clicked.connect(self.run)
+
+    def on_selection_changed(self, selected, deselected):
+        """
+        Triggered whenever the user clicks an item in the table view.
+        """
+        if not selected.indexes():
+            self.set_current_rule_id(None)
+            return
+
+        index = selected.indexes()[0]
+
+        rule_id = index.data(CartographicRuleModel.RuleRole.RuleIdRole)
+        self.set_current_rule_id(rule_id)
+
+    def set_current_rule_id(self, rule_id: str | None):
+        self._current_rule_id = rule_id
+        if not self._current_rule_id:
+            self.run_button.setEnabled(False)
+            return
+
+        self.run_button.setEnabled(True)
+
+    def run(self):
+        if not self._current_rule_id:
+            return
+
+        visible_extent = QgsReferencedRectangle(
+            self._canvas.extent(), self._canvas.mapSettings().destinationCrs()
+        )
+
+        context = CartographicGeneralizationRuleContext(
+            extent=visible_extent,
+            project_controller=self._project_controller,
+        )
+
+        feedback = RuleFeedback()
+        feedback.progressChanged.connect(self.set_progress)
+        feedback.feedback_received.connect(self.set_feedback)
+
+        self.progress_bar.resetFormat()
+        self._output_widget.clear()
+
+        RULE_REGISTRY.run_rule(self._current_rule_id, context, {}, feedback)
+        self.progress_bar.setFormat("Complete")
+
+    def set_progress(self, progress: float):
+        self.progress_bar.setValue(int(progress))
+
+    def set_feedback(self, feedback: str):
+        self._output_widget.append("{}\n".format(feedback))

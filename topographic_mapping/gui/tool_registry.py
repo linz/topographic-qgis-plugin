@@ -195,6 +195,13 @@ TOOLS = {
         CustomAction(
             PluginTool.Deform, "Deform", "delete_product_view.svg", "Deforms features."
         ),
+        CustomAction(
+            PluginTool.CartographicRules,
+            "Cartographic Rules",
+            "view_markup.svg",
+            "Configure and run cartographic rules.",
+            requires_editable_target=False,
+        ),
     ],
     ToolGroup.Digitizing: [
         DigitizeTechniqueAction(
