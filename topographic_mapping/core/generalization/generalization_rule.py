@@ -19,7 +19,7 @@ class CartographicGeneralizationRuleContext:
     Context for running cartographic rules
     """
 
-    extent: QgsReferencedRectangle
+    extent: QgsReferencedRectangle | None
     project_controller: ProjectController
 
 
@@ -81,6 +81,7 @@ class CartographicGeneralizationRule(ABC):
     @abstractmethod
     def run(
         self,
+        issues: List[CartographicIssue],
         context: CartographicGeneralizationRuleContext,
         parameters: Dict[str, object],
         feedback: RuleFeedback,

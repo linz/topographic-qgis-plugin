@@ -61,6 +61,7 @@ class CartographicRuleRegistry:
     def run_rule(
         self,
         rule_id: str,
+        issues: List[CartographicIssue],
         context: CartographicGeneralizationRuleContext,
         parameters: Dict[str, object],
         feedback: RuleFeedback,
@@ -72,7 +73,7 @@ class CartographicRuleRegistry:
         if rule is None:
             return
 
-        rule.run(context, parameters, feedback)
+        rule.run(issues, context, parameters, feedback)
         feedback.push_feedback("Complete")
         feedback.setProgress(100)
 

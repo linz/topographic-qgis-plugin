@@ -147,11 +147,14 @@ class CartographicRulesWidget(QgsPanelWidget):
         self.uncheck_all_button = QPushButton("Uncheck All")
         self.check_selection_button = QPushButton("Check Selection")
         self.uncheck_selection_button = QPushButton("Uncheck Selection")
+        self.fix_button = QPushButton("Fix Checked Issues")
+        self.fix_button.setEnabled(False)
 
         btn_layout.addWidget(self.check_all_button, 0, 0)
         btn_layout.addWidget(self.uncheck_all_button, 0, 1)
         btn_layout.addWidget(self.check_selection_button, 1, 0)
         btn_layout.addWidget(self.uncheck_selection_button, 1, 1)
+        btn_layout.addWidget(self.fix_button, 2, 0, 1, 2)
 
         issues_layout.addLayout(btn_layout)
 
@@ -176,6 +179,11 @@ class CartographicRulesWidget(QgsPanelWidget):
         self.uncheck_all_button.clicked.connect(self.uncheck_all)
         self.check_selection_button.clicked.connect(self.check_selection)
         self.uncheck_selection_button.clicked.connect(self.uncheck_selection)
+        self.fix_button.clicked.connect(self.fix_selected_rules)
+
+        self.issues_model.dataChanged.connect(self._update_fix_button_state)
+        self.issues_model.modelReset.connect(self._update_fix_button_state)
+        self.issues_model.rowsRemoved.connect(self._update_fix_button_state)
 
     def on_selection_changed(self, selected, deselected):
         """
@@ -198,6 +206,12 @@ class CartographicRulesWidget(QgsPanelWidget):
 
         self.run_button.setEnabled(True)
 
+    def _update_fix_button_state(self, *args):
+        """Enables the fix button only when at least one issue is checked."""
+        any_checked = bool(self.issues_model.checked_issues())
+
+        self.fix_button.setEnabled(any_checked)
+
     def run(self):
         if not self._current_rule_id:
             return
@@ -219,7 +233,6 @@ class CartographicRulesWidget(QgsPanelWidget):
         self._output_widget.clear()
         self.stacked_widget.setCurrentIndex(0)
 
-        # RULE_REGISTRY.run_rule(self._current_rule_id, context, {}, feedback)
         issues = RULE_REGISTRY.validate(self._current_rule_id, context, {}, feedback)
         self.issues_model.set_issues(issues)
         self.progress_bar.setFormat("Complete")
@@ -305,3 +318,26 @@ class CartographicRulesWidget(QgsPanelWidget):
             self.issues_proxy_model.setData(
                 proxy_index, state, Qt.ItemDataRole.CheckStateRole
             )
+
+    def fix_selected_rules(self):
+        if not self._current_rule_id:
+            return
+
+        context = CartographicGeneralizationRuleContext(
+            extent=None,
+            project_controller=self._project_controller,
+        )
+
+        feedback = RuleFeedback()
+        feedback.progressChanged.connect(self.set_progress)
+        feedback.feedback_received.connect(self.set_feedback)
+
+        self.progress_bar.resetFormat()
+        self._output_widget.clear()
+        self.stacked_widget.setCurrentIndex(0)
+
+        issues = self.issues_model.checked_issues()
+
+        RULE_REGISTRY.run_rule(self._current_rule_id, issues, context, {}, feedback)
+
+        self.progress_bar.setFormat("Complete")

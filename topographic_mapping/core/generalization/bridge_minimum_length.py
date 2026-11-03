@@ -109,6 +109,7 @@ class BridgeMinimumLengthRule(CartographicGeneralizationRule):
 
     def run(
         self,
+        issues: List[CartographicIssue],
         context: CartographicGeneralizationRuleContext,
         parameters: Dict[str, object],
         feedback: RuleFeedback,
@@ -121,11 +122,6 @@ class BridgeMinimumLengthRule(CartographicGeneralizationRule):
         if not da.willUseEllipsoid():
             return
 
-        ct = QgsCoordinateTransform(
-            context.extent.crs(), bridge_layer.crs(), QgsProject.instance()
-        )
-        layer_extent = ct.transformBoundingBox(context.extent)
-
         target_layers = [
             context.project_controller.layer_for_feature_type(ft)
             for ft in BridgeMinimumLengthRule.TARGET_LAYERS
@@ -135,7 +131,9 @@ class BridgeMinimumLengthRule(CartographicGeneralizationRule):
         for layer in target_layers:
             layer.beginEditCommand(self.name())
 
-        request = QgsFeatureRequest().setFilterRect(layer_extent)
+        fids = [issue.fid for issue in issues]
+
+        request = QgsFeatureRequest().setFilterFids(fids)
 
         all_features = [f for f in bridge_layer.getFeatures(request)]
 

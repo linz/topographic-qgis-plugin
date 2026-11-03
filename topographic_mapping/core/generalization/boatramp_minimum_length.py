@@ -73,15 +73,21 @@ class BoatRampMinimumLengthRule(CartographicGeneralizationRule):
 
     @staticmethod
     def get_boat_ramp_iterator(
-        boat_ramp_layer: QgsVectorLayer, layer_extent: QgsRectangle
+        boat_ramp_layer: QgsVectorLayer,
+        layer_extent: QgsRectangle | None,
+        fids: List[int] | None,
     ) -> QgsFeatureIterator:
-        request = (
-            QgsFeatureRequest()
-            .setFilterRect(layer_extent)
-            .setFilterExpression(
+        request = QgsFeatureRequest()
+        if layer_extent is not None:
+            request.setFilterRect(layer_extent)
+
+        if fids is not None:
+            request.setFilterFids(fids)
+        else:
+            request.setFilterExpression(
                 QgsExpression.createFieldEqualityExpression("type", "boatramp")
             )
-        )
+
         return boat_ramp_layer.getFeatures(request)
 
     def validate(
@@ -109,16 +115,8 @@ class BoatRampMinimumLengthRule(CartographicGeneralizationRule):
 
         water_index = self.build_water_polygon_index(water_layer, layer_extent)
 
-        request = (
-            QgsFeatureRequest()
-            .setFilterRect(layer_extent)
-            .setFilterExpression(
-                QgsExpression.createFieldEqualityExpression("type", "boatramp")
-            )
-        )
-
         all_features = [
-            f for f in self.get_boat_ramp_iterator(line_layer, layer_extent)
+            f for f in self.get_boat_ramp_iterator(line_layer, layer_extent, fids=None)
         ]
 
         failures = []
@@ -191,6 +189,7 @@ class BoatRampMinimumLengthRule(CartographicGeneralizationRule):
 
     def run(
         self,
+        issues: List[CartographicIssue],
         context: CartographicGeneralizationRuleContext,
         parameters: Dict[str, object],
         feedback: RuleFeedback,
@@ -207,25 +206,32 @@ class BoatRampMinimumLengthRule(CartographicGeneralizationRule):
         if not da.willUseEllipsoid():
             return
 
-        ct = QgsCoordinateTransform(
-            context.extent.crs(), line_layer.crs(), QgsProject.instance()
-        )
-        layer_extent = ct.transformBoundingBox(context.extent)
+        fids = [issue.fid for issue in issues]
+        all_features = [
+            f
+            for f in self.get_boat_ramp_iterator(
+                line_layer, layer_extent=None, fids=fids
+            )
+        ]
+
+        layer_extent = QgsRectangle()
+        for f in all_features:
+            layer_extent.combineExtentWith(f.geometry().boundingBox())
 
         line_layer.beginEditCommand(self.name())
 
         water_index = self.build_water_polygon_index(water_layer, layer_extent)
-
-        all_features = [
-            f for f in self.get_boat_ramp_iterator(line_layer, layer_extent)
-        ]
 
         for idx, f in enumerate(all_features):
             feedback.setProgress(int(idx / len(all_features) * 100))
 
             geom = f.geometry()
             ramp_length = da.measureLength(geom)
-            if ramp_length >= BoatRampMinimumLengthRule.MINIMUM_LENGTH * 0.999:
+            if (
+                ramp_length
+                >= BoatRampMinimumLengthRule.MINIMUM_LENGTH
+                * BoatRampMinimumLengthRule.TOLERANCE
+            ):
                 continue
 
             feedback.push_feedback(
