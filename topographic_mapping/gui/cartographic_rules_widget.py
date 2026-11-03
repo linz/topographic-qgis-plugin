@@ -6,10 +6,12 @@ from qgis.PyQt.QtWidgets import (
     QHBoxLayout,
     QPushButton,
     QProgressBar,
+    QStackedWidget,
+    QTableView,
 )
 from qgis.PyQt.QtGui import QFontMetrics
 
-from qgis.core import QgsReferencedRectangle, QgsFeedback
+from qgis.core import QgsReferencedRectangle
 from qgis.gui import QgsPanelWidget, QgsMapCanvas, QgsCodeEditorPython, QgsCodeEditor
 
 from topographic_mapping.core import ProjectController
@@ -19,6 +21,8 @@ from topographic_mapping.core.generalization import (
     CartographicRuleSortProxyModel,
     CartographicGeneralizationRuleContext,
     RuleFeedback,
+    CartographicIssueTableModel,
+    CartographicIssueSortFilterProxyModel,
 )
 
 
@@ -87,13 +91,44 @@ class CartographicRulesWidget(QgsPanelWidget):
 
         vl.addLayout(hl)
 
+        self.stacked_widget = QStackedWidget()
+
         self._output_widget = QgsCodeEditorPython(
             mode=QgsCodeEditor.Mode.OutputDisplay, flags=QgsCodeEditor.Flags()
         )
         self._output_widget.setReadOnly(True)
         self._output_widget.setLineNumbersVisible(False)
+        self.stacked_widget.addWidget(self._output_widget)
+        self.stacked_widget.setCurrentIndex(0)
 
-        vl.addWidget(self._output_widget, 1)
+        self.issues_table = QTableView()
+        self.issues_model = CartographicIssueTableModel(parent=self)
+        self.issues_proxy_model = CartographicIssueSortFilterProxyModel(parent=self)
+        self.issues_proxy_model.setSourceModel(self.issues_model)
+
+        self.issues_table.setModel(self.issues_proxy_model)
+        self.issues_table.setAlternatingRowColors(True)
+
+        self.issues_table.setColumnWidth(0, fm.horizontalAdvance("x") * 10)
+        self.issues_table.horizontalHeader().setStretchLastSection(True)
+
+        self.issues_table.setSelectionMode(
+            QAbstractItemView.SelectionMode.SingleSelection
+        )
+        self.issues_table.setSelectionBehavior(
+            QAbstractItemView.SelectionBehavior.SelectRows
+        )
+
+        self.issues_table.setVerticalScrollMode(
+            QAbstractItemView.ScrollMode.ScrollPerPixel
+        )
+        self.issues_table.setHorizontalScrollMode(
+            QAbstractItemView.ScrollMode.ScrollPerPixel
+        )
+
+        self.stacked_widget.addWidget(self.issues_table)
+
+        vl.addWidget(self.stacked_widget, 1)
 
         self.setLayout(vl)
 
@@ -143,9 +178,14 @@ class CartographicRulesWidget(QgsPanelWidget):
 
         self.progress_bar.resetFormat()
         self._output_widget.clear()
+        self.stacked_widget.setCurrentIndex(0)
 
-        RULE_REGISTRY.run_rule(self._current_rule_id, context, {}, feedback)
+        # RULE_REGISTRY.run_rule(self._current_rule_id, context, {}, feedback)
+        issues = RULE_REGISTRY.validate(self._current_rule_id, context, {}, feedback)
+        self.issues_model.set_issues(issues)
         self.progress_bar.setFormat("Complete")
+        if issues:
+            self.stacked_widget.setCurrentIndex(1)
 
     def set_progress(self, progress: float):
         self.progress_bar.setValue(int(progress))
