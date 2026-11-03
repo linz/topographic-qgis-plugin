@@ -198,7 +198,7 @@ TOOLS = {
         CustomAction(
             PluginTool.CartographicRules,
             "Cartographic Rules",
-            "view_markup.svg",
+            "check_cartography.svg",
             "Configure and run cartographic rules.",
             requires_editable_target=False,
         ),
