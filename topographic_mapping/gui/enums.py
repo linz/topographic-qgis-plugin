@@ -54,3 +54,7 @@ class PluginTool(Enum):
     CreateBufferInAnnotation90 = auto()
 
     ClearAnnotations = auto()
+
+    Deform = auto()
+
+    CartographicRules = auto()
