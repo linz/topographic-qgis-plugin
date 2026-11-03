@@ -20,6 +20,7 @@ from .generalization_rule import (
 )
 
 from .bridge_minimum_length import BridgeMinimumLengthRule
+from .boatramp_minimum_length import BoatRampMinimumLengthRule
 
 
 class CartographicRuleRegistry:
@@ -30,6 +31,7 @@ class CartographicRuleRegistry:
     def __init__(self):
         self._rules: List[CartographicGeneralizationRule] = [
             BridgeMinimumLengthRule(),
+            BoatRampMinimumLengthRule(),
         ]
 
     def all_rules(self) -> Dict[str, str]:
