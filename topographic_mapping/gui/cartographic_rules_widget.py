@@ -1,3 +1,4 @@
+from qgis.PyQt.QtCore import QModelIndex, QTimer
 from qgis.PyQt.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -45,6 +46,12 @@ class CartographicRulesWidget(QgsPanelWidget):
         self._project_controller: ProjectController = project_controller
 
         self._current_rule_id: str | None = None
+
+        self._queued_zoom_and_flash_index: QModelIndex | None = None
+        self._zoom_and_flash_timeout = QTimer()
+        self._zoom_and_flash_timeout.setSingleShot(True)
+        self._zoom_and_flash_timeout.setInterval(50)
+        self._zoom_and_flash_timeout.timeout.connect(self._trigger_zoom_and_flash)
 
         self._model = CartographicRuleModel(RULE_REGISTRY, self)
         self._proxy_model = CartographicRuleSortProxyModel(self)
@@ -138,6 +145,11 @@ class CartographicRulesWidget(QgsPanelWidget):
         self.run_button.setEnabled(False)
         self.run_button.clicked.connect(self.run)
 
+        self.issues_table.clicked.connect(self.on_issue_clicked)
+        self.issues_table.selectionModel().selectionChanged.connect(
+            self.on_issue_selection_changed
+        )
+
     def on_selection_changed(self, selected, deselected):
         """
         Triggered whenever the user clicks an item in the table view.
@@ -192,3 +204,42 @@ class CartographicRulesWidget(QgsPanelWidget):
 
     def set_feedback(self, feedback: str):
         self._output_widget.append("{}\n".format(feedback))
+
+    def _queue_zoom_and_flash(self, index: QModelIndex):
+        """
+        Queues the zoom and flash operation, after a short time-out
+        """
+        self._queued_zoom_and_flash_index = index
+
+    def on_issue_clicked(self, index: QModelIndex):
+        """
+        Triggers every time a issue is clicked, even if already selected.
+        """
+        self._queue_zoom_and_flash(index)
+        self._zoom_and_flash_timeout.start()
+
+    def on_issue_selection_changed(self, selected, deselected):
+        """
+        Triggered whenever the user clicks an item in the list view.
+        Pans and zooms the map to the geometry of the selected item(s).
+        """
+        if not selected.indexes():
+            return
+
+        index = selected.indexes()[0]
+        self._queue_zoom_and_flash(index)
+
+    def _trigger_zoom_and_flash(self):
+        if self._queued_zoom_and_flash_index is None:
+            return
+
+        fid = self.issues_proxy_model.index_to_fid(self._queued_zoom_and_flash_index)
+        layer = self.issues_proxy_model.index_to_layer(
+            self._queued_zoom_and_flash_index
+        )
+        if not layer:
+            return
+
+        self._canvas.zoomToFeatureIds(layer, [fid])
+        self._canvas.refresh()
+        self._canvas.flashFeatureIds(layer, [fid])

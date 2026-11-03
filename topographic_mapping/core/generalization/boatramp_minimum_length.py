@@ -179,7 +179,12 @@ class BoatRampMinimumLengthRule(CartographicGeneralizationRule):
             feedback.push_feedback(message)
 
             failures.append(
-                CartographicIssue(fid=f.id(), message=message, sort_value=ramp_length)
+                CartographicIssue(
+                    fid=f.id(),
+                    message=message,
+                    sort_value=ramp_length,
+                    layer=line_layer,
+                )
             )
 
         return failures

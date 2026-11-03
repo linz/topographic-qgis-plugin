@@ -14,6 +14,8 @@ from qgis.PyQt.QtCore import (
     QAbstractTableModel,
 )
 
+from qgis.core import QgsVectorLayer
+
 from .registry import CartographicRuleRegistry, RULE_REGISTRY
 from .generalization_rule import CartographicIssue
 
@@ -80,7 +82,8 @@ class IssueRole(IntEnum):
     """Custom model roles for cartographic issues."""
 
     FidRole = Qt.ItemDataRole.UserRole + 1
-    SortRole = Qt.ItemDataRole.UserRole + 2
+    LayerRole = Qt.ItemDataRole.UserRole + 2
+    SortRole = Qt.ItemDataRole.UserRole + 3
 
 
 class CartographicIssueTableModel(QAbstractTableModel):
@@ -116,14 +119,16 @@ class CartographicIssueTableModel(QAbstractTableModel):
 
         if role == IssueRole.FidRole:
             return issue.fid
+        elif role == IssueRole.SortRole:
+            return issue.sort_value
+        elif role == IssueRole.LayerRole:
+            return issue.layer
 
         if role == Qt.ItemDataRole.DisplayRole:
             if index.column() == 0:
                 return issue.fid
             elif index.column() == 1:
                 return issue.message
-        elif role == IssueRole.SortRole:
-            return issue.sort_value
         elif role == Qt.ItemDataRole.TextAlignmentRole:
             if index.column() == 0:
                 return int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -170,3 +175,11 @@ class CartographicIssueSortFilterProxyModel(QSortFilterProxyModel):
         self.setSortRole(IssueRole.SortRole)
         self.setDynamicSortFilter(True)
         self.sort(0)
+
+    def index_to_fid(self, index: QModelIndex) -> int:
+        source_index = self.mapToSource(index)
+        return source_index.data(IssueRole.FidRole)
+
+    def index_to_layer(self, index: QModelIndex) -> QgsVectorLayer | None:
+        source_index = self.mapToSource(index)
+        return source_index.data(IssueRole.LayerRole)

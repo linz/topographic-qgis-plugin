@@ -98,7 +98,12 @@ class BridgeMinimumLengthRule(CartographicGeneralizationRule):
             feedback.push_feedback(message)
 
             failures.append(
-                CartographicIssue(fid=f.id(), message=message, sort_value=bridge_length)
+                CartographicIssue(
+                    fid=f.id(),
+                    message=message,
+                    sort_value=bridge_length,
+                    layer=bridge_layer,
+                )
             )
         return failures
 

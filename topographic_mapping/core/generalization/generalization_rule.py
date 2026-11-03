@@ -8,10 +8,7 @@ from dataclasses import dataclass
 
 from qgis.PyQt.QtCore import QObject, pyqtSignal
 
-from qgis.core import (
-    QgsReferencedRectangle,
-    QgsFeedback,
-)
+from qgis.core import QgsReferencedRectangle, QgsFeedback, QgsVectorLayer
 
 from ..project_controller import ProjectController
 
@@ -49,6 +46,7 @@ class CartographicIssue:
     fid: int
     message: str
     sort_value: object
+    layer: QgsVectorLayer
 
 
 class CartographicGeneralizationRule(ABC):
