@@ -145,7 +145,9 @@ class RubberSheetingTool:
 
             layer_bounds = layer_deform_area.boundingBox()
 
-            densify_distance = layer_end.distance(layer_start) / self.DENSIFY_FACTOR
+            densify_distance = max(
+                0.5, layer_end.distance(layer_start) / self.DENSIFY_FACTOR
+            )
 
             layer_transformer = PointRubberBandTransform(
                 layer_start,
@@ -153,7 +155,6 @@ class RubberSheetingTool:
                 layer_radius,
             )
 
-            layer.beginEditCommand("Rubber Sheet Deformation")
             request = QgsFeatureRequest().setFilterRect(layer_bounds)
             for feature in layer.getFeatures(request):
                 geom = feature.geometry()
@@ -175,5 +176,3 @@ class RubberSheetingTool:
                         feature.geometry(), new_geom
                     )
                     layer.changeGeometry(feature.id(), new_geom)
-
-            layer.endEditCommand()
