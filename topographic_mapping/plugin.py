@@ -32,6 +32,7 @@ from topographic_mapping.gui import (
     StyleManager,
     ChangeFeatureClassDialog,
     SelectFeatureClassDialog,
+    RubberSheetingMapTool,
 )
 from .core import (
     StateManager,
@@ -213,6 +214,10 @@ class TopographicMappingPlugin:
 
         self._tool_registry.custom_action(PluginTool.MarkupSelected).triggered.connect(
             self._markup_selected
+        )
+
+        self._tool_registry.custom_action(PluginTool.Deform).triggered.connect(
+            self._deform
         )
 
     def unload(self) -> None:
@@ -580,3 +585,7 @@ class TopographicMappingPlugin:
         self._markup_manager.markup_selected_features(
             QgsProject.instance(), self._state_manager.current_layer(), notes
         )
+
+    def _deform(self):
+        rubber_map_tool = RubberSheetingMapTool(self.iface.mapCanvas(), radius=50)
+        self.iface.mapCanvas().setMapTool(rubber_map_tool)

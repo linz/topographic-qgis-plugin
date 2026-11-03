@@ -192,6 +192,9 @@ TOOLS = {
             "Clears the product view specific edits for the selected features.",
             requires_selection=True,
         ),
+        CustomAction(
+            PluginTool.Deform, "Deform", "delete_product_view.svg", "Deforms features."
+        ),
     ],
     ToolGroup.Digitizing: [
         DigitizeTechniqueAction(
