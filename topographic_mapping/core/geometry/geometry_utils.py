@@ -2,9 +2,19 @@
 Geometry utilities
 """
 
-from typing import Tuple
+from typing import Tuple, List, Set
 
-from qgis.core import QgsPoint, QgsGeometry, QgsVertexId, QgsGeometryUtilsBase
+from qgis.core import (
+    QgsPoint,
+    QgsGeometry,
+    QgsVertexId,
+    QgsGeometryUtilsBase,
+    Qgis,
+    QgsLineString,
+    QgsMultiLineString,
+    QgsPolygon,
+    QgsMultiPolygon,
+)
 
 
 class GeometryUtils:
@@ -20,6 +30,52 @@ class GeometryUtils:
             round(p.x(), GeometryUtils.COMPARISON_PRECISION),
             round(p.y(), GeometryUtils.COMPARISON_PRECISION),
         )
+
+    @staticmethod
+    def _filter_collinear_points(
+        pts: List[QgsPoint],
+        orig_coordinates: Set[Tuple[float, float]],
+        sqr_tolerance: float,
+    ) -> List[QgsPoint]:
+        """
+        Filters out collinear injected vertices.
+        Vertices existing in orig_coordinates are unconditionally preserved.
+        """
+        if len(pts) <= 2:
+            return pts
+
+        stack: List[QgsPoint] = [pts[0]]
+
+        for i in range(1, len(pts)):
+            curr_pt = pts[i]
+
+            while len(stack) >= 2:
+                mid_pt = stack[-1]
+
+                # never delete vertices that existed in the original geometry
+                if GeometryUtils.round_coordinates(mid_pt) in orig_coordinates:
+                    break
+
+                prev_pt = stack[-2]
+
+                sqr_dist, _, _ = QgsGeometryUtilsBase.sqrDistToLine(
+                    mid_pt.x(),
+                    mid_pt.y(),
+                    prev_pt.x(),
+                    prev_pt.y(),
+                    curr_pt.x(),
+                    curr_pt.y(),
+                    1e-16,
+                )
+
+                if sqr_dist < sqr_tolerance:
+                    stack.pop()
+                else:
+                    break
+
+            stack.append(curr_pt)
+
+        return stack
 
     @staticmethod
     def remove_unnecessary_densified_vertices(
@@ -44,46 +100,64 @@ class GeometryUtils:
 
         abs_geom = modified_geom.constGet().clone()
 
+        retained_parts: List[List[List[QgsPoint]]] = []
+
         for part_idx in range(abs_geom.partCount()):
             ring_count = abs_geom.ringCount(part_idx)
             rings_to_iterate = max(1, ring_count)
+            part_rings: List[List[QgsPoint]] = []
 
             for ring_idx in range(rings_to_iterate):
                 actual_ring = ring_idx if ring_count > 0 else 0
+                v_count = abs_geom.vertexCount(part_idx, actual_ring)
+                if v_count == 0:
+                    continue
 
-                # Iterate backwards so deletions never shift indices of upcoming vertices.
-                # Endpoints (index 0 and count - 1) are skipped and always preserved.
-                v_idx = abs_geom.vertexCount(part_idx, actual_ring) - 2
+                pts = [
+                    abs_geom.vertexAt(QgsVertexId(part_idx, actual_ring, v_i))
+                    for v_i in range(v_count)
+                ]
 
-                while v_idx > 0:
-                    vid_curr = QgsVertexId(part_idx, actual_ring, v_idx)
-                    p_curr = abs_geom.vertexAt(vid_curr)
+                filtered_pts = GeometryUtils._filter_collinear_points(
+                    pts, orig_coordinates, sqr_tolerance
+                )
+                part_rings.append(filtered_pts)
 
-                    # never delete vertices that existed in the original geometry
-                    if GeometryUtils.round_coordinates(p_curr) in orig_coordinates:
-                        v_idx -= 1
-                        continue
+            retained_parts.append(part_rings)
 
-                    # is the injected vertex strictly collinear
-                    vid_prev = QgsVertexId(part_idx, actual_ring, v_idx - 1)
-                    vid_next = QgsVertexId(part_idx, actual_ring, v_idx + 1)
-                    p_prev = abs_geom.vertexAt(vid_prev)
-                    p_next = abs_geom.vertexAt(vid_next)
+        if not retained_parts:
+            return QgsGeometry()
 
-                    sqr_dist, _, _ = QgsGeometryUtilsBase.sqrDistToLine(
-                        p_curr.x(),
-                        p_curr.y(),
-                        p_prev.x(),
-                        p_prev.y(),
-                        p_next.x(),
-                        p_next.y(),
-                        1e-16,
-                    )
+        geom_type = modified_geom.type()
+        is_multi = modified_geom.isMultipart()
 
-                    # if it didn't bend/change shape, strip it out
-                    if sqr_dist < sqr_tolerance:
-                        abs_geom.deleteVertex(vid_curr)
+        # reconstruct geometry
+        if geom_type == Qgis.GeometryType.Line:
+            if not is_multi:
+                return QgsGeometry(QgsLineString(retained_parts[0][0]))
+            else:
+                mls = QgsMultiLineString()
+                for part in retained_parts:
+                    if part and part[0]:
+                        mls.addGeometry(QgsLineString(part[0]))
+                return QgsGeometry(mls)
 
-                    v_idx -= 1
+        elif geom_type == Qgis.GeometryType.Polygon:
+            if not is_multi:
+                poly = QgsPolygon()
+                poly.setExteriorRing(QgsLineString(retained_parts[0][0]))
+                for int_ring in retained_parts[0][1:]:
+                    poly.addInteriorRing(QgsLineString(int_ring))
+                return QgsGeometry(poly)
+            else:
+                mpoly = QgsMultiPolygon()
+                for part in retained_parts:
+                    if part and part[0]:
+                        poly = QgsPolygon()
+                        poly.setExteriorRing(QgsLineString(part[0]))
+                        for int_ring in part[1:]:
+                            poly.addInteriorRing(QgsLineString(int_ring))
+                        mpoly.addGeometry(poly)
+                return QgsGeometry(mpoly)
 
-        return QgsGeometry(abs_geom)
+        return QgsGeometry(modified_geom)
