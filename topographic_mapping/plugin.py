@@ -463,13 +463,35 @@ class TopographicMappingPlugin:
             geom_engine.prepareGeometry()
 
             target_layer.beginEditCommand("Pastry Delete")
+
+            new_features = []
+
             for f in cut_features:
                 geom = f.geometry()
                 if not geom_engine.intersects(geom.constGet()):
                     continue
 
                 new_geom = geom.difference(pastry_geom)
-                target_layer.changeGeometry(f.id(), new_geom)
+
+                all_parts = new_geom.asGeometryCollection()
+                target_layer.changeGeometry(f.id(), all_parts[0])
+                for i in range(1, len(all_parts)):
+                    attrs = {
+                        target_layer.fields().lookupField(k): v
+                        for k, v in f.attributeMap().items()
+                        if k != "id"
+                    }
+
+                    feature_data = QgsVectorLayerUtils.QgsFeatureData(
+                        geometry=all_parts[i], attributes=attrs
+                    )
+                    new_features.append(feature_data)
+
+            if new_features:
+                features_to_add = QgsVectorLayerUtils.createFeatures(
+                    target_layer, new_features
+                )
+                target_layer.addFeatures(features_to_add)
 
             target_layer.endEditCommand()
 
@@ -522,6 +544,9 @@ class TopographicMappingPlugin:
             geom_engine.prepareGeometry()
 
             target_layer.beginEditCommand("Pastry Cut")
+
+            new_features = []
+
             for f in cut_features:
                 geom = f.geometry()
 
@@ -544,9 +569,22 @@ class TopographicMappingPlugin:
                 target_layer.changeGeometry(f.id(), old_part)
 
                 for part in new_parts:
-                    new_feature = QgsFeature(f)
-                    new_feature.setGeometry(part)
-                    target_layer.addFeature(new_feature)
+                    attrs = {
+                        target_layer.fields().lookupField(k): v
+                        for k, v in f.attributeMap().items()
+                        if k != "id"
+                    }
+
+                    feature_data = QgsVectorLayerUtils.QgsFeatureData(
+                        geometry=part, attributes=attrs
+                    )
+                    new_features.append(feature_data)
+
+            if new_features:
+                features_to_add = QgsVectorLayerUtils.createFeatures(
+                    target_layer, new_features
+                )
+                target_layer.addFeatures(features_to_add)
 
             target_layer.endEditCommand()
 
