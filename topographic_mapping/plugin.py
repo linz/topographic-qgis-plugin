@@ -367,16 +367,16 @@ class TopographicMappingPlugin:
         if is_copy_action:
             dlg.setWindowTitle("Copy to Feature Class")
         if dlg.exec():
-            new_types = dlg.new_feature_type()
+            parent_feature_type, feature_type = dlg.new_feature_type()
 
             if is_copy_action:
                 message = "The selected features will be copied to the {} class. Are you sure you want to proceed?".format(
-                    new_types[-1]
+                    feature_type
                 )
                 title = "Copy to Feature Class"
             else:
                 message = "The selected features will be changed to the {} class. Attributes or geometry properties may be lost as a result. Are you sure you want to proceed?".format(
-                    new_types[-1]
+                    feature_type
                 )
                 title = "Change Feature Class"
             if (
@@ -393,7 +393,9 @@ class TopographicMappingPlugin:
 
             features = source_layer.selectedFeatures()
 
-            target_layer = self._project_controller.layer_for_feature_type(new_types[0])
+            target_layer = self._project_controller.layer_for_feature_type(
+                parent_feature_type
+            )
             if not target_layer.isEditable():
                 target_layer.startEditing()
 
@@ -401,7 +403,7 @@ class TopographicMappingPlugin:
                 features, target_layer, QgsFeatureSink.SinkFlag.RegeneratePrimaryKey
             )
             for f in compatible_features:
-                f["type"] = new_types[1]
+                f["type"] = feature_type
 
             before_added_features = set(
                 target_layer.editBuffer().addedFeatures().keys()
@@ -442,10 +444,10 @@ class TopographicMappingPlugin:
             "Select target classes to pastry delete using the current selection"
         )
         if dlg.exec():
-            target_types = dlg.new_feature_type()
+            parent_feature_type, feature_type = dlg.new_feature_type()
 
             target_layer = self._project_controller.layer_for_feature_type(
-                target_types[0]
+                parent_feature_type
             )
             if not target_layer.isEditable():
                 target_layer.startEditing()
@@ -453,7 +455,7 @@ class TopographicMappingPlugin:
             req = QgsFeatureRequest()
             req.setFilterExpression(
                 QgsExpression.createFieldEqualityExpression(
-                    "type", target_types[1], QVariant.String
+                    "type", feature_type, QVariant.String
                 )
             )
             req.setFilterRect(pastry_geom.boundingBox())
@@ -501,10 +503,10 @@ class TopographicMappingPlugin:
             "Select target classes to pastry cut using the current selection"
         )
         if dlg.exec():
-            target_types = dlg.new_feature_type()
+            parent_feature_type, feature_type = dlg.new_feature_type()
 
             target_layer = self._project_controller.layer_for_feature_type(
-                target_types[0]
+                parent_feature_type
             )
             if not target_layer.isEditable():
                 target_layer.startEditing()
@@ -512,7 +514,7 @@ class TopographicMappingPlugin:
             req = QgsFeatureRequest()
             req.setFilterExpression(
                 QgsExpression.createFieldEqualityExpression(
-                    "type", target_types[1], QVariant.String
+                    "type", feature_type, QVariant.String
                 )
             )
             req.setFilterRect(pastry_geom.boundingBox())

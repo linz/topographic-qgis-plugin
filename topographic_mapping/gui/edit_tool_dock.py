@@ -1,5 +1,4 @@
-from qgis.PyQt.QtCore import Qt, pyqtSignal, QItemSelection
-from qgis.PyQt.QtGui import QFontMetrics
+from qgis.PyQt.QtCore import Qt, pyqtSignal
 from qgis.PyQt.QtWidgets import (
     QToolButton,
     QSizePolicy,
@@ -8,18 +7,17 @@ from qgis.PyQt.QtWidgets import (
     QHBoxLayout,
     QWidget,
     QLabel,
-    QTreeView,
     QButtonGroup,
 )
 from qgis.core import QgsVectorLayer
-from qgis.gui import QgsFilterLineEdit, QgsMapCanvas
+from qgis.gui import QgsMapCanvas
 from qgis.utils import OverrideCursor
 
-from .feature_type_model import FeatureTypeTreeModel, FeatureTypeFilterProxyModel
 from ..core import ProjectController, EditMode, MarkupManager
 from .tool_dock import ToolDock
 from .markup_viewer import MarkupViewer
 from .cartographic_rules_widget import CartographicRulesWidget
+from .feature_type_widget import FeatureTypeWidget
 
 
 class EditToolDock(ToolDock):
@@ -66,27 +64,14 @@ class EditToolDock(ToolDock):
 
         self._vlayout.insertLayout(0, edit_mode_layout)
 
-        fm = QFontMetrics(self.font())
-
         self._digitize_widget = QWidget()
         digitize_vl = QVBoxLayout()
         self._digitize_widget.setObjectName("feature_type")
         digitize_vl.setContentsMargins(0, 0, 0, 0)
         digitize_vl.addWidget(QLabel("New feature type"))
-        self._filter_types_widget = QgsFilterLineEdit()
-        self._filter_types_widget.setShowSearchIcon(True)
-        self._filter_types_widget.setPlaceholderText("Filter types")
-        self._filter_types_widget.textChanged.connect(self._feature_type_filter_changed)
-        digitize_vl.addWidget(self._filter_types_widget)
-        self._feature_type_view = QTreeView()
-        self._feature_type_view.setHeaderHidden(True)
-        self._feature_type_model: FeatureTypeTreeModel | None = None
-        self._feature_type_proxy_model: FeatureTypeFilterProxyModel | None = None
-        self._filter_types_widget.cleared.connect(self._feature_type_view.expandAll)
+        self._feature_type_widget = FeatureTypeWidget()
+        digitize_vl.addWidget(self._feature_type_widget, 1)
 
-        self._feature_type_view.setFixedHeight(fm.height() * 20)
-
-        digitize_vl.addWidget(self._feature_type_view, 1)
         self._digitize_widget.setLayout(digitize_vl)
         self._vlayout.insertWidget(5, self._digitize_widget)
         self._digitize_description_label = QLabel()
@@ -95,55 +80,19 @@ class EditToolDock(ToolDock):
 
     def set_project_controller(self, controller: ProjectController):
         super().set_project_controller(controller)
-        self._set_feature_types(controller.feature_types)
-        self._controller.feature_types_found.connect(self._feature_type_model.add_types)
-        self._controller.feature_types_removed.connect(
-            self._feature_type_model.remove_types
+        self._feature_type_widget.set_project_controller(controller)
+        self._feature_type_widget.selected_feature_type_changed.connect(
+            self._selected_feature_type_changed
         )
 
     def set_markup_manager(self, manager: MarkupManager):
         self._markup_manager = manager
 
-    def _set_feature_types(self, feature_types):
-        self._feature_type_model = FeatureTypeTreeModel(feature_types, self)
-        self._feature_type_proxy_model = FeatureTypeFilterProxyModel(self)
-        self._feature_type_proxy_model.setSourceModel(self._feature_type_model)
-        self._feature_type_view.setModel(self._feature_type_proxy_model)
-        self._feature_type_view.selectionModel().selectionChanged.connect(
-            self._selected_feature_type_changed
-        )
-        self._feature_type_model.rowsInserted.connect(self._expand_rows)
-        self._feature_type_view.expandAll()
-
-    def _expand_rows(self, parent, first, last):
-        for row in range(first, last + 1):
-            proxy_index = self._feature_type_proxy_model.mapFromSource(
-                self._feature_type_model.index(row, 0, parent)
-            )
-            self._feature_type_view.expand(proxy_index)
-
-    def _feature_type_filter_changed(self, text: str):
-        if self._feature_type_proxy_model:
-            self._feature_type_proxy_model.set_filter_text(text)
-
     def _selected_feature_type_changed(
-        self, selected: QItemSelection, deselected: QItemSelection
+        self, parent_feature_type: str, feature_type: str
     ):
         if not self._state_manager or not self._controller:
             return
-
-        feature_type = None
-        parent_feature_type = None
-        if selected.indexes():
-            selected_type_index = self._feature_type_proxy_model.mapToSource(
-                selected.indexes()[0]
-            )
-            parent_feature_type = self._feature_type_model.data(
-                selected_type_index, FeatureTypeTreeModel.PARENT_FEATURE_TYPE_ROLE
-            )
-            feature_type = self._feature_type_model.data(
-                selected_type_index, FeatureTypeTreeModel.FEATURE_TYPE_ROLE
-            )
 
         target_layer = self._controller.layer_for_feature_type(parent_feature_type)
         if target_layer:
