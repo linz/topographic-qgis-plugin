@@ -99,8 +99,8 @@ class MapToolLabel(QgsMapToolAdvancedDigitizing):
         if not filtered_list:
             return False, None
 
-        # 2. Prioritize labels belonging to the active map canvas layer
-        # TODO -- only labels from label layer
+        # Prioritize labels belonging to the active map canvas layer
+        # TODO -- only labels from label layer?
         active_layer = self._canvas.currentLayer()
         if isinstance(active_layer, QgsVectorLayer):
             active_labels = [p for p in filtered_list if p.layerID == active_layer.id()]
@@ -159,9 +159,11 @@ class MapToolLabel(QgsMapToolAdvancedDigitizing):
 
         labeling_results = self._canvas.labelingResults()
         if labeling_results and label_pos.groupedLabelId != 0:
-            all_positions = labeling_results.groupedLabelPositions(
-                label_pos.groupedLabelId
-            )
+            all_positions = [
+                p
+                for p in labeling_results.allLabels()
+                if p.featureId == label_pos.featureId
+            ]
             geoms = [
                 pos.labelGeometry
                 for pos in all_positions
