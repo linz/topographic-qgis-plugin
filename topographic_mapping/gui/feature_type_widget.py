@@ -41,6 +41,8 @@ class FeatureTypeWidget(QWidget):
         self._filter_types_widget.cleared.connect(self._feature_type_view.expandAll)
 
         self._feature_type_view.setFixedHeight(fm.height() * 20)
+        self._feature_type_view.setItemsExpandable(False)
+        self._feature_type_view.collapsed.connect(self._feature_type_view.expand)
 
         vl.addWidget(self._feature_type_view, 1)
         self.setLayout(vl)
