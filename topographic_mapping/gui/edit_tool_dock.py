@@ -25,8 +25,6 @@ class EditToolDock(ToolDock):
     A dock widget for display of a set of editing tools
     """
 
-    target_layer_set = pyqtSignal(QgsVectorLayer)
-
     def __init__(self, edit_target_tool_action: QAction, canvas: QgsMapCanvas, parent):
         super().__init__(
             edit_target_tool_action, vertical_layout_offset=1, parent=parent
@@ -77,6 +75,7 @@ class EditToolDock(ToolDock):
         self._digitize_description_label = QLabel()
         self._digitize_description_label.setWordWrap(True)
         self._vlayout.insertWidget(6, self._digitize_description_label)
+        self.target_layer_set.connect(self._on_target_layer_set)
 
     def set_project_controller(self, controller: ProjectController):
         super().set_project_controller(controller)
@@ -143,6 +142,21 @@ class EditToolDock(ToolDock):
     def _cartographic_rules_widget_accepted(self):
         self.cartographic_rules_widget.deleteLater()
         self.cartographic_rules_widget = None
+
+    def _on_target_layer_set(self, layer: QgsVectorLayer | None):
+        if layer is None:
+            self._feature_type_widget.set_selected_type(None, None)
+            return
+
+        parent_feature_type = self._controller.parent_feature_type_from_layer(layer)
+        if parent_feature_type is None:
+            self._feature_type_widget.set_selected_type(None, None)
+            return
+
+        default_sub_type = self._controller.default_feature_type_from_layer(layer)
+        self._feature_type_widget.set_selected_type(
+            parent_feature_type, default_sub_type
+        )
 
 
 # locator

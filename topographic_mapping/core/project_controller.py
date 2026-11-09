@@ -133,6 +133,8 @@ class ProjectController(QObject):
                 contents = json.loads(f.read())
             self._set_layer_schema(layer, contents)
 
+            layer.setProperty("_parent_feature_type", layer_name)
+
         layer_types = self._collect_feature_types_from_layer(layer)
         if layer_types is not None:
             layer.startEditing()
@@ -143,6 +145,18 @@ class ProjectController(QObject):
 
         if layer_name.lower().endswith(self.MAP_SHEET_LAYER_NAME_SUFFIX):
             self.map_sheet_layer_loaded.emit()
+
+    def parent_feature_type_from_layer(self, layer: QgsVectorLayer) -> str | None:
+        """
+        Returns the parent feature type of the given layer
+        """
+        return layer.property("_parent_feature_type") or None
+
+    def default_feature_type_from_layer(self, layer: QgsVectorLayer) -> str | None:
+        """
+        Returns the default feature type of the given layer
+        """
+        return layer.property("_default_sub_type") or None
 
     def _remove_layer(self, layer: QgsMapLayer):
         if not isinstance(layer, QgsVectorLayer):
@@ -222,6 +236,10 @@ class ProjectController(QObject):
                             {"<NULL>": QgsValueMapFieldFormatter.NULL_VALUE}
                         )
                     edit_widget_setup = QgsEditorWidgetSetup("ValueMap", config)
+
+                    # TO CONFIRM:
+                    if name == "type":
+                        layer.setProperty("_default_sub_type", string_options[0])
                 elif ref_options:
                     if len(ref_options) != 1:
                         raise AssertionError(

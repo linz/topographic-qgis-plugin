@@ -1,12 +1,8 @@
 from typing import Tuple
 
-from qgis.PyQt.QtCore import pyqtSignal, QItemSelection
+from qgis.PyQt.QtCore import pyqtSignal, QItemSelection, QItemSelectionModel
 from qgis.PyQt.QtGui import QFontMetrics
-from qgis.PyQt.QtWidgets import (
-    QVBoxLayout,
-    QWidget,
-    QTreeView,
-)
+from qgis.PyQt.QtWidgets import QVBoxLayout, QWidget, QTreeView, QAbstractItemView
 from qgis.gui import QgsFilterLineEdit
 
 from .feature_type_model import FeatureTypeTreeModel, FeatureTypeFilterProxyModel
@@ -108,3 +104,21 @@ class FeatureTypeWidget(QWidget):
             selected_type_index, FeatureTypeTreeModel.FEATURE_TYPE_ROLE
         )
         return parent_feature_type, feature_type
+
+    def set_selected_type(
+        self, parent_feature_type: str | None, feature_type: str | None
+    ):
+        if parent_feature_type is None:
+            self._feature_type_view.selectionModel().clear()
+            return
+
+        model_index = self._feature_type_model.find_index(
+            parent_feature_type, feature_type
+        )
+        proxy_index = self._feature_type_proxy_model.mapFromSource(model_index)
+        self._feature_type_view.selectionModel().select(
+            proxy_index, QItemSelectionModel.SelectionFlag.ClearAndSelect
+        )
+        self._feature_type_view.scrollTo(
+            proxy_index, QAbstractItemView.ScrollHint.EnsureVisible
+        )
