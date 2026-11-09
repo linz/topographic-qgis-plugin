@@ -106,7 +106,9 @@ class TestProjectController(TopographicTestBase):
         default_def = layer.defaultValueDefinition(feature_type_idx)
         # Because the field is named "type", it explicitly gets overridden
         # to "@current_feature_type" at the end of _set_layer_schema
-        self.assertEqual(default_def.expression(), "@current_feature_type")
+        self.assertEqual(
+            default_def.expression(), "coalesce(@current_feature_type, 'rock')"
+        )
 
     def test_layer_for_parent_feature_type(self):
         """

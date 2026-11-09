@@ -183,6 +183,41 @@ class FeatureTypeTreeModel(QAbstractItemModel):
             return item.parent_feature_type()
         return None
 
+    def find_index(
+        self,
+        parent_feature_type: str,
+        feature_type: str | None,
+    ) -> QModelIndex:
+        """
+        Finds and returns the QModelIndex corresponding to the given feature_type
+        and optional parent_feature_type.
+        """
+
+        def _search(parent_index: QModelIndex) -> QModelIndex:
+            rows = self.rowCount(parent_index)
+            for row in range(rows):
+                idx = self.index(row, 0, parent_index)
+                idx_feature = self.data(idx, self.FEATURE_TYPE_ROLE)
+                idx_parent_feature = self.data(idx, self.PARENT_FEATURE_TYPE_ROLE)
+                if not feature_type and parent_feature_type == idx_parent_feature:
+                    return idx
+
+                if idx_feature == feature_type:
+                    if (
+                        parent_feature_type is None
+                        or idx_parent_feature == parent_feature_type
+                    ):
+                        return idx
+
+                if self.hasChildren(idx):
+                    result = _search(idx)
+                    if result.isValid():
+                        return result
+
+            return QModelIndex()
+
+        return _search(QModelIndex())
+
 
 class FeatureTypeFilterProxyModel(QSortFilterProxyModel):
     def __init__(self, parent=None):
