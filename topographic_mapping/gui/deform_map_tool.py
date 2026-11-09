@@ -61,8 +61,10 @@ class RubberSheetingMapTool(QgsMapTool):
                     end_pt=end_pt,
                     radius=self.radius,
                     crs=self.canvas.mapSettings().destinationCrs(),
+                    create_edit_commands=True,
                 )
                 tool.apply()
+
                 self.reset()
 
     def canvasMoveEvent(self, event):
