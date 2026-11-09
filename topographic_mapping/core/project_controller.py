@@ -265,7 +265,13 @@ class ProjectController(QObject):
 
             # special logic that overrides schema settings:
             if name == "type":
-                default_value = QgsDefaultValue(f"@{CURRENT_FEATURE_TYPE_VAR_NAME}")
+                default_feature_type = layer.property("_default_sub_type")
+                if default_feature_type:
+                    default_value = QgsDefaultValue(
+                        f"coalesce(@{CURRENT_FEATURE_TYPE_VAR_NAME}, '{default_feature_type}')"
+                    )
+                else:
+                    default_value = QgsDefaultValue(f"@{CURRENT_FEATURE_TYPE_VAR_NAME}")
                 layer.setDefaultValueDefinition(field_index, default_value)
             elif name == "id":
                 default_value = QgsDefaultValue("uuid('WithoutBraces')")
