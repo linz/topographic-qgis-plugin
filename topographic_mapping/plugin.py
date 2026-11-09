@@ -420,6 +420,7 @@ class TopographicMappingPlugin:
             new_feature_ids = after_added_features - before_added_features
 
             target_layer.selectByIds(list(new_feature_ids))
+            self.iface.setActiveLayer(target_layer)
 
     def _pastry_delete(self):
         current_layer = self._state_manager.target_layer()
