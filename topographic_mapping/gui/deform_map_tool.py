@@ -7,6 +7,8 @@ from qgis.PyQt.QtGui import QColor
 
 from qgis.core import Qgis, QgsGeometry, QgsProject, QgsVectorLayer
 from qgis.gui import QgsMapTool, QgsMapCanvas, QgsRubberBand
+from qgis.utils import iface
+
 
 from topographic_mapping.core.geometry.rubber_band_transform import RubberSheetingTool
 
@@ -48,7 +50,8 @@ class RubberSheetingMapTool(QgsMapTool):
                 end_pt = pt
 
                 layers = []
-                for _, layer in QgsProject.instance().mapLayers().items():
+
+                for layer in iface.layerTreeView().selectedLayers():
                     if isinstance(layer, QgsVectorLayer) and layer.isEditable():
                         layers.append(layer)
 
