@@ -108,12 +108,14 @@ class RubberSheetingTool:
         end_pt: QgsPointXY,
         crs: QgsCoordinateReferenceSystem,
         radius: float,
+        create_edit_commands: bool = False,
     ):
         self.layers: List[QgsVectorLayer] = layers
         self.start_pt: QgsPointXY = start_pt
         self.end_pt: QgsPointXY = end_pt
         self.radius: float = radius
         self.crs: QgsCoordinateReferenceSystem = crs
+        self.create_edit_commands: bool = create_edit_commands
 
     def apply(self):
         for layer in self.layers:
@@ -156,6 +158,7 @@ class RubberSheetingTool:
             )
 
             request = QgsFeatureRequest().setFilterRect(layer_bounds)
+            new_geoms = {}
             for feature in layer.getFeatures(request):
                 geom = feature.geometry()
                 if not geom or geom.isEmpty():
@@ -175,4 +178,13 @@ class RubberSheetingTool:
                     new_geom = GeometryUtils.remove_unnecessary_densified_vertices(
                         feature.geometry(), new_geom
                     )
-                    layer.changeGeometry(feature.id(), new_geom)
+                    new_geoms[feature.id()] = new_geom
+
+            if new_geoms:
+                if self.create_edit_commands:
+                    layer.beginEditCommand("Deform")
+
+                for _id, geom in new_geoms.items():
+                    layer.changeGeometry(_id, geom)
+                if self.create_edit_commands:
+                    layer.endEditCommand()

@@ -193,7 +193,7 @@ TOOLS = {
             requires_selection=True,
         ),
         CustomAction(
-            PluginTool.Deform, "Deform", "delete_product_view.svg", "Deforms features."
+            PluginTool.Deform, "Deform", "deform.svg", "Deforms features."
         ),
         CustomAction(
             PluginTool.CartographicRules,
