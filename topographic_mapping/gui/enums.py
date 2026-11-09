@@ -47,6 +47,7 @@ class PluginTool(Enum):
     ResetLabel = auto()
     RewrapLabel = auto()
     RedrawLabel = auto()
+    MoveLabel = auto()
 
     CreateBufferInAnnotation75 = auto()
     CreateBufferInAnnotation80 = auto()

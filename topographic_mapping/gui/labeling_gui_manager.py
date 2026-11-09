@@ -37,6 +37,7 @@ from .digitize_label_tool import DigitizeLabelTool
 from .select_by_label_tool import SelectByLabelRectangleTool
 from .label_wrap_tool import RewrapLabelTool
 from .label_redraw_tool import RedrawLabelTool
+from .label_move_tool import MoveLabelTool
 
 
 class LabelingGuiManager(QObject):
@@ -71,6 +72,7 @@ class LabelingGuiManager(QObject):
 
         self._rewrap_label_tool: RewrapLabelTool | None = None
         self._redraw_label_tool: RedrawLabelTool | None = None
+        self._move_label_tool: MoveLabelTool | None = None
 
     def unregister(self):
         if self._digitize_label_tool:
@@ -107,6 +109,9 @@ class LabelingGuiManager(QObject):
         self._redraw_label_tool = RedrawLabelTool(
             self._canvas, self._cad_dock, self._label_manager, self._project_controller
         )
+        self._move_label_tool = MoveLabelTool(
+            self._canvas, self._cad_dock, self._label_manager, self._project_controller
+        )
 
         self._rewrap_label_action = tool_registry.custom_action(PluginTool.RewrapLabel)
         self._rewrap_label_action.triggered.connect(self._rewrap_labels)
@@ -120,6 +125,12 @@ class LabelingGuiManager(QObject):
 
         self._redraw_label_tool.deactivated.connect(
             partial(self._uncheck_action, self._redraw_label_action)
+        )
+
+        self._move_label_action = tool_registry.custom_action(PluginTool.MoveLabel)
+        self._move_label_action.triggered.connect(self._move_label)
+        self._move_label_tool.deactivated.connect(
+            partial(self._uncheck_action, self._move_label_action)
         )
 
         tool_registry.custom_action(
@@ -194,6 +205,19 @@ class LabelingGuiManager(QObject):
 
         self._canvas.setMapTool(self._redraw_label_tool)
         self._redraw_label_tool.set_target_feature(selected_label_fids[0])
+
+    def _move_label(self):
+        label_layer = self._project_controller.label_target_layer()
+        if not label_layer:
+            self._message_bar.clearWidgets()
+            self._message_bar.pushWarning("", "No carto text layer found in project")
+            self._redraw_label_action.setChecked(False)
+            return
+
+        if not label_layer.isEditable():
+            label_layer.startEditing()
+
+        self._canvas.setMapTool(self._move_label_tool)
 
     def _create_labels(self):
         target_layer = self._state_manager.current_layer()
