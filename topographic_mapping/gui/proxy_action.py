@@ -117,6 +117,10 @@ class DigitizeTechniqueProxyAction(QAction):
         if checked:
             for source_action in self._source_actions:
                 source_action.trigger()
+        else:
+            self.blockSignals(True)
+            self.setChecked(True)
+            self.blockSignals(False)
 
     def _source_action_triggered(self):
         all_checked = True
