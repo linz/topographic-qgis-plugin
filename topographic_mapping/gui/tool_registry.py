@@ -192,9 +192,7 @@ TOOLS = {
             "Clears the product view specific edits for the selected features.",
             requires_selection=True,
         ),
-        CustomAction(
-            PluginTool.Deform, "Deform", "deform.svg", "Deforms features."
-        ),
+        CustomAction(PluginTool.Deform, "Deform", "deform.svg", "Deforms features."),
         CustomAction(
             PluginTool.CartographicRules,
             "Cartographic Rules",
@@ -246,6 +244,13 @@ TOOLS = {
             "Select Labels",
             "select_label.svg",
             "Selects labels.",
+            checkable=True,
+        ),
+        CustomAction(
+            PluginTool.MoveLabel,
+            "Move Label",
+            "move_label.svg",
+            "Moves an existing label.",
             checkable=True,
         ),
         CustomAction(
