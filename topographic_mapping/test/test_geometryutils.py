@@ -179,6 +179,7 @@ class GeometryUtilsTest(TopographicTestBase):
         feature[0] = 11
 
         # no existing json metadata
+        self.assertIsNone(GeometryUtils.product_geom(feature))
         GeometryUtils.set_product_geom(
             feature,
             QgsGeometry.fromWkt("MultiLineString ((0 0, 10 0),(0 20, 5 23, 10 20))"),
@@ -186,6 +187,10 @@ class GeometryUtilsTest(TopographicTestBase):
         self.assertEqual(
             feature["metadata"],
             """{"geometry": "MultiLineString ((0 0, 10 0),(0 20, 5 23, 10 20))"}""",
+        )
+        self.assertEqual(
+            GeometryUtils.product_geom(feature).asWkt(),
+            """MultiLineString ((0 0, 10 0),(0 20, 5 23, 10 20))""",
         )
 
         # with existing metadata

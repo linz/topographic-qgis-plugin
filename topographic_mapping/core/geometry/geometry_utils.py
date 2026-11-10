@@ -180,3 +180,18 @@ class GeometryUtils:
 
         current_json["geometry"] = geometry.asWkt()
         feature["metadata"] = json.dumps(current_json)
+
+    @staticmethod
+    def product_geom(feature: QgsFeature) -> QgsGeometry | None:
+        """
+        Returns the product view geometry for a feature.
+        """
+        current_metadata = feature["metadata"]
+        if not current_metadata:
+            return None
+        current_json = json.loads(current_metadata)
+        if "geometry" not in current_json:
+            return None
+
+        geometry = QgsGeometry.fromWkt(current_json["geometry"])
+        return geometry
