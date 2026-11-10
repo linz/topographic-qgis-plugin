@@ -2,7 +2,16 @@
 Geometry Utils Test.
 """
 
-from qgis.core import QgsGeometry, QgsPointXY, QgsLineString
+from qgis.PyQt.QtCore import QVariant
+
+from qgis.core import (
+    QgsGeometry,
+    QgsPointXY,
+    QgsLineString,
+    QgsFields,
+    QgsField,
+    QgsFeature,
+)
 
 from topographic_mapping.core.geometry.geometry_utils import GeometryUtils
 from topographic_mapping.test.test_base import TopographicTestBase
@@ -155,4 +164,44 @@ class GeometryUtilsTest(TopographicTestBase):
         result = GeometryUtils.remove_unnecessary_densified_vertices(orig, modified)
         self.assertEqual(
             result.asWkt(), "MultiLineString ((0 0, 10 0),(0 20, 5 23, 10 20))"
+        )
+
+    def test_product_geom(self):
+        """
+        Test setting product geometry
+        """
+
+        fields = QgsFields()
+        fields.append(QgsField("id", QVariant.Int))
+        fields.append(QgsField("metadata", QVariant.String))
+
+        feature = QgsFeature(fields)
+        feature[0] = 11
+
+        # no existing json metadata
+        GeometryUtils.set_product_geom(
+            feature,
+            QgsGeometry.fromWkt("MultiLineString ((0 0, 10 0),(0 20, 5 23, 10 20))"),
+        )
+        self.assertEqual(
+            feature["metadata"],
+            """{"geometry": "MultiLineString ((0 0, 10 0),(0 20, 5 23, 10 20))"}""",
+        )
+
+        # with existing metadata
+        feature["metadata"] = """{"version": 5, "created": 2022}"""
+        GeometryUtils.set_product_geom(
+            feature,
+            QgsGeometry.fromWkt("MultiLineString ((0 0, 10 0),(0 20, 5 23, 10 20))"),
+        )
+        self.assertEqual(
+            feature["metadata"],
+            """{"version": 5, "created": 2022, "geometry": "MultiLineString ((0 0, 10 0),(0 20, 5 23, 10 20))"}""",
+        )
+
+        # with existing geometry
+        GeometryUtils.set_product_geom(feature, QgsGeometry.fromWkt("Point( 3 13 )"))
+        self.assertEqual(
+            feature["metadata"],
+            """{"version": 5, "created": 2022, "geometry": "Point (3 13)"}""",
         )

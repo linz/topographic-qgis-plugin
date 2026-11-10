@@ -2,6 +2,8 @@
 Geometry utilities
 """
 
+import json
+
 from typing import Tuple, List, Set
 
 from qgis.core import (
@@ -14,6 +16,7 @@ from qgis.core import (
     QgsMultiLineString,
     QgsPolygon,
     QgsMultiPolygon,
+    QgsFeature,
 )
 
 
@@ -161,3 +164,19 @@ class GeometryUtils:
                 return QgsGeometry(mpoly)
 
         return QgsGeometry(modified_geom)
+
+    @staticmethod
+    def set_product_geom(feature: QgsFeature, geometry: QgsGeometry):
+        """
+        Sets the product view geometry for a feature.
+
+        Does not actually commit these changes, that is the caller's responsibility.
+        """
+        current_metadata = feature["metadata"]
+        if current_metadata:
+            current_json = json.loads(current_metadata)
+        else:
+            current_json = {}
+
+        current_json["geometry"] = geometry.asWkt()
+        feature["metadata"] = json.dumps(current_json)
