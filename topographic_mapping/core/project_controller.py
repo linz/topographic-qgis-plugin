@@ -281,6 +281,7 @@ class ProjectController(QObject):
                     edit_widget_setup = QgsEditorWidgetSetup("ValueMap", config)
                     # not nullable
 
+            const_value = None
             if "anyOf" in _property:
                 string_options = []
                 ref_options = []
@@ -323,6 +324,8 @@ class ProjectController(QObject):
                                 {"<NULL>": QgsValueMapFieldFormatter.NULL_VALUE}
                             )
                         edit_widget_setup = QgsEditorWidgetSetup("ValueMap", config)
+            elif "const" in _property:
+                const_value = _property["const"]
 
             if "default" in _property:
                 default_value = QgsDefaultValue(
@@ -332,13 +335,21 @@ class ProjectController(QObject):
 
             # special logic that overrides schema settings:
             if name == "type":
-                default_feature_type = layer.property("_default_sub_type")
-                if default_feature_type:
+                if const_value:
                     default_value = QgsDefaultValue(
-                        f"coalesce(@{CURRENT_FEATURE_TYPE_VAR_NAME}, '{default_feature_type}')"
+                        QgsExpression.quotedValue(const_value)
                     )
+                    edit_form_config.setReadOnly(field_index, True)
                 else:
-                    default_value = QgsDefaultValue(f"@{CURRENT_FEATURE_TYPE_VAR_NAME}")
+                    default_feature_type = layer.property("_default_sub_type")
+                    if default_feature_type:
+                        default_value = QgsDefaultValue(
+                            f"coalesce(@{CURRENT_FEATURE_TYPE_VAR_NAME}, '{default_feature_type}')"
+                        )
+                    else:
+                        default_value = QgsDefaultValue(
+                            f"@{CURRENT_FEATURE_TYPE_VAR_NAME}"
+                        )
                 layer.setDefaultValueDefinition(field_index, default_value)
             elif name == "id":
                 default_value = QgsDefaultValue("uuid('WithoutBraces')")
@@ -356,6 +367,10 @@ class ProjectController(QObject):
                 default_value = QgsDefaultValue("now()")
                 default_value.setApplyOnUpdate(True)
                 layer.setDefaultValueDefinition(field_index, default_value)
+            elif const_value:
+                default_value = QgsDefaultValue(QgsExpression.quotedValue(const_value))
+                layer.setDefaultValueDefinition(field_index, default_value)
+                edit_form_config.setReadOnly(field_index, True)
 
             layer.setEditorWidgetSetup(field_index, edit_widget_setup)
 
