@@ -51,17 +51,18 @@ class ProjectController(QObject):
             os.makedirs(path)
         return path
 
-    def __init__(self, project: QgsProject, parent: QObject | None):
+    def __init__(
+        self, project: QgsProject, parent: QObject | None, update_schemas: bool = False
+    ):
         super().__init__(parent)
 
         self._project = project
         self.feature_types: list[str | dict[str, list[str]]] = []
 
         self._pending_schema_downloads = {}
+        self.initialize_schemas(update_schemas)
 
-        self.initialize_schemas()
-
-    def initialize_schemas(self):
+    def initialize_schemas(self, update_schemas: bool):
         dest_path = Path(self.schemas_path())
         reference_path = BASE_SCHEMAS_DIR.resolve()
         for p in reference_path.glob("*.json"):
@@ -70,15 +71,19 @@ class ProjectController(QObject):
                 # copy initial schema file as provided in plugin, as a starting point
                 p.copy(dest_schema)
 
-            # trigger attempt to update
-            this_schema_url = (
-                f"https://d1jzh93b1t1cv.cloudfront.net/schema/v0.3/{p.name}"
-            )
-            fetcher = QgsNetworkContentFetcher()
-            fetcher.setProperty("schema", p.name)
-            fetcher.finished.connect(self._schema_fetched)
-            fetcher.fetchContent(QUrl(this_schema_url))
-            self._pending_schema_downloads[p.name] = fetcher
+            if update_schemas:
+                # trigger attempt to update
+                this_schema_url = (
+                    f"https://d1jzh93b1t1cv.cloudfront.net/schema/v0.3/{p.name}"
+                )
+                fetcher = QgsNetworkContentFetcher()
+                fetcher.setProperty("schema", p.name)
+                fetcher.finished.connect(self._schema_fetched)
+                fetcher.fetchContent(QUrl(this_schema_url))
+                self._pending_schema_downloads[p.name] = fetcher
+
+        if not update_schemas:
+            self._all_schemas_fetched()
 
     def _schema_fetched(self):
         sender = self.sender()
