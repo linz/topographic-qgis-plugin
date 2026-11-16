@@ -6,6 +6,7 @@ from typing import Tuple
 from collections.abc import Iterator
 from pathlib import Path
 from qgis.PyQt.QtCore import QObject, pyqtSignal, QUrl
+from qgis.PyQt.QtNetwork import QNetworkReply
 
 from qgis.core import (
     Qgis,
@@ -81,15 +82,23 @@ class ProjectController(QObject):
 
     def _schema_fetched(self):
         sender = self.sender()
+
         schema = sender.property("schema")
         del self._pending_schema_downloads[schema]
 
-        dest_path = Path(self.schemas_path())
-        dest_schema = dest_path / schema
-        if dest_schema.exists():
-            dest_schema.unlink()
-        with open(dest_schema, "wt", encoding="utf8") as f_out:
-            f_out.write(sender.contentAsString())
+        if sender.reply().error() == QNetworkReply.NetworkError.NoError:
+            dest_path = Path(self.schemas_path())
+            dest_schema = dest_path / schema
+            if dest_schema.exists():
+                dest_schema.unlink()
+
+            content = sender.contentAsString()
+            try:
+                json.loads(content)
+                with open(dest_schema, "wt", encoding="utf8") as f_out:
+                    f_out.write(content)
+            except json.JSONDecodeError:
+                pass
 
         if not self._pending_schema_downloads:
             self._all_schemas_fetched()
@@ -166,7 +175,9 @@ class ProjectController(QObject):
             return False
         layer_name = ProjectController.clean_layer_name(layer_name)
 
-        schema_file = (BASE_SCHEMAS_DIR / (layer_name + ".json")).resolve()
+        schema_file = (
+            Path(ProjectController.schemas_path()) / (layer_name + ".json")
+        ).resolve()
         return schema_file.exists()
 
     def _initialize_layer(self, layer: QgsMapLayer):
@@ -181,7 +192,9 @@ class ProjectController(QObject):
             return
         layer_name = ProjectController.clean_layer_name(layer_name)
 
-        schema_file = (BASE_SCHEMAS_DIR / (layer_name + ".json")).resolve()
+        schema_file = (
+            Path(ProjectController.schemas_path()) / (layer_name + ".json")
+        ).resolve()
         if schema_file.exists():
             with open(schema_file, "rt") as f:
                 contents = json.loads(f.read())
