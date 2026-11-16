@@ -186,6 +186,7 @@ class FordPointOnRoadRule(CartographicGeneralizationRule):
 
         GeometryUtils.set_product_geom(feature, new_geom)
         ford_layer.updateFeature(feature)
+
     def validate(
         self,
         context: CartographicGeneralizationRuleContext,
