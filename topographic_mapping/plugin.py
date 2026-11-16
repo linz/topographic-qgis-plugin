@@ -77,7 +77,7 @@ class TopographicMappingPlugin:
             QgsApplication.symbolLayerRegistry().addSymbolLayerType(_metadata)
 
         self._project_controller = ProjectController(
-            QgsProject.instance(), self._gui_owner
+            QgsProject.instance(), self._gui_owner, update_schemas=True
         )
         self._state_manager = StateManager(self.iface, QgsProject.instance())
         self._label_manager = LabelManager(

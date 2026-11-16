@@ -1,10 +1,12 @@
 import re
 import json
+import os
 from typing import Tuple
 
 from collections.abc import Iterator
 from pathlib import Path
-from qgis.PyQt.QtCore import QObject, pyqtSignal
+from qgis.PyQt.QtCore import QObject, pyqtSignal, QUrl
+from qgis.PyQt.QtNetwork import QNetworkReply
 
 from qgis.core import (
     Qgis,
@@ -17,12 +19,16 @@ from qgis.core import (
     QgsDefaultValue,
     QgsExpression,
     QgsValueMapFieldFormatter,
+    QgsNetworkContentFetcher,
 )
+
+from .stored_object_manager import STORED_OBJECT_MANAGER
 
 from .constants import CURRENT_FEATURE_TYPE_VAR_NAME
 from .enums import EditMode
 
-SCHEMAS_DIR = Path(__file__) / ".." / ".." / "schemas"
+BASE_SCHEMAS_DIR = Path(__file__) / ".." / ".." / "schemas"
+BASE_SCHEMA_URL = "https://d1jzh93b1t1cv.cloudfront.net/schema/v0.3/"
 
 
 class ProjectController(QObject):
@@ -35,12 +41,74 @@ class ProjectController(QObject):
     MAP_SHEET_LAYER_NAME_SUFFIX = "_map_sheet"
     LABEL_TARGET_NAME_SUFFIX = "_carto_text"
 
-    def __init__(self, project: QgsProject, parent: QObject | None):
+    @staticmethod
+    def schemas_path() -> str:
+        """
+        Returns the path to the schema files
+        """
+        path = STORED_OBJECT_MANAGER.get_plugin_data_path("schemas")
+        if not os.path.exists(path):
+            os.makedirs(path)
+        return path
+
+    def __init__(
+        self, project: QgsProject, parent: QObject | None, update_schemas: bool = False
+    ):
         super().__init__(parent)
 
         self._project = project
         self.feature_types: list[str | dict[str, list[str]]] = []
 
+        self._pending_schema_downloads = {}
+        self.initialize_schemas(update_schemas)
+
+    def initialize_schemas(self, update_schemas: bool):
+        dest_path = Path(self.schemas_path())
+        reference_path = BASE_SCHEMAS_DIR.resolve()
+        for p in reference_path.glob("*.json"):
+            dest_schema = dest_path / p.name
+            if not dest_schema.exists():
+                # copy initial schema file as provided in plugin, as a starting point
+                p.copy(dest_schema)
+
+            if update_schemas:
+                # trigger attempt to update
+                this_schema_url = (
+                    f"https://d1jzh93b1t1cv.cloudfront.net/schema/v0.3/{p.name}"
+                )
+                fetcher = QgsNetworkContentFetcher()
+                fetcher.setProperty("schema", p.name)
+                fetcher.finished.connect(self._schema_fetched)
+                fetcher.fetchContent(QUrl(this_schema_url))
+                self._pending_schema_downloads[p.name] = fetcher
+
+        if not update_schemas:
+            self._all_schemas_fetched()
+
+    def _schema_fetched(self):
+        sender = self.sender()
+
+        schema = sender.property("schema")
+        del self._pending_schema_downloads[schema]
+
+        if sender.reply().error() == QNetworkReply.NetworkError.NoError:
+            dest_path = Path(self.schemas_path())
+            dest_schema = dest_path / schema
+            if dest_schema.exists():
+                dest_schema.unlink()
+
+            content = sender.contentAsString()
+            try:
+                json.loads(content)
+                with open(dest_schema, "wt", encoding="utf8") as f_out:
+                    f_out.write(content)
+            except json.JSONDecodeError:
+                pass
+
+        if not self._pending_schema_downloads:
+            self._all_schemas_fetched()
+
+    def _all_schemas_fetched(self):
         for _, layer in self._project.mapLayers().items():
             self._initialize_layer(layer)
 
@@ -112,7 +180,9 @@ class ProjectController(QObject):
             return False
         layer_name = ProjectController.clean_layer_name(layer_name)
 
-        schema_file = (SCHEMAS_DIR / (layer_name + ".json")).resolve()
+        schema_file = (
+            Path(ProjectController.schemas_path()) / (layer_name + ".json")
+        ).resolve()
         return schema_file.exists()
 
     def _initialize_layer(self, layer: QgsMapLayer):
@@ -127,7 +197,9 @@ class ProjectController(QObject):
             return
         layer_name = ProjectController.clean_layer_name(layer_name)
 
-        schema_file = (SCHEMAS_DIR / (layer_name + ".json")).resolve()
+        schema_file = (
+            Path(ProjectController.schemas_path()) / (layer_name + ".json")
+        ).resolve()
         if schema_file.exists():
             with open(schema_file, "rt") as f:
                 contents = json.loads(f.read())
@@ -214,6 +286,7 @@ class ProjectController(QObject):
                     edit_widget_setup = QgsEditorWidgetSetup("ValueMap", config)
                     # not nullable
 
+            const_value = None
             if "anyOf" in _property:
                 string_options = []
                 ref_options = []
@@ -256,6 +329,8 @@ class ProjectController(QObject):
                                 {"<NULL>": QgsValueMapFieldFormatter.NULL_VALUE}
                             )
                         edit_widget_setup = QgsEditorWidgetSetup("ValueMap", config)
+            elif "const" in _property:
+                const_value = _property["const"]
 
             if "default" in _property:
                 default_value = QgsDefaultValue(
@@ -265,13 +340,21 @@ class ProjectController(QObject):
 
             # special logic that overrides schema settings:
             if name == "type":
-                default_feature_type = layer.property("_default_sub_type")
-                if default_feature_type:
+                if const_value:
                     default_value = QgsDefaultValue(
-                        f"coalesce(@{CURRENT_FEATURE_TYPE_VAR_NAME}, '{default_feature_type}')"
+                        QgsExpression.quotedValue(const_value)
                     )
+                    edit_form_config.setReadOnly(field_index, True)
                 else:
-                    default_value = QgsDefaultValue(f"@{CURRENT_FEATURE_TYPE_VAR_NAME}")
+                    default_feature_type = layer.property("_default_sub_type")
+                    if default_feature_type:
+                        default_value = QgsDefaultValue(
+                            f"coalesce(@{CURRENT_FEATURE_TYPE_VAR_NAME}, '{default_feature_type}')"
+                        )
+                    else:
+                        default_value = QgsDefaultValue(
+                            f"@{CURRENT_FEATURE_TYPE_VAR_NAME}"
+                        )
                 layer.setDefaultValueDefinition(field_index, default_value)
             elif name == "id":
                 default_value = QgsDefaultValue("uuid('WithoutBraces')")
@@ -289,6 +372,10 @@ class ProjectController(QObject):
                 default_value = QgsDefaultValue("now()")
                 default_value.setApplyOnUpdate(True)
                 layer.setDefaultValueDefinition(field_index, default_value)
+            elif const_value:
+                default_value = QgsDefaultValue(QgsExpression.quotedValue(const_value))
+                layer.setDefaultValueDefinition(field_index, default_value)
+                edit_form_config.setReadOnly(field_index, True)
 
             layer.setEditorWidgetSetup(field_index, edit_widget_setup)
 
