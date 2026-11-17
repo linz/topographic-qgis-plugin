@@ -8,13 +8,13 @@ from qgis.core import (
     QgsFeature,
     QgsGeometry,
     QgsPointXY,
-    QgsVector,
-    QgsTextFormat,
     QgsRenderContext,
+    QgsStringUtils,
     QgsTextDocument,
     QgsTextDocumentMetrics,
-    QgsTextRenderer,
+    QgsTextFormat,
     QgsVectorLayer,
+    QgsMemoryProviderUtils,
 )
 from qgis.gui import (
     QgsMapCanvasItem,
@@ -23,13 +23,18 @@ from qgis.gui import (
     QgsAdvancedDigitizingDockWidget,
     QgsAlignmentComboBox,
     QgsDoubleSpinBox,
+    QgsRubberBand,
 )
 from qgis.utils import iface
 
 from qgis.PyQt import sip
-from qgis.PyQt.QtCore import QPointF, QRectF, QSizeF, Qt, pyqtSignal
-from qgis.PyQt.QtGui import QBrush, QColor, QCursor, QKeyEvent, QPen, QPainter
-from qgis.PyQt.QtWidgets import QWidget, QGridLayout, QLabel
+from qgis.PyQt.QtCore import QPointF, QRectF, Qt, pyqtSignal
+from qgis.PyQt.QtGui import QBrush, QColor, QCursor, QImage, QKeyEvent, QPen, QPainter
+from qgis.PyQt.QtWidgets import (
+    QWidget,
+    QGridLayout,
+    QLabel,
+)
 
 from topographic_mapping.core import LabelManager, ProjectController
 from .label_tool_base import MapToolLabel
@@ -43,7 +48,8 @@ class InteractionMode(Enum):
 
 class LabelSelectionCanvasItem(QgsMapCanvasItem):
     """
-    Canvas item rendering the selection box, horizontal resize handles, and label preview.
+    Canvas item rendering the selection box and horizontal resize handle
+    directly from the rendered bounds of QgsVectorLayerLabelRubberBandPreview.
     """
 
     HANDLE_SIZE_PX = 8
@@ -51,87 +57,26 @@ class LabelSelectionCanvasItem(QgsMapCanvasItem):
     def __init__(self, canvas: QgsMapCanvas):
         super().__init__(canvas)
         self._canvas = canvas
-        self._map_pos = QgsPointXY(0, 0)
-        self._map_unit_size: QSizeF = QSizeF()
-        self._wrapped_text = ""
-        self._horizontal_align: Qgis.TextHorizontalAlignment = (
-            Qgis.TextHorizontalAlignment.Left
-        )
-        self._line_height = 1.0
-        self._text_format: QgsTextFormat | None = None
-        self._layer: QgsVectorLayer | None = None
         self._is_active = False
         self._rect = QRectF()
 
-        self._canvas.extentsChanged.connect(self._update_position)
-
-    def set_label_state(
-        self,
-        map_pos: QgsPointXY,
-        text: str,
-        map_unit_size: QSizeF,
-        text_format: QgsTextFormat,
-        layer: QgsVectorLayer,
-        alignment: Qgis.TextHorizontalAlignment,
-        line_height: float,
-    ):
+    def set_rendered_rect(self, canvas_rect: QRectF):
         """
-        Sets the current label state and associated properties
+        Sets the selection box rectangle in canvas pixel coordinates.
         """
-        self._map_pos = map_pos
-        self._wrapped_text = text
-        self._map_unit_size = map_unit_size
-        self._text_format = text_format
-        self._layer = layer
-        self._is_active = True
-        self._horizontal_align = alignment
-        self._line_height = line_height
-        self._update_position()
-
-    def set_alignment(self, alignment: Qgis.TextHorizontalAlignment):
-        self._horizontal_align = alignment
+        self.prepareGeometryChange()
+        self._rect = canvas_rect.normalized()
+        self._is_active = self._rect.isValid() and not self._rect.isEmpty()
         self.update()
-
-    def set_line_height(self, line_height: float):
-        self._line_height = line_height
-        self.update()
-
-    def set_size(self, map_unit_size: QSizeF):
-        self._map_unit_size = map_unit_size
-        self._update_position()
 
     def hide_selection(self):
         """
-        Hides the selection item
+        Hides the selection item.
         """
-        self._is_active = False
-        self.update()
-
-    def _update_position(self):
-        if not self._is_active:
-            return
         self.prepareGeometryChange()
-        top_left_screen = self.toCanvasCoordinates(self._map_pos)
-
-        bottom_right_map = self._map_pos + QgsVector(
-            self._map_unit_size.width(), -self._map_unit_size.height()
-        )
-        bottom_right_screen = self.toCanvasCoordinates(bottom_right_map)
-
-        self._rect = QRectF(top_left_screen, bottom_right_screen).normalized()
+        self._is_active = False
+        self._rect = QRectF()
         self.update()
-
-    def map_position(self) -> QgsPointXY:
-        """
-        Returns the current map position of the item
-        """
-        return self._map_pos
-
-    def map_unit_width(self) -> float:
-        """
-        Returns the current item width (in map units)
-        """
-        return self._map_unit_size.width()
 
     def boundingRect(self) -> QRectF:
         pad = self.HANDLE_SIZE_PX
@@ -144,7 +89,7 @@ class LabelSelectionCanvasItem(QgsMapCanvasItem):
 
     def interaction_mode_for_point(self, screen_pos: QPointF) -> InteractionMode:
         """
-        Returns the interaction mode for the given screen point
+        Returns the interaction mode for the given screen point.
         """
         if not self._is_active:
             return InteractionMode.NONE
@@ -165,36 +110,11 @@ class LabelSelectionCanvasItem(QgsMapCanvasItem):
         painter.setBrush(box_brush)
         painter.drawRect(self._rect)
 
-        # label preview text
-        if self._text_format and self._wrapped_text and self._layer:
-            rc = QgsRenderContext.fromMapSettings(self._canvas.mapSettings())
-            rc.setPainter(painter)
-            if self._layer.renderer():
-                rc.setSymbologyReferenceScale(self._layer.renderer().referenceScale())
-
-            text_format = QgsTextFormat(self._text_format)
-            text_format.setLineHeight(text_format.lineHeight() * self._line_height)
-
-            lines = self._wrapped_text.split("\n")
-            document = QgsTextDocument.fromTextAndFormat(lines, text_format)
-            metrics = QgsTextDocumentMetrics.calculateMetrics(document, text_format, rc)
-
-            QgsTextRenderer.drawDocument(
-                self._rect,
-                text_format,
-                document,
-                metrics,
-                rc,
-                self._horizontal_align,
-                Qgis.TextVerticalAlignment.Top,
-            )
-
-        # horizontal resize handles
+        # horizontal resize handle
         handle_pen = QPen(QColor(0, 120, 215), 1.5)
         handle_brush = QBrush(QColor(255, 255, 255))
         painter.setPen(handle_pen)
         painter.setBrush(handle_brush)
-
         painter.drawRect(self._right_handle_rect())
 
 
@@ -241,7 +161,8 @@ class ReflowTextWidget(QWidget):
 
 class RewrapLabelTool(MapToolLabel):
     """
-    A map tool for selecting, moving, and horizontally wrapping canvas labels.
+    A map tool for selecting, moving, and horizontally wrapping canvas labels
+    using an isolated in-memory layer and QgsVectorLayerLabelRubberBandPreview.
     """
 
     def __init__(
@@ -256,15 +177,25 @@ class RewrapLabelTool(MapToolLabel):
         self._label_manager: LabelManager = label_manager
         self._project_controller: ProjectController = project_controller
 
-        self._selection_item: LabelSelectionCanvasItem = LabelSelectionCanvasItem(
-            self._canvas
+        self._selection_item = LabelSelectionCanvasItem(self._canvas)
+        self._preview_rubber_band = QgsRubberBand(self._canvas, Qgis.GeometryType.Line)
+        self._preview_rubber_band.setRenderedComponents(
+            Qgis.RubberBandComponent.PreviewItems
         )
+        self._preview_rubber_band.setIconSize(2)
+        self._preview_rubber_band.setWidth(0)
+
         self._selected_feature: QgsFeature | None = None
-        self._move_delta_map_units = 0
+        self._preview_layer: QgsVectorLayer | None = None
+        self._preview_fid: int | None = None
+
+        self._anchor_layer_pos: QgsPointXY = QgsPointXY()
+        self._wrap_width_map_units: float = 0.0
+        self._wrapped_text: str = ""
         self._mode: InteractionMode = InteractionMode.NONE
 
         self._drag_start_screen: QPointF = QPointF()
-        self._drag_start_map: QgsPointXY = QgsPointXY()
+        self._drag_start_anchor: QgsPointXY = QgsPointXY()
         self._initial_width_map_units: float = 0.0
 
         self._horizontal_align: Qgis.TextHorizontalAlignment = (
@@ -273,6 +204,7 @@ class RewrapLabelTool(MapToolLabel):
         self._line_height: float = 1.0
 
         self._reflow_widget: ReflowTextWidget | None = None
+        self._canvas.extentsChanged.connect(self._on_canvas_extents_changed)
 
     def create_widget(self):
         if not self._canvas:
@@ -292,6 +224,32 @@ class RewrapLabelTool(MapToolLabel):
             self._reflow_widget.deleteLater()
             self._reflow_widget = None
 
+    def _create_feature_render_context(
+        self, feature: QgsFeature
+    ) -> tuple[QgsRenderContext, QgsTextFormat]:
+        """
+        Builds a QgsRenderContext and resolved QgsTextFormat matching the
+        layer reference scale and feature expression scope used during rendering.
+        """
+        rc = self._label_manager.create_render_context()
+        label_layer = (
+            self._preview_layer or self._project_controller.label_target_layer()
+        )
+        if label_layer:
+            if label_layer.renderer():
+                rc.setSymbologyReferenceScale(label_layer.renderer().referenceScale())
+            rc.expressionContext().appendScope(
+                label_layer.createExpressionContextScope()
+            )
+
+        if feature is not None:
+            rc.expressionContext().setFeature(feature)
+            rc.expressionContext().setFields(feature.fields())
+
+        text_format = self._label_manager.get_text_format(feature, rc)
+        text_format.updateDataDefinedProperties(rc)
+        return rc, text_format
+
     def canvasPressEvent(self, e: QgsMapMouseEvent) -> None:
         if e.button() != Qt.MouseButton.LeftButton:
             return
@@ -300,10 +258,9 @@ class RewrapLabelTool(MapToolLabel):
         self._mode = self._selection_item.interaction_mode_for_point(screen_pos)
 
         if self._mode != InteractionMode.NONE:
-            # handle dragging existing selection
             self._drag_start_screen = screen_pos
-            self._drag_start_map = self._selection_item.map_position()
-            self._initial_width_map_units = self._selection_item.map_unit_width()
+            self._drag_start_anchor = QgsPointXY(self._anchor_layer_pos)
+            self._initial_width_map_units = self._wrap_width_map_units
 
             if self._mode == InteractionMode.RESIZING_RIGHT:
                 self.setCursor(QCursor(Qt.CursorShape.SizeHorCursor))
@@ -313,14 +270,12 @@ class RewrapLabelTool(MapToolLabel):
             self.create_widget()
             return
 
-        # default to selecting labels at click location
         self._select_label_at_pos(e.mapPoint())
 
     def canvasMoveEvent(self, e: QgsMapMouseEvent) -> None:
         screen_pos = QPointF(e.pos())
 
         if self._mode == InteractionMode.NONE:
-            # change cursor when hovering over handles/box
             hover_mode = self._selection_item.interaction_mode_for_point(screen_pos)
             if hover_mode == InteractionMode.RESIZING_RIGHT:
                 self.setCursor(QCursor(Qt.CursorShape.SizeHorCursor))
@@ -330,60 +285,41 @@ class RewrapLabelTool(MapToolLabel):
                 self.clear_hovered_label()
             else:
                 self.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
-                # show hover over other labels
                 super().canvasMoveEvent(e)
+            return
 
+        if not self._selected_feature or not self._preview_layer:
             return
 
         dx_pixels = screen_pos.x() - self._drag_start_screen.x()
         dx_map_units = dx_pixels * self._canvas.mapUnitsPerPixel()
-        # no smaller than 20 pixels
         min_width_map_units = 20 * self._canvas.mapUnitsPerPixel()
 
-        rc = self._label_manager.create_render_context()
-        text_format = self._label_manager.get_text_format(self._selected_feature, rc)
-
         if self._mode == InteractionMode.RESIZING_RIGHT:
+            rc, text_format = self._create_feature_render_context(
+                self._selected_feature
+            )
             new_width = max(
                 min_width_map_units, self._initial_width_map_units + dx_map_units
             )
-
-            text, size = self._label_manager.wrap_label_text(
+            self._wrap_width_map_units = new_width
+            text, _ = self._label_manager.wrap_label_text(
                 self._selected_feature, text_format, new_width, rc, self._line_height
             )
-            self._selection_item.set_label_state(
-                self._drag_start_map,
-                text,
-                size,
-                text_format,
-                self._project_controller.label_target_layer(),
-                self._horizontal_align,
-                self._line_height,
-            )
+            self._update_label_preview(text)
 
         elif self._mode == InteractionMode.MOVING:
-            dy_pixels = screen_pos.y() - self._drag_start_screen.y()
-            new_map_pos = QgsPointXY(
-                self._drag_start_map.x() + dx_map_units,
-                self._drag_start_map.y()
-                - (dy_pixels * self._canvas.mapUnitsPerPixel()),
+            start_layer_pt = self.toLayerCoordinates(
+                self._preview_layer, self._drag_start_screen.toPoint()
             )
-            text, size = self._label_manager.wrap_label_text(
-                self._selected_feature,
-                text_format,
-                self._selection_item.map_unit_width(),
-                rc,
-                self._line_height,
+            curr_layer_pt = self.toLayerCoordinates(
+                self._preview_layer, screen_pos.toPoint()
             )
-            self._selection_item.set_label_state(
-                new_map_pos,
-                text,
-                size,
-                text_format,
-                self._project_controller.label_target_layer(),
-                self._horizontal_align,
-                self._line_height,
+            self._anchor_layer_pos = QgsPointXY(
+                self._drag_start_anchor.x() + (curr_layer_pt.x() - start_layer_pt.x()),
+                self._drag_start_anchor.y() + (curr_layer_pt.y() - start_layer_pt.y()),
             )
+            self._update_label_preview(self._wrapped_text)
 
     def canvasReleaseEvent(self, e: QgsMapMouseEvent) -> None:
         if (
@@ -393,14 +329,80 @@ class RewrapLabelTool(MapToolLabel):
             self._mode = InteractionMode.NONE
             self.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
         elif e.button() == Qt.MouseButton.RightButton:
-            # right-click commits edits and completes operation
             if self._selected_feature:
                 self._commit_label_changes()
                 self._clear_selection()
 
+    def _create_preview_layer(
+        self, source_layer: QgsVectorLayer, source_feature: QgsFeature
+    ) -> tuple[QgsVectorLayer | None, int | None]:
+        """
+        Creates a standalone in-memory QgsVectorLayer with a single copy of the
+        feature and the source layer's labeling configuration.
+        """
+        preview_layer = QgsMemoryProviderUtils.createMemoryLayer(
+            "label_preview",
+            source_layer.fields(),
+            source_layer.wkbType(),
+            source_layer.crs(),
+            False,
+        )
+        if not preview_layer or not preview_layer.isValid():
+            return None, None
+
+        for key in source_layer.customPropertyKeys():
+            preview_layer.setCustomProperty(key, source_layer.customProperty(key))
+
+        if source_layer.labeling():
+            preview_layer.setLabeling(source_layer.labeling().clone())
+        preview_layer.setLabelsEnabled(source_layer.labelsEnabled())
+
+        if source_layer.renderer():
+            preview_layer.setRenderer(source_layer.renderer().clone())
+
+        temp_feat = QgsFeature(preview_layer.fields())
+        temp_feat.setGeometry(QgsGeometry(source_feature.geometry()))
+        temp_feat.setAttributes(source_feature.attributes())
+
+        ok, added = preview_layer.dataProvider().addFeatures([temp_feat])
+        if not ok or not added:
+            return None, None
+
+        return preview_layer, added[0].id()
+
+    def _sync_rubber_band_bounds(self) -> None:
+        """
+        Updates the selection box directly from QgsRubberBand::boundingRect()
+        after QgsVectorLayerLabelRubberBandPreview computes the rendered label bounds.
+        """
+        if self._selected_feature is None or self._preview_layer is None:
+            return
+
+        # need to do a render first, so that the bounds are calculated
+        dpi = self._canvas.mapSettings().outputDpi()
+        dpm = round(dpi / 0.0254)
+        img = QImage(1, 1, QImage.Format.Format_ARGB32_Premultiplied)
+        img.setDotsPerMeterX(dpm)
+        img.setDotsPerMeterY(dpm)
+
+        painter = QPainter(img)
+        try:
+            self._preview_rubber_band.paint(painter)
+        finally:
+            painter.end()
+
+        rendered_rect = self._preview_rubber_band.boundingRect().translated(
+            self._preview_rubber_band.pos()
+        )
+        self._selection_item.set_rendered_rect(rendered_rect)
+
+    def _on_canvas_extents_changed(self) -> None:
+        if self._selected_feature is not None and self._preview_layer is not None:
+            self._sync_rubber_band_bounds()
+
     def _select_label_at_pos(self, click_map_point: QgsPointXY) -> None:
         """
-        Sets the selected label by click
+        Sets the selected label by click and initializes its memory preview layer.
         """
         labeling_results = self._canvas.labelingResults()
         label_layer = self._project_controller.label_target_layer()
@@ -409,7 +411,6 @@ class RewrapLabelTool(MapToolLabel):
             self._clear_selection()
             return
 
-        # find carto text labels at clicked point
         label_positions = labeling_results.labelsAtPosition(click_map_point)
         matching_pos = next(
             (p for p in label_positions if p.layerID == label_layer.id()), None
@@ -423,62 +424,133 @@ class RewrapLabelTool(MapToolLabel):
             self._clear_selection()
             return
 
-        # strip all existing line breaks from original text
+        self._clear_selection()
+        self.clear_hovered_label()
+
+        # strip all existing line breaks and line-edge whitespace from original text
         text_val = feat.attribute("text_string")
         if text_val is not None:
-            clean_text = " ".join(str(text_val).splitlines())
+            clean_text = " ".join(
+                part.strip() for part in str(text_val).splitlines() if part.strip()
+            )
             feat["text_string"] = clean_text
 
-        # collect all rendered label positions for this feature
-        feature_labels = [
-            label
-            for label in labeling_results.allLabels()
-            if label.featureId == matching_pos.featureId
-            and label.layerID == label_layer.id()
-        ]
-        if not feature_labels:
-            self._clear_selection()
+        preview_layer, preview_fid = self._create_preview_layer(label_layer, feat)
+        if preview_layer is None or preview_fid is None:
             return
 
-        first_label_parts = [l for l in feature_labels if l.subPartId == 0]
-        first_label = min(
-            first_label_parts,
-            key=lambda lbl: lbl.groupedPositionIndex,
-        )
-        first_cp = first_label.cornerPoints
-        top_left_pt = first_cp[3]
-        bottom_left_pt = first_cp[0]
-
         self._selected_feature = feat
-        initial_label_pos = QgsPointXY(top_left_pt.x(), top_left_pt.y())
-        feature_geom = feat.geometry()
-        for part in feature_geom.parts():
-            initial_feature_start_pt = part.startPoint()
-            break
+        self._preview_layer = preview_layer
+        self._preview_fid = preview_fid
 
-        self._move_delta_map_units = bottom_left_pt.distance(
-            QgsPointXY(initial_feature_start_pt)
+        feature_geom = feat.geometry()
+        first_part_start = next(feature_geom.parts()).startPoint()
+        self._anchor_layer_pos = QgsPointXY(
+            feature_geom.boundingBox().xMinimum(),
+            first_part_start.y(),
         )
 
-        rc = self._label_manager.create_render_context()
-
-        # start off with the horizontal, single-line version of the label
-        text_format = self._label_manager.get_text_format(feat, rc)
+        rc, text_format = self._create_feature_render_context(feat)
         unwrapped_text, size_map_units = self._label_manager.wrap_label_text(
             feat, text_format, None, rc, self._line_height
         )
+        self._wrap_width_map_units = size_map_units.width()
 
-        self._selection_item.set_label_state(
-            initial_label_pos,
-            unwrapped_text,
-            size_map_units,
-            text_format,
-            label_layer,
-            self._horizontal_align,
-            self._line_height,
+        self._update_label_preview(unwrapped_text, force_refresh=True)
+        self.create_widget()
+
+    def _build_label_geometry(self, wrapped_text: str) -> QgsGeometry:
+        """
+        Builds the MultiLineString baseline geometry shared identically by both
+        the preview rubber band and the final layer commit.
+        """
+        rc, text_format = self._create_feature_render_context(self._selected_feature)
+        text_format.setLineHeight(text_format.lineHeight() * self._line_height)
+        cap = text_format.capitalization()
+
+        raw_lines = wrapped_text.split("\n") if wrapped_text else [""]
+        display_lines = [QgsStringUtils.capitalize(line, cap) for line in raw_lines]
+
+        doc = QgsTextDocument.fromTextAndFormat(display_lines, text_format)
+        metrics = QgsTextDocumentMetrics.calculateMetrics(doc, text_format, rc)
+        doc_size_px = metrics.documentSize(
+            Qgis.TextLayoutMode.Labeling, Qgis.TextOrientation.Horizontal
+        )
+        total_height_map = rc.convertToMapUnits(
+            doc_size_px.height(), Qgis.RenderUnit.Pixels
+        )
+        max_width_map = rc.convertToMapUnits(
+            doc_size_px.width(), Qgis.RenderUnit.Pixels
+        )
+        line_height_map = (
+            total_height_map / len(display_lines) if display_lines else 0.0
         )
 
-        self.create_widget()
+        polylines = []
+        for i, line_text in enumerate(display_lines):
+            line_doc = QgsTextDocument.fromTextAndFormat([line_text], text_format)
+            line_metrics = QgsTextDocumentMetrics.calculateMetrics(
+                line_doc, text_format, rc
+            )
+            line_width_px = line_metrics.documentSize(
+                Qgis.TextLayoutMode.Labeling, Qgis.TextOrientation.Horizontal
+            ).width()
+            line_width_map = max(
+                rc.convertToMapUnits(line_width_px, Qgis.RenderUnit.Pixels),
+                1e-6,
+            )
+
+            if self._horizontal_align == Qgis.TextHorizontalAlignment.Center:
+                line_x = (
+                    self._anchor_layer_pos.x() + (max_width_map - line_width_map) / 2
+                )
+            elif self._horizontal_align == Qgis.TextHorizontalAlignment.Right:
+                line_x = self._anchor_layer_pos.x() + (max_width_map - line_width_map)
+            else:
+                line_x = self._anchor_layer_pos.x()
+
+            line_y = self._anchor_layer_pos.y() - (i * line_height_map)
+            polylines.append(
+                [
+                    QgsPointXY(line_x, line_y),
+                    QgsPointXY(line_x + line_width_map, line_y),
+                ]
+            )
+
+        return QgsGeometry.fromMultiPolylineXY(polylines)
+
+    def _update_label_preview(
+        self,
+        wrapped_text: str,
+        force_refresh: bool = False,
+    ) -> None:
+        if (
+            not self._selected_feature
+            or self._preview_layer is None
+            or self._preview_fid is None
+        ):
+            return
+
+        new_geom = self._build_label_geometry(wrapped_text)
+        text_changed = wrapped_text != self._wrapped_text
+        self._wrapped_text = wrapped_text
+
+        if text_changed or force_refresh:
+            field_idx = self._preview_layer.fields().indexOf("text_string")
+            if field_idx != -1:
+                self._preview_layer.dataProvider().changeAttributeValues(
+                    {self._preview_fid: {field_idx: wrapped_text}}
+                )
+
+            self._preview_rubber_band.clearPreviewItems()
+            self.prepareRubberBandForLayer(
+                self._preview_rubber_band,
+                self._preview_layer,
+                [self._preview_fid],
+            )
+
+        self._preview_rubber_band.setToGeometry(new_geom, self._preview_layer)
+        self._sync_rubber_band_bounds()
 
     def _commit_label_changes(self) -> None:
         """
@@ -491,76 +563,33 @@ class RewrapLabelTool(MapToolLabel):
         if not label_layer.isEditable():
             label_layer.startEditing()
 
-        rc = self._label_manager.create_render_context()
-        text_format = self._label_manager.get_text_format(self._selected_feature, rc)
-
-        current_map_pos = self._selection_item.map_position()
-        current_map_pos.setY(current_map_pos.y() - self._move_delta_map_units)
-
-        wrapped_text = self._selection_item._wrapped_text
-        lines = [line for line in wrapped_text.split("\n")] if wrapped_text else [""]
-
-        text_format.setLineHeight(text_format.lineHeight() * self._line_height)
-
-        doc = QgsTextDocument.fromTextAndFormat(lines, text_format)
-        metrics = QgsTextDocumentMetrics.calculateMetrics(doc, text_format, rc)
-        doc_size_px = metrics.documentSize(
-            Qgis.TextLayoutMode.Labeling, Qgis.TextOrientation.Horizontal
-        )
-        total_height_map = rc.convertToMapUnits(
-            doc_size_px.height(), Qgis.RenderUnit.Pixels
-        )
-        max_width_map = rc.convertToMapUnits(
-            doc_size_px.width(), Qgis.RenderUnit.Pixels
-        )
-        num_lines = len(lines)
-        line_height_map = total_height_map / num_lines if num_lines > 0 else 0.0
-
-        polylines = []
-        for i, line_text in enumerate(lines):
-            line_doc = QgsTextDocument.fromTextAndFormat([line_text], text_format)
-            line_metrics = QgsTextDocumentMetrics.calculateMetrics(
-                line_doc, text_format, rc
-            )
-            line_width_px = line_metrics.documentSize(
-                Qgis.TextLayoutMode.Labeling, Qgis.TextOrientation.Horizontal
-            ).width()
-            line_width_map = rc.convertToMapUnits(line_width_px, Qgis.RenderUnit.Pixels)
-
-            if self._horizontal_align == Qgis.TextHorizontalAlignment.Center:
-                line_x = current_map_pos.x() + (max_width_map - line_width_map) / 2
-            elif self._horizontal_align == Qgis.TextHorizontalAlignment.Right:
-                line_x = current_map_pos.x() + (max_width_map - line_width_map)
-            else:
-                line_x = current_map_pos.x()
-
-            line_y = current_map_pos.y() - ((i + 1) * line_height_map)
-
-            pt_start = QgsPointXY(line_x, line_y)
-            pt_end = QgsPointXY(line_x + line_width_map, line_y)
-            polylines.append([pt_start, pt_end])
-
-        new_geom = QgsGeometry.fromMultiPolylineXY(polylines)
+        final_geom = self._build_label_geometry(self._wrapped_text)
 
         label_layer.beginEditCommand("Modify label placement and wrapping")
 
         field_idx = label_layer.fields().indexOf("text_string")
         if field_idx != -1:
             label_layer.changeAttributeValue(
-                self._selected_feature.id(), field_idx, wrapped_text
+                self._selected_feature.id(), field_idx, self._wrapped_text
             )
 
-        label_layer.changeGeometry(self._selected_feature.id(), new_geom)
+        label_layer.changeGeometry(self._selected_feature.id(), final_geom)
         label_layer.endEditCommand()
         self._canvas.refresh()
 
     def _clear_selection(self):
         """
-        Clears the current label selection
+        Clears the current label selection and releases the temporary preview layer.
         """
         self._selected_feature = None
+        self._wrapped_text = ""
+        self._wrap_width_map_units = 0.0
         self._mode = InteractionMode.NONE
         self._selection_item.hide_selection()
+        self._preview_rubber_band.clearPreviewItems()
+        self._preview_rubber_band.reset(Qgis.GeometryType.Line)
+        self._preview_layer = None
+        self._preview_fid = None
         self.delete_widget()
 
     def keyPressEvent(self, e: QKeyEvent) -> None:
@@ -580,23 +609,20 @@ class RewrapLabelTool(MapToolLabel):
 
     def _on_alignment_changed(self, alignment: Qgis.TextHorizontalAlignment):
         self._horizontal_align = alignment
-        self._selection_item.set_alignment(alignment)
+        if self._selected_feature is not None:
+            self._update_label_preview(self._wrapped_text)
 
     def _on_line_height_changed(self, line_height: float):
         self._line_height = line_height
-        self._selection_item.set_line_height(line_height)
-
         if self._selected_feature is not None:
-            rc = self._label_manager.create_render_context()
-            text_format = self._label_manager.get_text_format(
-                self._selected_feature, rc
+            rc, text_format = self._create_feature_render_context(
+                self._selected_feature
             )
-
-            text, size = self._label_manager.wrap_label_text(
+            text, _ = self._label_manager.wrap_label_text(
                 self._selected_feature,
                 text_format,
-                self._selection_item.map_unit_width(),
+                self._wrap_width_map_units,
                 rc,
                 self._line_height,
             )
-            self._selection_item.set_size(size)
+            self._update_label_preview(text, force_refresh=True)
