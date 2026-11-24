@@ -34,7 +34,7 @@ class FordPointOnRoadRule(CartographicGeneralizationRule):
     Ford point on road rule
     """
 
-    LENGTH = 120
+    LENGTH = 75
     TOLERANCE = 0.5
     PROJECTED_CRS = QgsCoordinateReferenceSystem("EPSG:2193")
 

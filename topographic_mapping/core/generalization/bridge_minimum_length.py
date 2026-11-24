@@ -28,8 +28,8 @@ class BridgeMinimumLengthRule(CartographicGeneralizationRule):
     Bridge minimum length rule
     """
 
-    MINIMUM_LENGTH = 120
-    T_INTERSECTION_SEARCH_DIST = 120
+    MINIMUM_LENGTH = 60
+    T_INTERSECTION_SEARCH_DIST = 60
     TOLERANCE = 0.999
     TARGET_LAYERS = [
         "road_line",
