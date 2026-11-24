@@ -73,6 +73,11 @@ class DbUtils:
         """
         conn = DbUtils.create_connection(db_path)
         table_fields = conn.fields(None, layer_name)
+        if table_fields.lookupField(DbUtils.METADATA_FIELD_NAME) == -1:
+            conn.addField(
+                QgsField(DbUtils.METADATA_FIELD_NAME, QVariant.String), "", layer_name
+            )
+            table_fields = conn.fields(None, layer_name)
 
         query = rf"SELECT geometry_type_name, srs_id, z, m FROM gpkg_geometry_columns WHERE table_name='{layer_name}'"
         res = conn.executeSql(query)

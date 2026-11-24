@@ -40,6 +40,11 @@ class DbUtilsTest(TopographicTestBase):
             self.assertTrue(original_layer.isValid())
             # product_geom should not exist yet
             self.assertEqual(original_layer.fields().lookupField("product_geom"), -1)
+
+            self.assertEqual(
+                original_layer.crs(), QgsCoordinateReferenceSystem("EPSG:2193")
+            )
+
             del original_layer
 
             self.assertFalse(DbUtils.product_view_exists(data_path, "ferry_crossing"))
@@ -52,8 +57,6 @@ class DbUtilsTest(TopographicTestBase):
                 data_path.as_posix() + "|layername=ferry_crossing"
             )
             self.assertTrue(original_layer.isValid())
-            # product_geom should now exist
-            self.assertNotEqual(original_layer.fields().lookupField("product_geom"), -1)
 
             # product view should be loaded as a vector layer
             product_view = QgsVectorLayer(
@@ -84,7 +87,7 @@ class DbUtilsTest(TopographicTestBase):
                     "updated_at",
                     "created_at",
                     "original_geom",
-                    "product_geom",
+                    "metadata",
                 ],
             )
             self.assertTrue(product_view.startEditing())
