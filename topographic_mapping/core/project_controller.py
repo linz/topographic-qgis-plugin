@@ -20,6 +20,7 @@ from qgis.core import (
     QgsExpression,
     QgsValueMapFieldFormatter,
     QgsNetworkContentFetcher,
+    QgsFieldConstraints,
 )
 
 from .stored_object_manager import STORED_OBJECT_MANAGER
@@ -287,10 +288,10 @@ class ProjectController(QObject):
                     # not nullable
 
             const_value = None
+            is_nullable = False
             if "anyOf" in _property:
                 string_options = []
                 ref_options = []
-                is_nullable = False
                 for _type in _property["anyOf"]:
                     if _type.get("type") == "null":
                         is_nullable = True
@@ -338,6 +339,13 @@ class ProjectController(QObject):
                 )
                 layer.setDefaultValueDefinition(field_index, default_value)
 
+            if not is_nullable:
+                layer.setFieldConstraint(
+                    field_index,
+                    QgsFieldConstraints.Constraint.ConstraintNotNull,
+                    QgsFieldConstraints.ConstraintStrength.ConstraintStrengthHard,
+                )
+
             # special logic that overrides schema settings:
             if name == "type":
                 if const_value:
@@ -365,10 +373,10 @@ class ProjectController(QObject):
                 layer.setFieldMergePolicy(
                     field_index, Qgis.FieldDomainMergePolicy.LargestGeometry
                 )
-            elif name == "create_date":
+            elif name == "created_at":
                 default_value = QgsDefaultValue("now()")
                 layer.setDefaultValueDefinition(field_index, default_value)
-            elif name == "update_date":
+            elif name == "updated_at":
                 default_value = QgsDefaultValue("now()")
                 default_value.setApplyOnUpdate(True)
                 layer.setDefaultValueDefinition(field_index, default_value)
