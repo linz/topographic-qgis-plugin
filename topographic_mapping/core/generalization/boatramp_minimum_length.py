@@ -29,7 +29,7 @@ class BoatRampMinimumLengthRule(CartographicGeneralizationRule):
     Boat ramp minimum length rule
     """
 
-    MINIMUM_LENGTH = 120
+    MINIMUM_LENGTH = 60
     TOLERANCE = 0.999
 
     def id(self) -> str:
